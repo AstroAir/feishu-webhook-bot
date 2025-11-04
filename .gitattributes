@@ -1,0 +1,14 @@
+* text=auto eol=lf
+
+# Normalize line endings for common text files
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Treat shell scripts as text for diffs
+*.sh diff
+*.ps1 diff

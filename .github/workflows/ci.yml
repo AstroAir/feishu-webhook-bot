@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-test:
+    name: Lint, type-check, test, and build (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Sync dependencies (all groups)
+        run: uv sync --all-groups
+
+      - name: Ruff lint
+        run: uv run ruff check --output-format=github .
+
+      - name: Black format check
+        run: uv run black --check .
+
+      - name: Type-check (mypy)
+        run: uv run mypy .
+
+      - name: Run tests (pytest)
+        run: uv run pytest -q
+
+      - name: Build package
+        run: uv build
+
+      - name: Build docs (mkdocs)
+        run: uv run mkdocs build --strict

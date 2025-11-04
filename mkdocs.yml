@@ -1,0 +1,50 @@
+site_name: python-quick-starter
+site_description: "A professional Python project template powered by uv, pytest, ruff, black, and GitHub Actions."
+site_url: ""
+repo_url: https://github.com/AstroAir/python-quick-starter
+repo_name: AstroAir/python-quick-starter
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.tracking
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Reference:
+      - API: api.md
+  - Contributing: contributing.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false
+            docstring_style: google
+            heading_level: 2
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.snippets
+  - pymdownx.tabbed
+
+watch:
+  - src
+  - docs
