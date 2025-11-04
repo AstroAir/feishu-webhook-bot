@@ -1,7 +1,7 @@
 [project]
-name = "python-quick-starter"
+name = "feishu-webhook-bot"
 version = "0.1.0"
-description = "A professional Python project template with src layout, uv, pytest, ruff, black, and CI."
+description = "A minimal Feishu (Lark) Webhook bot template demonstrating receiving and handling Feishu webhook events."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
@@ -22,12 +22,12 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/AstroAir/python-quick-starter"
-Repository = "https://github.com/AstroAir/python-quick-starter.git"
-Issues = "https://github.com/AstroAir/python-quick-starter/issues"
+Homepage = "https://github.com/AstroAir/feishu-webhook-bot"
+Repository = "https://github.com/AstroAir/feishu-webhook-bot.git"
+Issues = "https://github.com/AstroAir/feishu-webhook-bot/issues"
 
 [project.scripts]
-python-quick-starter = "python_quick_starter.cli:main"
+feishu-webhook-bot = "python_quick_starter.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.22"]

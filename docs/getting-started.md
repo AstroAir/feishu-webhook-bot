@@ -16,7 +16,7 @@ uv sync --all-groups
 ## Run the CLI
 
 ```powershell
-uv run python-quick-starter --name Alice
+uv run feishu-webhook-bot --name Alice
 ```
 
 ## Run tests

@@ -41,6 +41,52 @@ uv run python-quick-starter --name Alice
 Or as a module:
 
 ```powershell
+````markdown
+# feishu-webhook-bot
+
+> A minimal Feishu (Lark) Webhook bot example and starter template. Demonstrates receiving
+> webhook events and a tiny CLI for local testing.
+
+## What is this?
+
+This repository provides a minimal example of a Feishu (Lark) Webhook bot. It's a small starter
+project that shows structure, tests and basic tooling while focusing on webhook handling.
+
+- Package layout: `src/python_quick_starter`
+- Testing with pytest
+- Linting and formatting with Ruff and Black
+- Type checking with mypy
+- uv for dependency and Python management (optional)
+- GitHub Actions for CI (tests, lint, type-check, build)
+
+## Installation
+
+First, install uv (one-time):
+
+```powershell
+# Windows PowerShell
+irm https://astral.sh/uv/install.ps1 | iex
+```
+
+Clone the repo and install dependencies (including dev tools):
+
+```powershell
+uv sync --all-groups
+```
+
+This creates a virtual environment (usually at `.venv`) and installs dependencies.
+
+## Usage
+
+Run the CLI (local demo):
+
+```powershell
+uv run feishu-webhook-bot --name Alice
+```
+
+Or as a module:
+
+```powershell
 uv run python -m python_quick_starter --name Bob
 ```
 
@@ -67,7 +113,7 @@ uv run ruff check . ; uv run black --check . ; uv run mypy . ; uv run pytest -q 
 
 ## Documentation (MkDocs)
 
-This template includes a MkDocs site using the Material theme.
+This project includes a MkDocs site using the Material theme; docs live in `docs/`.
 
 - Build docs: `uv run mkdocs build --strict`
 - Serve docs locally: `uv run mkdocs serve -a localhost:8000`
@@ -106,7 +152,7 @@ Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:
 
 ## Testing
 
-This template uses pytest. Configuration lives in `pyproject.toml` under `tool.pytest.ini_options`.
+This project uses pytest. Configuration lives in `pyproject.toml` under `tool.pytest.ini_options`.
 
 ```powershell
 uv run pytest -q
@@ -127,3 +173,5 @@ A release workflow template is included at `.github/workflows/release.yml` and i
 ## License
 
 MIT — see `LICENSE`.
+
+````

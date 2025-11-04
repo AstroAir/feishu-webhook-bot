@@ -6,8 +6,8 @@ from collections.abc import Sequence
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python-quick-starter",
-        description="Say hello from the python-quick-starter template",
+        prog="feishu-webhook-bot",
+        description="Feishu Webhook Bot — simple CLI demo for the Feishu webhook example",
     )
     parser.add_argument(
         "--name",
@@ -29,5 +29,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    print(f"Hello, {args.name}!")
+    print(f"Hello from Feishu Webhook Bot, {args.name}!")
     return 0

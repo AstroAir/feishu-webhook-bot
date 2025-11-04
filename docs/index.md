@@ -1,6 +1,6 @@
-# Welcome to python-quick-starter
+# Welcome to feishu-webhook-bot
 
-This is a professional Python project template powered by uv, pytest, ruff, black, mypy, and GitHub Actions.
+This documentation describes a minimal Feishu (Lark) Webhook bot example. The site includes usage, API reference and local development information.
 
 Use the sidebar to navigate. Common entry points:
 

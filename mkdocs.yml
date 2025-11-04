@@ -1,8 +1,8 @@
-site_name: python-quick-starter
-site_description: "A professional Python project template powered by uv, pytest, ruff, black, and GitHub Actions."
+site_name: feishu-webhook-bot
+site_description: "Feishu (Lark) Webhook bot example and starter documentation."
 site_url: ""
-repo_url: https://github.com/AstroAir/python-quick-starter
-repo_name: AstroAir/python-quick-starter
+repo_url: https://github.com/AstroAir/feishu-webhook-bot
+repo_name: AstroAir/feishu-webhook-bot
 
 theme:
   name: material
