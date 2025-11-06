@@ -1,14 +1,14 @@
 [project]
 name = "feishu-webhook-bot"
 version = "0.1.0"
-description = "A minimal Feishu (Lark) Webhook bot template demonstrating receiving and handling Feishu webhook events."
+description = "A production-ready Feishu (Lark) webhook bot framework with messaging, scheduling, plugins, and hot-reload capabilities."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [
     { name = "Your Name", email = "you@example.com" }
 ]
-keywords = ["template", "python", "uv", "pytest", "ruff", "black"]
+keywords = ["feishu", "lark", "webhook", "bot", "framework", "scheduler", "plugin"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -19,7 +19,18 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "httpx>=0.27.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "apscheduler>=3.10.4",
+    "pyyaml>=6.0.1",
+    "watchdog>=5.0.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.7.0",
+    "psutil>=5.9.0",
+    "nicegui>=2.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/AstroAir/feishu-webhook-bot"
@@ -27,14 +38,14 @@ Repository = "https://github.com/AstroAir/feishu-webhook-bot.git"
 Issues = "https://github.com/AstroAir/feishu-webhook-bot/issues"
 
 [project.scripts]
-feishu-webhook-bot = "python_quick_starter.cli:main"
+feishu-webhook-bot = "feishu_webhook_bot.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.22"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/python_quick_starter"]
+packages = ["src/feishu_webhook_bot"]
 
 [dependency-groups]
 dev = [

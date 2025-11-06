@@ -1,0 +1,46 @@
+# Feishu Webhook Bot Configuration
+# ==================================
+#
+# This is the main configuration file for the Feishu Webhook Bot.
+# Edit this file to configure webhooks, scheduler, plugins, and logging.
+
+# Webhook Configuration
+# ---------------------
+# Define one or more webhook endpoints to send messages to.
+webhooks:
+  - name: "default"
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL"
+    secret: null  # Optional: Add webhook signing secret for security
+    
+  # Example: Additional webhook for alerts
+  # - name: "alerts"
+  #   url: "https://open.feishu.cn/open-apis/bot/v2/hook/ALERT_WEBHOOK_URL"
+  #   secret: "your-secret-key"
+
+# Scheduler Configuration
+# -----------------------
+# Configure the task scheduler for running periodic jobs.
+scheduler:
+  enabled: true
+  timezone: "Asia/Shanghai"  # Use your timezone (e.g., "America/New_York", "Europe/London")
+  job_store_type: "memory"   # Options: "memory" or "sqlite"
+  job_store_path: null       # Required if job_store_type is "sqlite" (e.g., "data/jobs.db")
+
+# Plugin System Configuration
+# ----------------------------
+# Configure the plugin system and hot-reload behavior.
+plugins:
+  enabled: true
+  plugin_dir: "plugins"  # Directory containing plugin files
+  auto_reload: true      # Enable hot-reload of plugins
+  reload_delay: 1.0      # Delay in seconds before reloading after file change
+
+# Logging Configuration
+# ----------------------
+# Configure logging level and file output.
+logging:
+  level: "INFO"  # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_file: "logs/bot.log"  # Path to log file (null for console only)
+  max_bytes: 10485760  # Max log file size (10MB)
+  backup_count: 5      # Number of backup log files to keep

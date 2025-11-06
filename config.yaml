@@ -1,0 +1,20 @@
+webhooks:
+- url: https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL
+  secret: null
+  name: default
+scheduler:
+  enabled: true
+  timezone: Asia/Shanghai
+  job_store_type: memory
+  job_store_path: null
+plugins:
+  enabled: true
+  plugin_dir: plugins
+  auto_reload: true
+  reload_delay: 1.0
+logging:
+  level: INFO
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  log_file: null
+  max_bytes: 10485760
+  backup_count: 5

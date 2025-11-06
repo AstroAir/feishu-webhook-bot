@@ -1,103 +1,368 @@
-# python-quick-starter
+# Feishu Webhook Bot Framework
 
-> A professional Python project template powered by uv, pytest, ruff, black, and GitHub Actions.
+> 🚀 A production-ready framework for building Feishu (Lark) webhook bots with messaging, scheduling, plugins, and hot-reload capabilities.
 
-## What is this?
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A batteries-included starter for modern Python projects using the src/ layout, sensible toolchain, and CI.
+## ✨ Features
 
-- src-based package layout: `src/python_quick_starter`
-- Testing with pytest
-- Linting and import sorting with Ruff, formatting with Black
-- Type checking with mypy
-- uv for dependency and Python management
-- GitHub Actions for CI (tests, lint, type-check, build)
+- **📨 Rich Messaging**: Support for text, rich text, interactive cards (JSON v2.0), and images
+- **⏰ Task Scheduling**: Built-in APScheduler for cron jobs and periodic tasks
+- **🔌 Plugin System**: Extensible architecture with hot-reload support
+- **⚙️ Configuration**: YAML/JSON config with Pydantic validation
+- **📝 Logging**: Comprehensive logging with rotation and Rich formatting
+- **🔄 Hot Reload**: Automatically reload plugins and configurations without restart
+- **🛡️ Security**: HMAC-SHA256 signing support for secure webhooks
 
-## Installation
+## Configuration Web UI (NiceGUI)
 
-First, install uv (one-time):
+This project includes a local web interface to manage configuration, control the bot, and view logs.
+
+Quick start:
+
+- Install runtime dependencies (NiceGUI is required for the UI):
+
+```powershell
+pip install nicegui
+```
+
+- Launch the UI (default at <http://127.0.0.1:8080>):
+
+```powershell
+python -m feishu_webhook_bot.config_ui --config config.yaml --host 127.0.0.1 --port 8080
+```
+
+Or via the CLI shortcut:
+
+```powershell
+feishu-webhook-bot webui --config config.yaml --host 127.0.0.1 --port 8080
+```
+
+What you get:
+
+- Edit all config sections (webhooks, scheduler, plugins, logging) with validation
+- Start/Stop/Restart the bot and see current status
+- View recent logs inline (set a log file in config to persist to disk)
+
+## 📦 Installation
+
+### Using uv (recommended)
+
+First, install [uv](https://github.com/astral-sh/uv):
 
 ```powershell
 # Windows PowerShell
 irm https://astral.sh/uv/install.ps1 | iex
 ```
 
-Clone the repo and install dependencies (including dev tools):
+Then clone and install:
 
-```powershell
+```bash
+git clone https://github.com/AstroAir/feishu-webhook-bot.git
+cd feishu-webhook-bot
 uv sync --all-groups
 ```
 
-This creates a virtual environment (usually at `.venv`) and installs dependencies.
+### Using pip
 
-## Usage
-
-Run the CLI:
-
-```powershell
-uv run python-quick-starter --name Alice
+```bash
+pip install -e .
 ```
 
-Or as a module:
+## 🚀 Quick Start
 
-```powershell
-````markdown
-# feishu-webhook-bot
+### 1. Initialize Configuration
 
-> A minimal Feishu (Lark) Webhook bot example and starter template. Demonstrates receiving
-> webhook events and a tiny CLI for local testing.
+Generate a default configuration file:
 
-## What is this?
-
-This repository provides a minimal example of a Feishu (Lark) Webhook bot. It's a small starter
-project that shows structure, tests and basic tooling while focusing on webhook handling.
-
-- Package layout: `src/python_quick_starter`
-- Testing with pytest
-- Linting and formatting with Ruff and Black
-- Type checking with mypy
-- uv for dependency and Python management (optional)
-- GitHub Actions for CI (tests, lint, type-check, build)
-
-## Installation
-
-First, install uv (one-time):
-
-```powershell
-# Windows PowerShell
-irm https://astral.sh/uv/install.ps1 | iex
+```bash
+feishu-webhook-bot init --output config.yaml
 ```
 
-Clone the repo and install dependencies (including dev tools):
+### 2. Configure Webhook
 
-```powershell
-uv sync --all-groups
+Edit `config.yaml` and add your Feishu webhook URL:
+
+```yaml
+webhooks:
+  - name: default
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL"
+    secret: null  # Optional: add your webhook secret for security
+
+scheduler:
+  enabled: true
+  timezone: "Asia/Shanghai"
+
+plugins:
+  enabled: true
+  plugin_dir: "plugins"
+  auto_reload: true
+
+logging:
+  level: "INFO"
+  log_file: "logs/bot.log"
 ```
 
-This creates a virtual environment (usually at `.venv`) and installs dependencies.
+### 3. Create Plugin Directory
 
-## Usage
-
-Run the CLI (local demo):
-
-```powershell
-uv run feishu-webhook-bot --name Alice
+```bash
+mkdir plugins
 ```
 
-Or as a module:
+### 4. Start the Bot
 
-```powershell
-uv run python -m python_quick_starter --name Bob
+```bash
+feishu-webhook-bot start --config config.yaml
 ```
 
-Basic Python import:
+## 📖 Usage
+
+### Command Line Interface
+
+```bash
+# Start bot with config
+feishu-webhook-bot start --config config.yaml
+
+# Generate default config
+feishu-webhook-bot init --output config.yaml
+
+# Send a test message
+feishu-webhook-bot send --webhook "https://..." --text "Hello!"
+
+# List loaded plugins
+feishu-webhook-bot plugins --config config.yaml
+
+# Show version
+feishu-webhook-bot version
+```
+
+### Python API
 
 ```python
-from python_quick_starter.cli import main
-main(["--name", "Charlie"])  # returns 0
+from feishu_webhook_bot import FeishuBot
+
+# Start from config file
+bot = FeishuBot.from_config("config.yaml")
+bot.start()
+
+# Or create programmatically
+from feishu_webhook_bot.core import BotConfig, WebhookConfig
+
+config = BotConfig(
+    webhooks=[
+        WebhookConfig(
+            url="https://open.feishu.cn/open-apis/bot/v2/hook/xxx",
+            secret="your-secret"
+        )
+    ]
+)
+bot = FeishuBot(config)
+bot.start()
 ```
 
-## Development
+### Sending Messages
+
+```python
+from feishu_webhook_bot.core import FeishuWebhookClient, WebhookConfig
+from feishu_webhook_bot.core.client import CardBuilder
+
+# Create client
+config = WebhookConfig(url="https://...", secret="...")
+client = FeishuWebhookClient(config)
+
+# Send text message
+client.send_text("Hello, Feishu!")
+
+# Send rich text
+content = [
+    [
+        {"tag": "text", "text": "Hello "},
+        {"tag": "a", "text": "link", "href": "https://example.com"}
+    ]
+]
+client.send_rich_text("Title", content)
+
+# Send interactive card using CardBuilder
+card = (
+    CardBuilder()
+    .set_header("Notification", template="blue")
+    .add_markdown("**Important:** This is a test message")
+    .add_divider()
+    .add_button("View Details", url="https://example.com")
+    .build()
+)
+client.send_card(card)
+```
+
+## 🔌 Plugin Development
+
+### Creating a Plugin
+
+Create a new file in the `plugins/` directory:
+
+```python
+# plugins/my_plugin.py
+from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata
+from feishu_webhook_bot.core.client import CardBuilder
+
+class MyPlugin(BasePlugin):
+    def metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="my-plugin",
+            version="1.0.0",
+            description="My custom plugin",
+            author="Your Name"
+        )
+    
+    def on_enable(self) -> None:
+        # Schedule a task to run every 5 minutes
+        self.register_job(
+            self.my_task,
+            trigger='interval',
+            minutes=5
+        )
+        
+        # Or use cron syntax (daily at 9 AM)
+        self.register_job(
+            self.daily_task,
+            trigger='cron',
+            hour='9',
+            minute='0'
+        )
+    
+    def my_task(self) -> None:
+        """Task that runs every 5 minutes."""
+        card = (
+            CardBuilder()
+            .set_header("Periodic Update", template="green")
+            .add_markdown("Task executed successfully!")
+            .build()
+        )
+        self.client.send_card(card)
+    
+    def daily_task(self) -> None:
+        """Task that runs daily at 9 AM."""
+        self.client.send_text("Good morning! Daily task executed.")
+```
+
+### Plugin Lifecycle
+
+Plugins have several lifecycle hooks:
+
+- `on_load()`: Called when plugin is loaded
+- `on_enable()`: Called when bot starts and plugin is activated
+- `on_disable()`: Called when bot stops or plugin is deactivated
+- `on_unload()`: Called before hot-reload
+
+### Example Plugins
+
+The framework includes several example plugins:
+
+- **daily_greeting.py**: Sends good morning messages at 9 AM
+- **system_monitor.py**: Monitors CPU, memory, and disk usage
+- **reminder.py**: Sends customizable reminders throughout the day
+- **example_plugin.py**: Template for creating new plugins
+
+## 📋 Configuration Reference
+
+### Webhooks
+
+```yaml
+webhooks:
+  - name: "default"
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+    secret: "your-signing-secret"  # Optional
+  - name: "alerts"
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/yyy"
+```
+
+### Scheduler
+
+```yaml
+scheduler:
+  enabled: true
+  timezone: "Asia/Shanghai"
+  job_store_type: "memory"  # or "sqlite"
+  job_store_path: "data/jobs.db"  # for sqlite
+```
+
+### Plugins
+
+```yaml
+plugins:
+  enabled: true
+  plugin_dir: "plugins"
+  auto_reload: true
+  reload_delay: 1.0  # seconds
+```
+
+### Logging
+
+```yaml
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file: "logs/bot.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+```
+
+## 📚 Documentation
+
+- [Feishu Cards Overview](https://open.feishu.cn/document/feishu-cards/feishu-card-overview)
+- [Card JSON v2.0 Structure](https://open.feishu.cn/document/feishu-cards/card-json-v2-structure)
+- [Webhook Documentation](https://www.feishu.cn/hc/zh-CN/articles/807992406756)
+
+## 🏗️ Architecture
+
+```
+feishu-webhook-bot/
+├── src/feishu_webhook_bot/
+│   ├── core/              # Core functionality
+│   │   ├── client.py      # Webhook client
+│   │   ├── config.py      # Configuration management
+│   │   └── logger.py      # Logging utilities
+│   ├── scheduler/         # Task scheduling
+│   │   └── scheduler.py   # APScheduler wrapper
+│   ├── plugins/           # Plugin system
+│   │   ├── base.py        # Base plugin class
+│   │   └── manager.py     # Plugin manager
+│   ├── bot.py             # Main bot orchestrator
+│   └── cli.py             # Command-line interface
+├── plugins/               # User plugins directory
+├── config.yaml            # Configuration file
+└── logs/                  # Log files
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [httpx](https://www.python-httpx.org/), [APScheduler](https://apscheduler.readthedocs.io/), and [Pydantic](https://docs.pydantic.dev/)
+- Inspired by the Feishu Open Platform documentation
+- Thanks to all contributors!
+
+## 📞 Support
+
+- 📖 [Documentation](docs/)
+- 🐛 [Issue Tracker](https://github.com/AstroAir/feishu-webhook-bot/issues)
+- 💬 [Discussions](https://github.com/AstroAir/feishu-webhook-bot/discussions)
+
+---
+
+Made with ❤️ by the Feishu Bot Team
 
 - Format: `uv run black .`
 - Lint: `uv run ruff check .`
