@@ -1,0 +1,7 @@
+# Invalid YAML syntax
+webhooks:
+  - name: "default"
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/test-webhook"
+  - name: "invalid
+    url: missing quote
+

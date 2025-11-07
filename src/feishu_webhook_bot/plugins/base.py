@@ -147,9 +147,10 @@ class BasePlugin(ABC):
         self._job_ids.clear()
 
     def get_config_value(self, key: str, default: Any = None) -> Any:
-        """Get a configuration value.
+        """Get a configuration value from plugin-specific settings.
 
-        This is a helper to access configuration values.
+        This is a helper to access configuration values defined in the YAML
+        configuration file under plugins.plugin_settings for this plugin.
 
         Args:
             key: Configuration key
@@ -157,9 +158,36 @@ class BasePlugin(ABC):
 
         Returns:
             Configuration value or default
+
+        Example:
+            In config.yaml:
+            ```yaml
+            plugins:
+              plugin_settings:
+                - plugin_name: "my-plugin"
+                  settings:
+                    api_key: "secret123"
+                    threshold: 80
+            ```
+
+            In plugin code:
+            ```python
+            api_key = self.get_config_value("api_key", "default_key")
+            threshold = self.get_config_value("threshold", 50)
+            ```
         """
-        # Plugins can store config in config file under plugins section
-        return default
+        plugin_name = self.metadata().name
+        plugin_settings = self.config.plugins.get_plugin_settings(plugin_name)
+        return plugin_settings.get(key, default)
+
+    def get_all_config(self) -> dict[str, Any]:
+        """Get all configuration values for this plugin.
+
+        Returns:
+            Dictionary of all plugin-specific configuration values
+        """
+        plugin_name = self.metadata().name
+        return self.config.plugins.get_plugin_settings(plugin_name)
 
     def handle_event(self, event: dict[str, Any], context: dict[str, Any] | None = None) -> None:
         """Handle an inbound Feishu event.

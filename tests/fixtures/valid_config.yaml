@@ -1,0 +1,120 @@
+# Valid configuration with all features
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+webhooks:
+  - name: "default"
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/test-webhook"
+  - name: "alerts"
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/alerts-webhook"
+
+scheduler:
+  enabled: true
+
+plugins:
+  enabled: true
+  plugin_dir: "plugins"
+  auto_reload: false
+  plugin_settings:
+    - plugin_name: "test-plugin"
+      enabled: true
+      priority: 10
+      settings:
+        api_key: "test-key"
+        threshold: 80
+        check_interval: 300
+
+tasks:
+  - name: "simple_task"
+    description: "A simple test task"
+    enabled: true
+    schedule:
+      mode: "interval"
+      arguments:
+        minutes: 5
+    actions:
+      - type: "send_message"
+        webhook: "default"
+        message: "Test message"
+    error_handling:
+      on_failure: "log"
+      retry_on_failure: false
+
+  - name: "complex_task"
+    description: "A complex task with conditions"
+    enabled: true
+    cron: "0 9 * * *"
+    conditions:
+      - type: "day_of_week"
+        days: ["monday", "friday"]
+      - type: "environment"
+        environment: "production"
+    actions:
+      - type: "http_request"
+        request:
+          method: "GET"
+          url: "https://api.example.com/data"
+          timeout: 10
+          save_as: "api_data"
+      - type: "send_message"
+        webhook: "default"
+        message: "Data fetched: ${api_data}"
+    error_handling:
+      on_failure: "notify"
+      retry_on_failure: true
+      max_retries: 3
+      retry_delay: 60
+    timeout: 300
+    priority: 50
+
+task_templates:
+  - name: "http_health_check"
+    description: "Template for HTTP health checks"
+    base_task:
+      schedule:
+        mode: "interval"
+        arguments:
+          minutes: 5
+      actions:
+        - type: "http_request"
+          request:
+            method: "GET"
+            url: "${url}"
+            timeout: 10
+        - type: "send_message"
+          webhook: "default"
+          message: "Health check: ${status}"
+    parameters:
+      - name: "url"
+        type: "string"
+        required: true
+      - name: "status"
+        type: "string"
+        required: false
+        default: "OK"
+
+environments:
+  - name: "development"
+    variables:
+      - name: "FEISHU_WEBHOOK_URL"
+        value: "https://open.feishu.cn/open-apis/bot/v2/hook/dev-webhook"
+      - name: "LOG_LEVEL"
+        value: "DEBUG"
+    overrides:
+      logging:
+        level: "DEBUG"
+
+  - name: "production"
+    variables:
+      - name: "FEISHU_WEBHOOK_URL"
+        value: "https://open.feishu.cn/open-apis/bot/v2/hook/prod-webhook"
+      - name: "LOG_LEVEL"
+        value: "WARNING"
+    overrides:
+      logging:
+        level: "WARNING"
+
+active_environment: "development"
+config_hot_reload: false
+

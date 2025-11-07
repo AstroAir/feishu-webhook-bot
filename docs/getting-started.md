@@ -294,6 +294,110 @@ Monitors system resources and sends reports - located at `plugins/system_monitor
 
 Sends customizable reminders throughout the day - located at `plugins/reminder.py`
 
+## Using Automations
+
+Define declarative workflows in your configuration without writing Python code:
+
+### Schedule-based Automation
+
+```yaml
+automations:
+  - name: "morning-briefing"
+    description: "Send briefing every weekday at 9 AM"
+    enabled: true
+    trigger:
+      type: "schedule"
+      schedule:
+        mode: "cron"
+        arguments:
+          day_of_week: "mon-fri"
+          hour: "9"
+          minute: "0"
+    default_webhooks: ["default"]
+    actions:
+      - type: "send_text"
+        text: "Good morning! Time for your daily briefing."
+```
+
+### Event-based Automation
+
+Enable the event server and react to Feishu events:
+
+```yaml
+event_server:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8000
+  path: "/feishu/events"
+  verification_token: "${FEISHU_EVENT_TOKEN}"
+  signature_secret: "${FEISHU_EVENT_SECRET}"
+
+automations:
+  - name: "message-alert"
+    trigger:
+      type: "event"
+      event:
+        event_type: "im.message.receive_v1"
+        conditions:
+          - path: "event.message.content"
+            operator: "contains"
+            value: "urgent"
+    actions:
+      - type: "send_text"
+        text: "🚨 Urgent message received!"
+```
+
+### Using Templates in Automations
+
+```yaml
+templates:
+  - name: "status-card"
+    type: "card"
+    content: |
+      {
+        "header": {"template": "blue", "title": {"tag": "plain_text", "content": "Status"}},
+        "elements": [{"tag": "markdown", "content": "${message}"}]
+      }
+
+automations:
+  - name: "send-status"
+    trigger:
+      type: "schedule"
+      schedule:
+        mode: "cron"
+        arguments: { hour: "12", minute: "0" }
+    actions:
+      - type: "send_template"
+        template: "status-card"
+        context:
+          message: "System is operational"
+```
+
+### Multi-step Automations
+
+Chain multiple actions together:
+
+```yaml
+automations:
+  - name: "fetch-and-report"
+    trigger:
+      type: "schedule"
+      schedule:
+        mode: "cron"
+        arguments: { hour: "18", minute: "0" }
+    actions:
+      # Step 1: Fetch data from API
+      - type: "http_request"
+        request:
+          method: "GET"
+          url: "https://api.example.com/stats"
+          save_as: "stats"
+
+      # Step 2: Send the data as a message
+      - type: "send_text"
+        text: "Daily stats: ${stats.total_users} users, ${stats.revenue} revenue"
+```
+
 ## Next Steps
 
 ### Customize Your Setup

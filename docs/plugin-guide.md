@@ -54,6 +54,68 @@ The `metadata()` method must return a `PluginMetadata` instance with:
 - `author` (str): Author name (optional)
 - `enabled` (bool): Whether plugin is enabled by default (default: True)
 
+## Event Handling
+
+Plugins can handle incoming Feishu webhook events when the event server is enabled.
+
+### Handling Events
+
+Implement the `handle_event()` method to react to Feishu events:
+
+```python
+def handle_event(self, event: dict[str, Any]) -> None:
+    """Handle incoming Feishu webhook events.
+
+    Args:
+        event: Event payload from Feishu
+    """
+    event_type = event.get("header", {}).get("event_type")
+
+    if event_type == "im.message.receive_v1":
+        # Handle message received
+        message = event.get("event", {}).get("message", {})
+        content = message.get("content", "")
+        self.client.send_text(f"Received: {content}")
+
+    elif event_type == "im.chat.member_bot_added_v1":
+        # Handle bot added to chat
+        self.client.send_text("Thanks for adding me to this chat!")
+```
+
+### Common Event Types
+
+- `im.message.receive_v1` - Message received in chat
+- `im.chat.member_bot_added_v1` - Bot added to chat
+- `im.chat.member_bot_deleted_v1` - Bot removed from chat
+- `im.message.message_read_v1` - Message read
+- `contact.user.created_v3` - User created
+- `contact.user.updated_v3` - User updated
+
+### Example: Message Echo Plugin
+
+```python
+from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata
+from typing import Any
+
+class EchoPlugin(BasePlugin):
+    def metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="echo-plugin",
+            version="1.0.0",
+            description="Echoes received messages"
+        )
+
+    def handle_event(self, event: dict[str, Any]) -> None:
+        event_type = event.get("header", {}).get("event_type")
+
+        if event_type == "im.message.receive_v1":
+            message = event.get("event", {}).get("message", {})
+            content = message.get("content", "")
+
+            # Echo the message back
+            self.client.send_text(f"Echo: {content}")
+```
+
 ## Lifecycle Hooks
 
 ### on_load()
@@ -61,6 +123,7 @@ The `metadata()` method must return a `PluginMetadata` instance with:
 Called when the plugin is first loaded from disk.
 
 **Use for:**
+
 - Reading configuration
 - Initializing variables
 - Setting up data structures
@@ -77,6 +140,7 @@ def on_load(self) -> None:
 Called when the plugin is enabled and the bot is running.
 
 **Use for:**
+
 - Registering scheduled jobs
 - Setting up resources
 - Starting background tasks
@@ -98,6 +162,7 @@ def on_enable(self) -> None:
 Called when the plugin is disabled or the bot is shutting down.
 
 **Use for:**
+
 - Cleaning up resources
 - Saving state
 - Closing connections
@@ -113,6 +178,7 @@ def on_disable(self) -> None:
 Called when the plugin is unloaded (typically before hot-reload).
 
 **Use for:**
+
 - Final cleanup before reload
 - Closing file handles
 - Releasing locks
@@ -255,6 +321,7 @@ def my_task(self) -> None:
 ### Card Templates
 
 Available header templates:
+
 - `blue` (default)
 - `red`
 - `orange`
@@ -284,7 +351,7 @@ Plugins can access bot configuration:
 def on_load(self) -> None:
     # Access webhook config
     webhook = self.config.get_webhook("default")
-    
+
     # Get custom config value
     my_value = self.get_config_value("my_key", default="default_value")
 ```
@@ -298,19 +365,67 @@ You can add plugin-specific configuration to `config.yaml`:
 plugins:
   enabled: true
   plugin_dir: "plugins"
-  settings:
-    my_plugin:
-      api_key: "xxx"
-      threshold: 80
+  auto_reload: true
+
+  # Plugin-specific settings
+  plugin_settings:
+    - plugin_name: "my-plugin"
+      enabled: true
+      priority: 10  # Lower numbers load first
+      settings:
+        api_key: "xxx"
+        threshold: 80
+        check_interval: 300
+
+    - plugin_name: "another-plugin"
+      enabled: true
+      priority: 50
+      settings:
+        custom_setting: "value"
 ```
 
 Access in plugin:
 
 ```python
-def on_load(self) -> None:
-    # Note: You'll need to implement this in your plugin
-    plugin_config = self.config.to_dict().get("plugins", {}).get("settings", {}).get("my_plugin", {})
-    api_key = plugin_config.get("api_key")
+class MyPlugin(BasePlugin):
+    def metadata(self) -> PluginMetadata:
+        return PluginMetadata(name="my-plugin", version="1.0.0")
+
+    def on_load(self) -> None:
+        # Get specific setting
+        api_key = self.get_config_value("api_key", "default_key")
+        threshold = self.get_config_value("threshold", 50)
+
+        # Get all settings
+        all_settings = self.get_all_config()
+
+        self.logger.info(f"Loaded with threshold: {threshold}")
+```
+
+### Plugin Loading Priority
+
+Plugins are loaded in order of their `priority` value (lower numbers first):
+
+```yaml
+plugin_settings:
+  - plugin_name: "database-plugin"
+    priority: 10  # Loads first
+
+  - plugin_name: "api-plugin"
+    priority: 20  # Loads second
+
+  - plugin_name: "notification-plugin"
+    priority: 100  # Loads last (default)
+```
+
+### Disabling Plugins
+
+Disable specific plugins without removing them:
+
+```yaml
+plugin_settings:
+  - plugin_name: "my-plugin"
+    enabled: false  # Plugin won't be loaded
 ```
 
 ## Best Practices

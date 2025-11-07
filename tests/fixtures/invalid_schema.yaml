@@ -1,0 +1,11 @@
+# Valid YAML but invalid schema
+webhooks:
+  - name: "default"
+    # Missing required 'url' field
+    invalid_field: "value"
+
+tasks:
+  - name: "invalid_task"
+    # Missing required fields
+    invalid_action: "test"
+

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import signal
 import threading
 from collections.abc import Sequence
@@ -12,10 +13,12 @@ from typing import Any
 from .automation import AutomationEngine
 from .core import BotConfig, FeishuWebhookClient, get_logger, setup_logging
 from .core.config import WebhookConfig
+from .core.config_watcher import create_config_watcher
 from .core.event_server import EventServer
 from .core.templates import RenderedTemplate, TemplateRegistry
 from .plugins import PluginManager
 from .scheduler import TaskScheduler
+from .tasks import TaskManager
 
 logger = get_logger("bot")
 
@@ -70,7 +73,9 @@ class FeishuBot:
         self.plugin_manager: PluginManager | None = None
         self.template_registry: TemplateRegistry | None = None
         self.automation_engine: AutomationEngine | None = None
+        self.task_manager: TaskManager | None = None
         self.event_server: EventServer | None = None
+        self.config_watcher: Any = None
         self._running: bool = False
         self._shutdown_event = threading.Event()
         self._signal_handlers: dict[int, Any] = {}
@@ -98,7 +103,9 @@ class FeishuBot:
         try:
             self._init_templates()
             self._init_automation()
+            self._init_tasks()
             self._init_event_server()
+            self._init_config_watcher()
         except Exception as exc:
             logger.error("Failed to initialize optional components: %s", exc, exc_info=True)
             raise
@@ -284,6 +291,47 @@ class FeishuBot:
         if rules:
             logger.info("Automation engine configured with %s rule(s)", len(rules))
 
+    def _init_tasks(self) -> None:
+        """Initialize task manager for automated tasks."""
+        tasks = getattr(self.config, "tasks", []) or []
+        if not tasks:
+            logger.info("No tasks configured")
+            return
+
+        if not self.scheduler:
+            logger.warning("Scheduler not available; tasks will not be scheduled")
+            return
+
+        try:
+            self.task_manager = TaskManager(
+                config=self.config,
+                scheduler=self.scheduler,
+                plugin_manager=self.plugin_manager,
+                clients=self.clients,
+            )
+            logger.info("Task manager configured with %s task(s)", len(tasks))
+        except Exception as exc:
+            logger.error("Failed to initialize task manager: %s", exc, exc_info=True)
+            raise
+
+    def _init_config_watcher(self) -> None:
+        """Initialize configuration file watcher for hot-reload."""
+        if not self.config.config_hot_reload:
+            logger.info("Configuration hot-reload is disabled")
+            return
+
+        # Get config file path from environment or use default
+        config_path = os.environ.get("FEISHU_BOT_CONFIG", "config.yaml")
+        if not os.path.exists(config_path):
+            logger.warning(f"Config file not found: {config_path}, hot-reload disabled")
+            return
+
+        try:
+            self.config_watcher = create_config_watcher(config_path, self)
+            logger.info("Configuration watcher initialized for %s", config_path)
+        except Exception as exc:
+            logger.error("Failed to initialize config watcher: %s", exc, exc_info=True)
+
     def _init_event_server(self) -> None:
         """Initialize inbound event server if configured."""
         event_config = getattr(self.config, "event_server", None)
@@ -418,6 +466,25 @@ class FeishuBot:
                     )
                     raise
 
+            if self.task_manager:
+                try:
+                    self.task_manager.start()
+                    logger.info("Task manager started")
+                except Exception as exc:
+                    logger.error("Failed to start task manager: %s", exc, exc_info=True)
+                    raise
+
+            if self.config_watcher:
+                try:
+                    self.config_watcher.start()
+                    logger.info("Configuration watcher started")
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to start config watcher: %s",
+                        exc,
+                        exc_info=True,
+                    )
+
             self._running = True
             try:
                 self._setup_signal_handlers()
@@ -515,6 +582,20 @@ class FeishuBot:
                     self.automation_engine.shutdown()
                 except Exception as exc:
                     logger.error("Failed to shutdown automation engine: %s", exc, exc_info=True)
+
+            # Stop task manager
+            if self.task_manager:
+                try:
+                    self.task_manager.stop()
+                except Exception as exc:
+                    logger.error("Failed to stop task manager: %s", exc, exc_info=True)
+
+            # Stop config watcher
+            if self.config_watcher:
+                try:
+                    self.config_watcher.stop()
+                except Exception as exc:
+                    logger.error("Failed to stop config watcher: %s", exc, exc_info=True)
 
             # Stop scheduler
             if self.scheduler:

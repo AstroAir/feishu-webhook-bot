@@ -10,6 +10,7 @@
 - **📨 Rich Messaging**: Support for text, rich text, interactive cards (JSON v2.0), and images
 - **⏰ Task Scheduling**: Built-in APScheduler for cron jobs and periodic tasks
 - **🔌 Plugin System**: Extensible architecture with hot-reload support
+- **🔐 Authentication**: Complete user authentication system with JWT tokens and secure password hashing
 - **⚙️ Configuration**: YAML/JSON config with Pydantic validation
 - **📝 Logging**: Comprehensive logging with rotation and Rich formatting
 - **🔄 Hot Reload**: Automatically reload plugins and configurations without restart
@@ -163,37 +164,229 @@ bot.start()
 
 ### Sending Messages
 
+#### Text Messages
+
 ```python
 from feishu_webhook_bot.core import FeishuWebhookClient, WebhookConfig
-from feishu_webhook_bot.core.client import CardBuilder
 
-# Create client
 config = WebhookConfig(url="https://...", secret="...")
 client = FeishuWebhookClient(config)
 
-# Send text message
+# Send plain text
 client.send_text("Hello, Feishu!")
+```
 
-# Send rich text
+#### Rich Text Messages
+
+```python
+# Send rich text with formatting and links
 content = [
     [
         {"tag": "text", "text": "Hello "},
-        {"tag": "a", "text": "link", "href": "https://example.com"}
+        {"tag": "a", "text": "click here", "href": "https://example.com"}
     ]
 ]
 client.send_rich_text("Title", content)
+```
 
-# Send interactive card using CardBuilder
+#### Interactive Cards with CardBuilder
+
+```python
+from feishu_webhook_bot.core.client import CardBuilder
+
+# Build an interactive card
 card = (
     CardBuilder()
+    .set_config(wide_screen_mode=True)
     .set_header("Notification", template="blue")
     .add_markdown("**Important:** This is a test message")
     .add_divider()
+    .add_text("Additional information")
     .add_button("View Details", url="https://example.com")
+    .add_note("Footer note")
     .build()
 )
 client.send_card(card)
 ```
+
+#### Image Messages
+
+```python
+# Send an image
+client.send_image(
+    image_key="img_xxx",  # Image key from Feishu
+    title="Image Title"
+)
+```
+
+### CardBuilder Methods
+
+The `CardBuilder` class provides a fluent API for building interactive cards:
+
+- `set_config(**kwargs)` - Set card configuration (e.g., `wide_screen_mode=True`)
+- `set_header(title, template="blue")` - Set card header with template color
+- `add_markdown(content)` - Add markdown element
+- `add_text(content)` - Add plain text element
+- `add_divider()` - Add visual divider
+- `add_button(text, url)` - Add clickable button
+- `add_note(content)` - Add footer note
+- `build()` - Build and return the card JSON
+
+Available header templates: `blue`, `red`, `orange`, `yellow`, `green`, `turquoise`, `purple`
+
+## 🤖 Automation & Workflows
+
+The framework supports declarative automation workflows that can be triggered by schedules or events:
+
+```yaml
+automations:
+  - name: "daily-summary"
+    description: "Send a summary every weekday at 9:30"
+    enabled: true
+    trigger:
+      type: "schedule"
+      schedule:
+        mode: "cron"
+        arguments:
+          day_of_week: "mon-fri"
+          hour: "9"
+          minute: "30"
+    default_webhooks: ["default"]
+    actions:
+      - type: "http_request"
+        request:
+          method: "GET"
+          url: "https://api.example.com/summary"
+          save_as: "summary"
+      - type: "send_template"
+        template: "daily_summary"
+        context:
+          date: "${event_date}"
+          data: "${summary.data}"
+        webhooks: ["default"]
+```
+
+### Message Templates
+
+Define reusable templates with variable substitution:
+
+```yaml
+templates:
+  - name: "daily_summary"
+    description: "Daily summary card"
+    type: "card"
+    engine: "string"  # or "format"
+    content: |
+      {
+        "header": {
+          "template": "blue",
+          "title": {"tag": "plain_text", "content": "Daily Summary"}
+        },
+        "elements": [
+          {
+            "tag": "markdown",
+            "content": "**Date:** ${date}\n**Status:** ${status}"
+          }
+        ]
+      }
+```
+
+### Event Server
+
+Enable the event server to receive Feishu webhook events:
+
+```yaml
+event_server:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8000
+  path: "/feishu/events"
+  verification_token: "${FEISHU_EVENT_TOKEN}"
+  signature_secret: "${FEISHU_EVENT_SECRET}"
+```
+
+Then configure automations to react to events:
+
+```yaml
+automations:
+  - name: "react-to-message"
+    trigger:
+      type: "event"
+      event:
+        event_type: "im.message.receive_v1"
+        conditions:
+          - path: "event.message.content"
+            operator: "contains"
+            value: "alert"
+    actions:
+      - type: "send_text"
+        text: "Alert received!"
+        webhooks: ["default"]
+```
+
+## 🔐 Authentication System
+
+The framework includes a complete authentication system with user registration, login, and session management.
+
+### Quick Start
+
+Enable authentication in your `config.yaml`:
+
+```yaml
+auth:
+  enabled: true
+  database_url: "sqlite:///./auth.db"
+  jwt_secret_key: "your-super-secret-key-change-in-production"
+  access_token_expire_minutes: 30
+  max_failed_attempts: 5
+  lockout_duration_minutes: 30
+```
+
+### Features
+
+- **Secure Password Hashing**: Bcrypt with automatic salt generation
+- **JWT Authentication**: Token-based authentication with configurable expiration
+- **Password Strength Validation**: Enforces strong password requirements
+- **Account Lockout**: Automatic lockout after failed login attempts
+- **Rate Limiting**: Protection against brute force attacks
+- **Email Validation**: Validates email format during registration
+- **NiceGUI Integration**: Beautiful login and registration pages
+
+### Usage Example
+
+```python
+from feishu_webhook_bot.auth.service import AuthService
+
+auth_service = AuthService()
+
+# Register a new user
+user = auth_service.register_user(
+    email="user@example.com",
+    username="myusername",
+    password="StrongPass123!",
+    password_confirm="StrongPass123!"
+)
+
+# Authenticate user
+user, token = auth_service.authenticate_user(
+    login="user@example.com",
+    password="StrongPass123!"
+)
+```
+
+### Protecting Pages
+
+```python
+from nicegui import ui
+from feishu_webhook_bot.auth.middleware import require_auth
+
+@require_auth
+@ui.page("/protected")
+def protected_page():
+    ui.label("This page requires authentication")
+```
+
+For complete documentation, see [Authentication Guide](docs/authentication.md).
 
 ## 🔌 Plugin Development
 
@@ -266,13 +459,40 @@ The framework includes several example plugins:
 
 ## 📋 Configuration Reference
 
+### Environment Variables
+
+All configuration values support environment variable expansion using `${VAR_NAME}` syntax:
+
+```bash
+export FEISHU_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+export FEISHU_WEBHOOK_SECRET="your-secret"
+```
+
+Then in `config.yaml`:
+
+```yaml
+webhooks:
+  - name: "default"
+    url: "${FEISHU_WEBHOOK_URL}"
+    secret: "${FEISHU_WEBHOOK_SECRET}"
+```
+
 ### Webhooks
 
 ```yaml
 webhooks:
   - name: "default"
     url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
-    secret: "your-signing-secret"  # Optional
+    secret: "your-signing-secret"  # Optional: for webhook signing
+    timeout: 10.0  # Optional: request timeout in seconds
+    headers:  # Optional: extra HTTP headers
+      X-Custom-Header: "value"
+    retry:  # Optional: retry policy
+      max_attempts: 3
+      backoff_seconds: 1.0
+      backoff_multiplier: 2.0
+      max_backoff_seconds: 30.0
+
   - name: "alerts"
     url: "https://open.feishu.cn/open-apis/bot/v2/hook/yyy"
 ```
@@ -282,9 +502,9 @@ webhooks:
 ```yaml
 scheduler:
   enabled: true
-  timezone: "Asia/Shanghai"
-  job_store_type: "memory"  # or "sqlite"
-  job_store_path: "data/jobs.db"  # for sqlite
+  timezone: "Asia/Shanghai"  # Your timezone
+  job_store_type: "memory"   # or "sqlite" for persistence
+  job_store_path: "data/jobs.db"  # Required if using sqlite
 ```
 
 ### Plugins
@@ -292,9 +512,9 @@ scheduler:
 ```yaml
 plugins:
   enabled: true
-  plugin_dir: "plugins"
-  auto_reload: true
-  reload_delay: 1.0  # seconds
+  plugin_dir: "plugins"  # Directory to scan for plugins
+  auto_reload: true      # Enable hot-reload
+  reload_delay: 1.0      # Delay before reloading (seconds)
 ```
 
 ### Logging
@@ -302,9 +522,22 @@ plugins:
 ```yaml
 logging:
   level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  log_file: "logs/bot.log"
-  max_bytes: 10485760  # 10MB
-  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_file: "logs/bot.log"  # null for console only
+  max_bytes: 10485760  # Max log file size (10MB)
+  backup_count: 5      # Number of backup files to keep
+```
+
+### HTTP Client
+
+```yaml
+http:
+  timeout: 10.0  # Default request timeout
+  retry:
+    max_attempts: 3
+    backoff_seconds: 1.0
+    backoff_multiplier: 2.0
+    max_backoff_seconds: 30.0
 ```
 
 ## 📚 Documentation
@@ -315,28 +548,103 @@ logging:
 
 ## 🏗️ Architecture
 
-```
+```text
 feishu-webhook-bot/
 ├── src/feishu_webhook_bot/
-│   ├── core/              # Core functionality
-│   │   ├── client.py      # Webhook client
-│   │   ├── config.py      # Configuration management
-│   │   └── logger.py      # Logging utilities
-│   ├── scheduler/         # Task scheduling
-│   │   └── scheduler.py   # APScheduler wrapper
-│   ├── plugins/           # Plugin system
-│   │   ├── base.py        # Base plugin class
-│   │   └── manager.py     # Plugin manager
-│   ├── bot.py             # Main bot orchestrator
-│   └── cli.py             # Command-line interface
-├── plugins/               # User plugins directory
-├── config.yaml            # Configuration file
-└── logs/                  # Log files
+│   ├── core/                  # Core functionality
+│   │   ├── client.py          # Webhook client with CardBuilder
+│   │   ├── config.py          # Configuration management (Pydantic)
+│   │   ├── logger.py          # Logging utilities with Rich formatting
+│   │   ├── event_server.py    # FastAPI event server for webhooks
+│   │   └── templates.py       # Message template registry
+│   ├── scheduler/             # Task scheduling
+│   │   └── scheduler.py       # APScheduler wrapper with job decorator
+│   ├── plugins/               # Plugin system
+│   │   ├── base.py            # Base plugin class with lifecycle hooks
+│   │   └── manager.py         # Plugin manager with hot-reload
+│   ├── automation/            # Automation engine
+│   │   └── engine.py          # Declarative workflow execution
+│   ├── bot.py                 # Main bot orchestrator
+│   ├── cli.py                 # Command-line interface
+│   ├── config_ui.py           # NiceGUI web interface
+│   └── __init__.py            # Public API exports
+├── plugins/                   # User plugins directory
+├── config.yaml                # Configuration file
+├── config.example.yaml        # Example configuration
+├── logs/                      # Log files
+└── data/                      # Persistent data (jobs, state)
 ```
+
+### Core Components
+
+- **FeishuBot**: Main orchestrator that coordinates all components
+- **FeishuWebhookClient**: Sends messages via Feishu webhooks with retry logic
+- **TaskScheduler**: Manages scheduled jobs using APScheduler
+- **PluginManager**: Discovers, loads, and manages plugins with hot-reload
+- **AutomationEngine**: Executes declarative workflows based on schedules or events
+- **EventServer**: FastAPI server for receiving Feishu webhook events
+- **TemplateRegistry**: Manages reusable message templates
+
+## 🧪 Development
+
+### Testing
+
+This project uses pytest for testing:
+
+```bash
+uv run pytest -q
+```
+
+### Code Quality
+
+Format, lint, and type-check your code:
+
+```bash
+# Format code
+uv run black .
+
+# Lint code
+uv run ruff check .
+
+# Type-check
+uv run mypy .
+
+# All checks in one command
+uv run ruff check . ; uv run black --check . ; uv run mypy . ; uv run pytest -q ; uv build
+```
+
+### Documentation
+
+Build and serve the MkDocs documentation:
+
+```bash
+# Build docs
+uv run mkdocs build --strict
+
+# Serve locally
+uv run mkdocs serve -a localhost:8000
+```
+
+### Task Runner
+
+Cross-platform task runner scripts are available:
+
+```bash
+# Python task runner
+uv run python scripts/tasks.py [task]
+
+# Bash wrapper (Linux/macOS)
+scripts/task.sh [task]
+
+# PowerShell wrapper (Windows)
+scripts/task.ps1 [task]
+```
+
+Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:build`, `docs:serve`, `ci`
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -350,93 +658,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with [httpx](https://www.python-httpx.org/), [APScheduler](https://apscheduler.readthedocs.io/), and [Pydantic](https://docs.pydantic.dev/)
+- Built with [httpx](https://www.python-httpx.org/), [APScheduler](https://apscheduler.readthedocs.io/), [Pydantic](https://docs.pydantic.dev/), and [NiceGUI](https://nicegui.io/)
 - Inspired by the Feishu Open Platform documentation
 - Thanks to all contributors!
 
 ## 📞 Support
 
-- 📖 [Documentation](docs/)
+- 📖 [Full Documentation](docs/)
 - 🐛 [Issue Tracker](https://github.com/AstroAir/feishu-webhook-bot/issues)
 - 💬 [Discussions](https://github.com/AstroAir/feishu-webhook-bot/discussions)
 
 ---
 
 Made with ❤️ by the Feishu Bot Team
-
-- Format: `uv run black .`
-- Lint: `uv run ruff check .`
-- Type-check: `uv run mypy .`
-- Tests: `uv run pytest -q`
-- Build: `uv build`
-
-Common one-liner to check everything:
-
-```powershell
-uv run ruff check . ; uv run black --check . ; uv run mypy . ; uv run pytest -q ; uv build
-```
-
-## Documentation (MkDocs)
-
-This project includes a MkDocs site using the Material theme; docs live in `docs/`.
-
-- Build docs: `uv run mkdocs build --strict`
-- Serve docs locally: `uv run mkdocs serve -a localhost:8000`
-
-The configuration lives in `mkdocs.yml`; content is in the `docs/` folder. API reference is generated from the package using `mkdocstrings`.
-
-## Automation scripts
-
-Cross-platform task runner scripts are provided in `scripts/`:
-
-- Python task runner: `uv run python scripts/tasks.py [task]`
-- Bash wrapper (Linux/macOS): `scripts/task.sh [task]`
-- PowerShell wrapper (Windows): `scripts/task.ps1 [task]`
-
-Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:build`, `docs:serve`, `ci` (all checks).
-
-## Project Structure
-
-```text
-.
-├─ src/
-│  └─ python_quick_starter/
-│     ├─ __init__.py
-│     ├─ __main__.py
-│     └─ cli.py
-├─ tests/
-│  └─ test_cli.py
-├─ docs/
-│  └─ index.md
-├─ .github/workflows/ci.yml
-├─ pyproject.toml
-├─ README.md
-├─ LICENSE
-└─ CHANGELOG.md
-```
-
-## Testing
-
-This project uses pytest. Configuration lives in `pyproject.toml` under `tool.pytest.ini_options`.
-
-```powershell
-uv run pytest -q
-```
-
-## Contributing
-
-See `CONTRIBUTING.md` for guidelines. Issues and PRs are welcome.
-
-## Releasing
-
-A release workflow template is included at `.github/workflows/release.yml` and is commented out by default. To enable publishing to PyPI:
-
-- Create a PyPI token and save it as `PYPI_API_TOKEN` in GitHub repo secrets
-- Uncomment the publish step in `release.yml`
-- Push a tag like `v0.1.0`
-
-## License
-
-MIT — see `LICENSE`.
-
-````

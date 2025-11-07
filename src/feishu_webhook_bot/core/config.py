@@ -225,6 +225,151 @@ class AutomationRule(BaseModel):
         return self
 
 
+class TaskConditionConfig(BaseModel):
+    """Condition that must be met for a task to execute."""
+
+    type: Literal["time_range", "day_of_week", "environment", "custom"] = Field(
+        ..., description="Type of condition"
+    )
+    start_time: str | None = Field(default=None, description="Start time for time_range (HH:MM)")
+    end_time: str | None = Field(default=None, description="End time for time_range (HH:MM)")
+    days: list[str] | None = Field(
+        default=None, description="Days of week for day_of_week condition"
+    )
+    environment: str | None = Field(
+        default=None, description="Required environment name for environment condition"
+    )
+    expression: str | None = Field(
+        default=None, description="Custom Python expression for custom condition"
+    )
+
+
+class TaskErrorHandlingConfig(BaseModel):
+    """Error handling configuration for tasks."""
+
+    retry_on_failure: bool = Field(default=True, description="Whether to retry on failure")
+    max_retries: int = Field(default=3, ge=0, description="Maximum number of retries")
+    retry_delay: float = Field(default=60.0, ge=0.0, description="Delay between retries in seconds")
+    on_failure_action: Literal["log", "notify", "disable", "ignore"] = Field(
+        default="log", description="Action to take on failure"
+    )
+    notification_webhook: str | None = Field(
+        default=None, description="Webhook to notify on failure"
+    )
+
+
+class TaskParameterConfig(BaseModel):
+    """Parameter definition for a task."""
+
+    name: str = Field(..., description="Parameter name")
+    type: Literal["string", "int", "float", "bool", "list", "dict"] = Field(
+        default="string", description="Parameter type"
+    )
+    default: Any | None = Field(default=None, description="Default value")
+    required: bool = Field(default=False, description="Whether parameter is required")
+    description: str | None = Field(default=None, description="Parameter description")
+
+
+class TaskActionConfig(BaseModel):
+    """Action to be executed as part of a task."""
+
+    type: Literal["plugin_method", "send_message", "http_request", "python_code"] = Field(
+        ..., description="Type of action to execute"
+    )
+    plugin_name: str | None = Field(default=None, description="Plugin name for plugin_method")
+    method_name: str | None = Field(default=None, description="Method name for plugin_method")
+    message: str | None = Field(default=None, description="Message for send_message")
+    template: str | None = Field(default=None, description="Template name for send_message")
+    request: HTTPRequestConfig | None = Field(
+        default=None, description="HTTP request config for http_request"
+    )
+    code: str | None = Field(default=None, description="Python code for python_code action")
+    parameters: dict[str, Any] = Field(
+        default_factory=dict, description="Parameters to pass to the action"
+    )
+    webhooks: list[str] = Field(default_factory=list, description="Target webhooks")
+
+
+class TaskDefinitionConfig(BaseModel):
+    """Configuration for an automated task."""
+
+    name: str = Field(..., description="Unique task name")
+    description: str | None = Field(default=None, description="Task description")
+    enabled: bool = Field(default=True, description="Whether task is enabled")
+
+    # Scheduling
+    schedule: AutomationScheduleConfig | None = Field(
+        default=None, description="Schedule configuration"
+    )
+    cron: str | None = Field(default=None, description="Cron expression (alternative to schedule)")
+    interval: dict[str, Any] | None = Field(
+        default=None, description="Interval configuration (alternative to schedule)"
+    )
+
+    # Dependencies
+    depends_on: list[str] = Field(
+        default_factory=list, description="List of task names this task depends on"
+    )
+    run_after: list[str] = Field(
+        default_factory=list, description="Tasks that must complete before this one"
+    )
+
+    # Parameters and conditions
+    parameters: list[TaskParameterConfig] = Field(
+        default_factory=list, description="Task parameters"
+    )
+    conditions: list[TaskConditionConfig] = Field(
+        default_factory=list, description="Conditions for task execution"
+    )
+
+    # Actions
+    actions: list[TaskActionConfig] = Field(
+        default_factory=list, description="Actions to execute"
+    )
+
+    # Error handling
+    error_handling: TaskErrorHandlingConfig = Field(
+        default_factory=TaskErrorHandlingConfig, description="Error handling configuration"
+    )
+
+    # Execution settings
+    timeout: float | None = Field(default=None, ge=0.0, description="Task timeout in seconds")
+    priority: int = Field(default=100, description="Task priority (lower runs first)")
+    max_concurrent: int = Field(
+        default=1, ge=1, description="Maximum concurrent executions"
+    )
+
+    # Context
+    context: dict[str, Any] = Field(
+        default_factory=dict, description="Additional context for task execution"
+    )
+
+    @model_validator(mode="after")
+    def validate_schedule(self) -> TaskDefinitionConfig:
+        """Ensure at least one scheduling method is defined."""
+        if not any([self.schedule, self.cron, self.interval]):
+            raise ValueError("Task must define schedule, cron, or interval")
+        return self
+
+    @model_validator(mode="after")
+    def validate_actions(self) -> TaskDefinitionConfig:
+        """Ensure at least one action is defined."""
+        if not self.actions:
+            raise ValueError("Task must define at least one action")
+        return self
+
+
+class TaskTemplateConfig(BaseModel):
+    """Reusable task template definition."""
+
+    name: str = Field(..., description="Template name")
+    description: str | None = Field(default=None, description="Template description")
+    base_task: TaskDefinitionConfig = Field(..., description="Base task configuration")
+    parameters: list[TaskParameterConfig] = Field(
+        default_factory=list, description="Template parameters that can be overridden"
+    )
+
+
 class WebhookConfig(BaseModel):
     """Configuration for a Feishu webhook endpoint."""
 
@@ -269,6 +414,19 @@ class SchedulerConfig(BaseModel):
         return value
 
 
+class PluginSettingsConfig(BaseModel):
+    """Plugin-specific settings that can be configured in YAML."""
+
+    plugin_name: str = Field(..., description="Name of the plugin these settings apply to")
+    enabled: bool = Field(default=True, description="Whether this plugin is enabled")
+    settings: dict[str, Any] = Field(
+        default_factory=dict, description="Plugin-specific configuration parameters"
+    )
+    priority: int = Field(
+        default=100, description="Plugin loading priority (lower numbers load first)"
+    )
+
+
 class PluginConfig(BaseModel):
     """Configuration for the plugin system."""
 
@@ -276,6 +434,9 @@ class PluginConfig(BaseModel):
     plugin_dir: str = Field(default="plugins", description="Plugin directory")
     auto_reload: bool = Field(default=True, description="Enable hot reload")
     reload_delay: float = Field(default=1.0, description="Reload delay in seconds")
+    plugin_settings: list[PluginSettingsConfig] = Field(
+        default_factory=list, description="Per-plugin configuration settings"
+    )
 
     @field_validator("reload_delay")
     @classmethod
@@ -283,6 +444,13 @@ class PluginConfig(BaseModel):
         if value <= 0:
             raise ValueError("reload_delay must be positive")
         return value
+
+    def get_plugin_settings(self, plugin_name: str) -> dict[str, Any]:
+        """Get settings for a specific plugin."""
+        for plugin_setting in self.plugin_settings:
+            if plugin_setting.plugin_name == plugin_name:
+                return plugin_setting.settings
+        return {}
 
 
 class LoggingConfig(BaseModel):
@@ -362,6 +530,56 @@ class EventServerConfig(BaseModel):
     )
 
 
+class AuthConfig(BaseModel):
+    """Configuration for authentication system."""
+
+    enabled: bool = Field(default=False, description="Enable authentication system")
+    database_url: str = Field(
+        default="sqlite:///./auth.db",
+        description="Database URL for user storage (SQLAlchemy format)",
+    )
+    jwt_secret_key: str = Field(
+        default="change-this-secret-key-in-production",
+        description="Secret key for JWT token signing (MUST be changed in production)",
+    )
+    jwt_algorithm: str = Field(default="HS256", description="JWT signing algorithm")
+    access_token_expire_minutes: int = Field(
+        default=30, description="Access token expiration time in minutes"
+    )
+    max_failed_attempts: int = Field(
+        default=5, description="Maximum failed login attempts before account lockout"
+    )
+    lockout_duration_minutes: int = Field(
+        default=30, description="Account lockout duration in minutes"
+    )
+    require_email_verification: bool = Field(
+        default=False, description="Require email verification for new accounts"
+    )
+
+
+class EnvironmentVariableConfig(BaseModel):
+    """Environment variable definition."""
+
+    name: str = Field(..., description="Variable name")
+    value: Any = Field(..., description="Variable value")
+    description: str | None = Field(default=None, description="Variable description")
+
+
+class EnvironmentConfig(BaseModel):
+    """Environment-specific configuration."""
+
+    name: str = Field(..., description="Environment name (e.g., dev, staging, production)")
+    description: str | None = Field(default=None, description="Environment description")
+    variables: list[EnvironmentVariableConfig] = Field(
+        default_factory=list, description="Environment-specific variables"
+    )
+    overrides: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Configuration overrides for this environment (can override any config field)",
+    )
+    enabled: bool = Field(default=True, description="Whether this environment is active")
+
+
 class BotConfig(BaseSettings):
     """Main configuration for the Feishu Webhook Bot."""
 
@@ -417,6 +635,26 @@ class BotConfig(BaseSettings):
     event_server: EventServerConfig = Field(
         default_factory=EventServerConfig, description="Inbound event server settings"
     )
+    auth: AuthConfig = Field(
+        default_factory=AuthConfig, description="Authentication system settings"
+    )
+
+    # New enhanced configuration sections
+    tasks: list[TaskDefinitionConfig] = Field(
+        default_factory=list, description="Automated task definitions"
+    )
+    task_templates: list[TaskTemplateConfig] = Field(
+        default_factory=list, description="Reusable task templates"
+    )
+    environments: list[EnvironmentConfig] = Field(
+        default_factory=list, description="Environment-specific configurations"
+    )
+    active_environment: str | None = Field(
+        default=None, description="Currently active environment name"
+    )
+    config_hot_reload: bool = Field(
+        default=False, description="Enable hot-reloading of configuration changes"
+    )
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> BotConfig:
@@ -466,6 +704,73 @@ class BotConfig(BaseSettings):
             if webhook.name == name:
                 return webhook
         return None
+
+    def get_task(self, name: str) -> TaskDefinitionConfig | None:
+        """Get task configuration by name."""
+        for task in self.tasks:
+            if task.name == name:
+                return task
+        return None
+
+    def get_task_template(self, name: str) -> TaskTemplateConfig | None:
+        """Get task template by name."""
+        for template in self.task_templates:
+            if template.name == name:
+                return template
+        return None
+
+    def get_environment(self, name: str | None = None) -> EnvironmentConfig | None:
+        """Get environment configuration by name, or active environment if name is None."""
+        env_name = name or self.active_environment
+        if not env_name:
+            return None
+        for env in self.environments:
+            if env.name == env_name and env.enabled:
+                return env
+        return None
+
+    def apply_environment_overrides(self, environment_name: str | None = None) -> BotConfig:
+        """Apply environment-specific overrides to configuration.
+
+        Args:
+            environment_name: Name of environment to apply. If None, uses active_environment.
+
+        Returns a new BotConfig instance with environment overrides applied.
+        """
+        env_name = environment_name or self.active_environment
+        if not env_name:
+            return self
+
+        env = self.get_environment(env_name)
+        if not env or not env.overrides:
+            return self
+
+        # Create a copy of the current config as dict
+        config_dict = self.model_dump()
+
+        # Apply overrides recursively
+        def apply_overrides(base: dict[str, Any], overrides: dict[str, Any]) -> None:
+            for key, value in overrides.items():
+                if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                    apply_overrides(base[key], value)
+                else:
+                    base[key] = value
+
+        apply_overrides(config_dict, env.overrides)
+
+        # Create new config instance with overrides
+        return BotConfig(**config_dict)
+
+    def get_environment_variables(self, environment_name: str | None = None) -> dict[str, Any]:
+        """Get all environment variables from specified or active environment.
+
+        Args:
+            environment_name: Name of environment to get variables from. If None, uses active_environment.
+        """
+        env = self.get_environment(environment_name)
+        if not env:
+            return {}
+        return {var.name: var.value for var in env.variables}
 
     def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary."""

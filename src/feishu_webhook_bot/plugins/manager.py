@@ -207,12 +207,40 @@ class PluginManager:
         plugin_dir = Path(self.config.plugins.plugin_dir)
         plugin_files = self._discover_plugins(plugin_dir)
 
+        # Sort plugins by priority if configured
+        plugin_priorities: dict[str, int] = {}
+        for plugin_setting in self.config.plugins.plugin_settings:
+            plugin_priorities[plugin_setting.plugin_name] = plugin_setting.priority
+
+        # Load plugins
+        loaded_plugins: list[tuple[str, BasePlugin, int]] = []
         for file_path in plugin_files:
             plugin = self._load_plugin_from_file(file_path)
             if plugin:
                 metadata = plugin.metadata()
-                self.plugins[metadata.name] = plugin
-                plugin.on_load()
+
+                # Check if plugin is disabled in configuration
+                plugin_enabled = True
+                for plugin_setting in self.config.plugins.plugin_settings:
+                    if plugin_setting.plugin_name == metadata.name:
+                        plugin_enabled = plugin_setting.enabled
+                        break
+
+                if not plugin_enabled:
+                    logger.info(f"Plugin {metadata.name} is disabled in configuration")
+                    continue
+
+                priority = plugin_priorities.get(metadata.name, 100)
+                loaded_plugins.append((metadata.name, plugin, priority))
+
+        # Sort by priority (lower numbers first)
+        loaded_plugins.sort(key=lambda x: x[2])
+
+        # Register plugins in priority order
+        for name, plugin, _ in loaded_plugins:
+            self.plugins[name] = plugin
+            plugin.on_load()
+            logger.info(f"Loaded plugin: {name}")
 
         logger.info(f"Loaded {len(self.plugins)} plugins")
 

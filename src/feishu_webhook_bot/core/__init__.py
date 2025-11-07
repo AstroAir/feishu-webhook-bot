@@ -7,13 +7,14 @@ This package contains the core functionality including:
 """
 
 from .client import FeishuWebhookClient
-from .config import BotConfig, WebhookConfig
+from .config import AuthConfig, BotConfig, WebhookConfig
 from .logger import get_logger, setup_logging
 
 __all__ = [
     "FeishuWebhookClient",
     "BotConfig",
     "WebhookConfig",
+    "AuthConfig",
     "get_logger",
     "setup_logging",
 ]
