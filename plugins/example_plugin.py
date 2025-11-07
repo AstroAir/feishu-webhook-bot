@@ -32,7 +32,7 @@ class ExamplePlugin(BasePlugin):
         - Setting up data structures
         """
         self.logger.info("Example plugin loaded")
-        
+
         # You can access configuration
         # config_value = self.get_config_value("my_setting", default="default_value")
 
@@ -74,7 +74,7 @@ class ExamplePlugin(BasePlugin):
 
             # Or send an interactive card
             # from feishu_webhook_bot.core.client import CardBuilder
-            # 
+            #
             # card = (
             #     CardBuilder()
             #     .set_header("My Task", template="blue")

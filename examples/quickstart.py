@@ -52,9 +52,7 @@ def example_send_messages():
             )
             .add_divider()
             .add_text("Click the button below to learn more!")
-            .add_button(
-                "Visit GitHub", url="https://github.com/AstroAir/feishu-webhook-bot"
-            )
+            .add_button("Visit GitHub", url="https://github.com/AstroAir/feishu-webhook-bot")
             .add_note("Powered by Feishu Webhook Bot Framework")
             .build()
         )
@@ -97,9 +95,7 @@ def example_start_bot():
 
 def example_card_templates():
     """Example: Different card templates."""
-    config = WebhookConfig(
-        url="https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL"
-    )
+    config = WebhookConfig(url="https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL")
 
     with FeishuWebhookClient(config) as client:
         # Success card (green)

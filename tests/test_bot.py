@@ -1,171 +1,190 @@
 """Tests for the main bot module."""
 
-import tempfile
 from pathlib import Path
+from typing import cast
+from unittest.mock import MagicMock, patch
 
 import pytest
+
 from feishu_webhook_bot import FeishuBot
 from feishu_webhook_bot.core import BotConfig, WebhookConfig
 
 
-def test_bot_initialization():
-    """Test bot initialization with config."""
-    config = BotConfig(
-        webhooks=[WebhookConfig(url="https://example.com/webhook", name="test")]
-    )
+@pytest.fixture
+def mock_dependencies(mocker):
+    """Fixture to mock all external dependencies of FeishuBot."""
+    setup_logging_mock = mocker.patch("feishu_webhook_bot.bot.setup_logging")
+    mock_client_class = mocker.patch("feishu_webhook_bot.bot.FeishuWebhookClient")
+    mock_scheduler_class = mocker.patch("feishu_webhook_bot.bot.TaskScheduler")
+    mock_plugin_manager_class = mocker.patch("feishu_webhook_bot.bot.PluginManager")
 
+    # Make instances returned by mocks have the same mock spec
+    mock_client_instance = MagicMock()
+    mock_scheduler_instance = MagicMock()
+    mock_plugin_manager_instance = MagicMock()
+
+    mock_client_class.return_value = mock_client_instance
+    mock_scheduler_class.return_value = mock_scheduler_instance
+    mock_plugin_manager_class.return_value = mock_plugin_manager_instance
+
+    return {
+        "setup_logging": setup_logging_mock,
+        "client_class": mock_client_class,
+        "scheduler_class": mock_scheduler_class,
+        "plugin_manager_class": mock_plugin_manager_class,
+        "client_instance": mock_client_instance,
+        "scheduler_instance": mock_scheduler_instance,
+        "plugin_manager_instance": mock_plugin_manager_instance,
+    }
+
+
+@pytest.fixture
+def simple_config():
+    """Provides a simple BotConfig with one webhook."""
+    return BotConfig(webhooks=[WebhookConfig(url="https://example.com/webhook1", name="default")])
+
+
+def test_bot_initialization(simple_config, mock_dependencies):
+    """Test bot initializes all components correctly."""
+    bot = FeishuBot(simple_config)
+
+    # Verify logging is set up
+    mock_dependencies["setup_logging"].assert_called_once_with(simple_config.logging)
+
+    # Verify client pooling
+    assert "default" in bot.clients
+    mock_dependencies["client_class"].assert_called_once_with(simple_config.webhooks[0])
+    assert bot.client == bot.clients["default"]
+
+    # Verify scheduler initialization
+    mock_dependencies["scheduler_class"].assert_called_once_with(simple_config.scheduler)
+
+    # Verify plugin manager initialization
+    mock_dependencies["plugin_manager_class"].assert_called_once_with(
+        simple_config, bot.client, bot.scheduler
+    )
+    mock_dependencies["plugin_manager_instance"].load_plugins.assert_called_once()
+    mock_dependencies["plugin_manager_instance"].enable_all.assert_called_once()
+
+
+def test_bot_initialization_no_webhooks(mock_dependencies):
+    """Test bot initialization with no webhooks logs a warning but doesn't fail."""
+    config = BotConfig(webhooks=[])
     bot = FeishuBot(config)
-
-    assert bot.config == config
-    assert bot.client is not None
-    assert bot.scheduler is not None
-    assert bot.plugin_manager is not None
+    assert not bot.clients
+    assert bot.client is None
 
 
-def test_bot_from_config_file():
-    """Test bot creation from config file."""
-    config_data = """
-webhooks:
-  - url: https://example.com/webhook
-    name: test
-    secret: null
-
-scheduler:
-  enabled: true
-  timezone: UTC
-
-plugins:
-  enabled: false
-  plugin_dir: plugins
-
-logging:
-  level: INFO
-"""
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write(config_data)
-        config_path = f.name
-
-    try:
-        bot = FeishuBot.from_config(config_path)
-        assert bot.config is not None
-        assert len(bot.config.webhooks) == 1
-        assert bot.config.webhooks[0].url == "https://example.com/webhook"
-    finally:
-        Path(config_path).unlink()
-
-
-def test_bot_from_env():
-    """Test bot creation from environment config."""
-    # This would require setting up environment variables
-    # For now, test that the method exists and can be called
-    import os
-
-    # Set temporary environment
-    os.environ["FEISHU_WEBHOOK_URL"] = "https://example.com/webhook"
-
-    try:
-        bot = FeishuBot.from_env()
-        assert bot.config is not None
-    except Exception:
-        # May fail if environment not fully configured
-        pass
-    finally:
-        if "FEISHU_WEBHOOK_URL" in os.environ:
-            del os.environ["FEISHU_WEBHOOK_URL"]
-
-
-def test_bot_disabled_scheduler():
-    """Test bot with disabled scheduler."""
-    config = BotConfig(
-        webhooks=[WebhookConfig(url="https://example.com/webhook", name="test")]
-    )
+def test_bot_disabled_components(mock_dependencies):
+    """Test that disabled components are not initialized."""
+    config = BotConfig(webhooks=[WebhookConfig(url="https://example.com/webhook", name="default")])
     config.scheduler.enabled = False
-
-    bot = FeishuBot(config)
-
-    assert bot.scheduler is None
-
-
-def test_bot_disabled_plugins():
-    """Test bot with disabled plugins."""
-    config = BotConfig(
-        webhooks=[WebhookConfig(url="https://example.com/webhook", name="test")]
-    )
     config.plugins.enabled = False
 
     bot = FeishuBot(config)
 
+    assert bot.scheduler is None
     assert bot.plugin_manager is None
+    mock_dependencies["scheduler_class"].assert_not_called()
+    mock_dependencies["plugin_manager_class"].assert_not_called()
 
 
-def test_bot_send_message():
-    """Test bot send_message method."""
-    config = BotConfig(
-        webhooks=[WebhookConfig(url="https://example.com/webhook", name="test")]
-    )
+@patch("feishu_webhook_bot.bot.signal")
+def test_start_and_stop_lifecycle(mock_signal, simple_config, mock_dependencies, mocker):
+    """Test the start and stop methods of the bot."""
+    bot = FeishuBot(simple_config)
 
-    bot = FeishuBot(config)
+    # --- Test start ---
+    bot.start()
 
-    # Should not raise error (though it won't actually send without real webhook)
-    # In a real test, you'd mock the client
-    assert bot.client is not None
+    mock_dependencies["scheduler_instance"].start.assert_called_once()
+    mock_dependencies["plugin_manager_instance"].start_hot_reload.assert_called_once()
+
+    # Test startup notification
+    mock_default_client = cast(MagicMock, bot.clients["default"])
+    mock_default_client.send_text.assert_called_with("🤖 Feishu Bot started successfully!")
+
+    assert bot._running is True
+    mock_signal.signal.assert_any_call(mock_signal.SIGINT, mocker.ANY)
+    mock_signal.signal.assert_any_call(mock_signal.SIGTERM, mocker.ANY)
+    mock_signal.pause.assert_called_once()
+
+    # --- Test stop ---
+    bot.stop()
+
+    # Test shutdown notification
+    mock_default_client.send_text.assert_called_with("🛑 Feishu Bot is shutting down...")
+
+    mock_dependencies["plugin_manager_instance"].stop_hot_reload.assert_called_once()
+    mock_dependencies["plugin_manager_instance"].disable_all.assert_called_once()
+    mock_dependencies["scheduler_instance"].shutdown.assert_called_once()
+
+    # Check all clients are closed
+    for client_instance in bot.clients.values():
+        cast(MagicMock, client_instance).close.assert_called_once()
+
+    assert bot._running is False
 
 
-def test_bot_multiple_webhooks():
-    """Test bot with multiple webhooks."""
-    config = BotConfig(
+def test_send_message_uses_client_pool(simple_config, mock_dependencies):
+    """Test that send_message uses the correct client from the pool."""
+    multi_webhook_config = BotConfig(
         webhooks=[
-            WebhookConfig(url="https://example.com/webhook1", name="webhook1"),
-            WebhookConfig(url="https://example.com/webhook2", name="webhook2"),
+            WebhookConfig(url="https://example.com/webhook1", name="default"),
+            WebhookConfig(url="https://example.com/webhook2", name="alerts"),
         ]
     )
+    bot = FeishuBot(multi_webhook_config)
 
-    bot = FeishuBot(config)
+    # Send to default
+    bot.send_message("Hello default", webhook_name="default")
+    cast(MagicMock, bot.clients["default"]).send_text.assert_called_once_with("Hello default")
+    cast(MagicMock, bot.clients["alerts"]).send_text.assert_not_called()
 
-    assert len(bot.config.webhooks) == 2
+    # Send to alerts
+    bot.send_message("Hello alerts", webhook_name="alerts")
+    cast(MagicMock, bot.clients["alerts"]).send_text.assert_called_once_with("Hello alerts")
 
-
-def test_bot_default_config():
-    """Test bot with default configuration."""
-    bot = FeishuBot(BotConfig())
-
-    assert bot.config is not None
-    assert len(bot.config.webhooks) >= 1
-    assert bot.client is not None
-
-
-def test_bot_scheduler_enabled():
-    """Test bot with scheduler enabled."""
-    config = BotConfig(
-        webhooks=[WebhookConfig(url="https://example.com/webhook", name="test")]
-    )
-    config.scheduler.enabled = True
-
-    bot = FeishuBot(config)
-
-    assert bot.scheduler is not None
-    assert bot.scheduler.config.enabled is True
+    # Reset mocks for next assertion
+    cast(MagicMock, bot.clients["default"]).send_text.reset_mock()
+    cast(MagicMock, bot.clients["alerts"]).send_text.reset_mock()
 
 
-def test_bot_plugins_enabled():
-    """Test bot with plugins enabled."""
-    config = BotConfig(
-        webhooks=[WebhookConfig(url="https://example.com/webhook", name="test")]
-    )
-    config.plugins.enabled = True
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config.plugins.plugin_dir = tmpdir
-        bot = FeishuBot(config)
-
-        assert bot.plugin_manager is not None
+def test_send_message_invalid_webhook(simple_config, mock_dependencies):
+    """Test send_message raises ValueError for an unknown webhook."""
+    bot = FeishuBot(simple_config)
+    with pytest.raises(ValueError, match="Webhook client not found: unknown"):
+        bot.send_message("test", webhook_name="unknown")
 
 
-def test_bot_config_validation():
-    """Test bot with invalid config."""
-    # Empty webhooks list should still work (uses default)
-    config = BotConfig(webhooks=[])
+def test_from_config_yaml(mocker):
+    """Test creating a bot from a YAML config file."""
+    mock_bot_config = mocker.patch("feishu_webhook_bot.bot.BotConfig")
+    FeishuBot.from_config("config.yaml")
+    mock_bot_config.from_yaml.assert_called_once_with(Path("config.yaml"))
 
-    bot = FeishuBot(config)
-    assert bot.config is not None
+
+def test_from_config_json(mocker):
+    """Test creating a bot from a JSON config file."""
+    mock_bot_config = mocker.patch("feishu_webhook_bot.bot.BotConfig")
+    FeishuBot.from_config("config.json")
+    mock_bot_config.from_json.assert_called_once_with(Path("config.json"))
+
+
+def test_from_config_unsupported_format():
+    """Test that from_config raises an error for unsupported file types."""
+
+    with pytest.raises(ValueError, match="Unsupported config file format: .txt"):
+        FeishuBot.from_config("config.txt")
+
+
+def test_from_env(mocker):
+    """Test creating a bot from environment variables."""
+    # We can't easily test the full env loading here, but we can test that
+    # it calls the BotConfig constructor, which is responsible for env loading.
+    mock_bot_config_init = mocker.patch("feishu_webhook_bot.bot.BotConfig")
+
+    FeishuBot.from_env()
+
+    # Assert that BotConfig() was called, which triggers pydantic-settings' env loading
+    mock_bot_config_init.assert_called_once()

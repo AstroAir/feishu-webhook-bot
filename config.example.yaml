@@ -44,3 +44,79 @@ logging:
   log_file: "logs/bot.log"  # Path to log file (null for console only)
   max_bytes: 10485760  # Max log file size (10MB)
   backup_count: 5      # Number of backup log files to keep
+
+# HTTP Client Configuration
+# --------------------------
+# Configure default timeout and retry behaviour for webhook requests.
+http:
+  timeout: 10.0   # Default HTTP timeout in seconds
+  retry:
+    max_attempts: 3
+    backoff_seconds: 1.0
+    backoff_multiplier: 2.0
+    max_backoff_seconds: 30.0
+
+# Templates
+# ---------
+# Define reusable message templates referenced by automations or plugins.
+# Template content supports either Python "string.Template" placeholders
+# (default engine) or str.format placeholders (set engine: "format").
+templates:
+  - name: "daily_summary"
+    description: "Daily summary card"
+    type: "card"
+    engine: "string"
+    content: |
+      {
+        "header": {
+          "template": "blue",
+          "title": {"tag": "plain_text", "content": "Daily Summary"}
+        },
+        "elements": [
+          {
+            "tag": "markdown",
+            "content": "**Date:** ${date}\nTasks completed: ${completed}"
+          }
+        ]
+      }
+
+# Automations
+# -----------
+# Declarative workflows that run on schedules or in response to events.
+automations:
+  - name: "daily-summary"
+    description: "Send a summary every weekday at 9:30"
+    enabled: true
+    trigger:
+      type: "schedule"
+      schedule:
+        mode: "cron"
+        arguments:
+          day_of_week: "mon-fri"
+          hour: "9"
+          minute: "30"
+    default_webhooks: ["default"]
+    actions:
+      - type: "http_request"
+        request:
+          method: "GET"
+          url: "https://api.example.com/summary"
+          save_as: "summary"
+      - type: "send_template"
+        template: "daily_summary"
+        context:
+          date: "${event_date}"
+        webhooks: ["default"]
+
+# Event Server
+# ------------
+# Optional FastAPI server that receives Feishu webhook events and feeds them
+# to automations and plugins for reactive behaviour.
+event_server:
+  enabled: false
+  host: "0.0.0.0"
+  port: 8000
+  path: "/feishu/events"
+  auto_start: true
+  verification_token: null
+  signature_secret: null

@@ -99,9 +99,7 @@ class ReminderPlugin(BasePlugin):
             self.logger.info(f"Reminder sent: {reminder['name']}")
 
         except Exception as e:
-            self.logger.error(
-                f"Failed to send reminder '{reminder['name']}': {e}", exc_info=True
-            )
+            self.logger.error(f"Failed to send reminder '{reminder['name']}': {e}", exc_info=True)
 
     def on_disable(self) -> None:
         """Called when plugin is disabled."""

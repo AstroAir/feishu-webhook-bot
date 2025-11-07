@@ -14,12 +14,11 @@ import base64
 import hashlib
 import hmac
 import time
-from datetime import datetime
 from typing import Any
 
 import httpx
 
-from .config import WebhookConfig
+from .config import RetryPolicyConfig, WebhookConfig
 from .logger import get_logger
 
 logger = get_logger("client")
@@ -64,7 +63,12 @@ class FeishuWebhookClient:
         ```
     """
 
-    def __init__(self, config: WebhookConfig, timeout: float = 10.0):
+    def __init__(
+        self,
+        config: WebhookConfig,
+        timeout: float | None = None,
+        retry: RetryPolicyConfig | None = None,
+    ):
         """Initialize the webhook client.
 
         Args:
@@ -72,8 +76,10 @@ class FeishuWebhookClient:
             timeout: Request timeout in seconds
         """
         self.config = config
-        self.timeout = timeout
-        self._client = httpx.Client(timeout=timeout)
+        self.timeout = timeout if timeout is not None else (config.timeout or 10.0)
+        self.retry_policy = retry or config.retry or RetryPolicyConfig()
+        self._default_headers = {**(config.headers or {})}
+        self._client = httpx.Client(timeout=self.timeout, headers=self._default_headers)
 
     def __enter__(self) -> FeishuWebhookClient:
         """Context manager entry."""
@@ -136,33 +142,63 @@ class FeishuWebhookClient:
             payload["timestamp"] = str(timestamp)
             payload["sign"] = sign
 
-        logger.debug(f"Sending message to webhook: {self.config.name}")
+        logger.debug("Sending message to webhook: %s", self.config.name)
 
-        try:
-            response = self._client.post(
-                self.config.url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-            )
-            response.raise_for_status()
+        attempt = 0
+        delay = self.retry_policy.backoff_seconds
+        headers = {"Content-Type": "application/json", **self._default_headers}
 
-            result = response.json()
+        while True:
+            attempt += 1
+            try:
+                response = self._client.post(
+                    self.config.url,
+                    json=payload,
+                    headers=headers,
+                )
+                response.raise_for_status()
 
-            # Check Feishu API response
-            if result.get("code") != 0:
-                error_msg = result.get("msg", "Unknown error")
-                logger.error(f"Feishu API error: {error_msg}")
-                raise ValueError(f"Feishu API error: {error_msg}")
+                result = response.json()
 
-            logger.info(f"Message sent successfully via webhook: {self.config.name}")
-            return result
+                # Check Feishu API response. Treat API-level errors (code != 0)
+                # as non-retriable: raise immediately so tests observing a
+                # non-zero code get the expected ValueError without retries.
+                if result.get("code") != 0:
+                    error_msg = result.get("msg", "Unknown error")
+                    raise ValueError(f"Feishu API error: {error_msg}")
 
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error sending message: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Error sending message: {e}")
-            raise
+                logger.info(
+                    "Message sent successfully via webhook '%s' (attempt %s)",
+                    self.config.name,
+                    attempt,
+                )
+                return result
+
+            except httpx.TransportError as exc:
+                # Only retry on transport/HTTP-level errors
+                if attempt >= self.retry_policy.max_attempts:
+                    logger.error(
+                        "Failed to send message via '%s' after %s attempts: %s",
+                        self.config.name,
+                        attempt,
+                        exc,
+                    )
+                    raise
+
+                sleep_for = min(delay, self.retry_policy.max_backoff_seconds)
+                logger.warning(
+                    "Send attempt %s/%s for webhook '%s' failed: %s. Retrying in %.2fs",
+                    attempt,
+                    self.retry_policy.max_attempts,
+                    self.config.name,
+                    exc,
+                    sleep_for,
+                )
+                time.sleep(sleep_for)
+                delay = max(
+                    delay * self.retry_policy.backoff_multiplier,
+                    self.retry_policy.backoff_seconds,
+                )
 
     def send_text(self, text: str) -> dict[str, Any]:
         """Send a simple text message.
@@ -410,9 +446,7 @@ class CardBuilder:
         Returns:
             Self for chaining
         """
-        self.card["elements"].append(
-            {"tag": "div", "text": {"tag": text_tag, "content": content}}
-        )
+        self.card["elements"].append({"tag": "div", "text": {"tag": text_tag, "content": content}})
         return self
 
     def add_divider(self) -> CardBuilder:
@@ -448,7 +482,12 @@ class CardBuilder:
         if url:
             button["url"] = url
 
-        self.card["elements"].append({"tag": "action", "actions": [button]})
+        # If last element is an action block, append button to it
+        if self.card["elements"] and self.card["elements"][-1].get("tag") == "action":
+            self.card["elements"][-1]["actions"].append(button)
+        else:
+            # Otherwise, create a new action block
+            self.card["elements"].append({"tag": "action", "actions": [button]})
         return self
 
     def add_image(self, img_key: str, alt: str = "") -> CardBuilder:

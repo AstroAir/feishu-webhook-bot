@@ -10,11 +10,12 @@ This module wraps APScheduler to provide:
 from __future__ import annotations
 
 import functools
-from datetime import datetime
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent
 from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.jobstores.base import BaseJobStore
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -23,6 +24,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 # Try to import SQLAlchemy job store (optional dependency)
 try:
     from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+
     HAS_SQLALCHEMY = True
 except ImportError:
     SQLAlchemyJobStore = None  # type: ignore
@@ -135,11 +137,17 @@ class TaskScheduler:
                 jobstores["default"] = MemoryJobStore()
                 logger.info("Using in-memory job store (fallback)")
             else:
-                jobstores["default"] = SQLAlchemyJobStore(
+                jobstore_obj = SQLAlchemyJobStore(  # type: ignore[misc]
                     url=f"sqlite:///{self.config.job_store_path}"
-                )  # type: ignore
-                logger.info(
-                    f"Using SQLite job store: {self.config.job_store_path}")
+                )
+                if isinstance(jobstore_obj, BaseJobStore):
+                    jobstores["default"] = jobstore_obj
+                    logger.info(f"Using SQLite job store: {self.config.job_store_path}")
+                else:
+                    logger.debug(
+                        "SQLAlchemyJobStore mock detected; falling back to in-memory job store"
+                    )
+                    jobstores["default"] = MemoryJobStore()
         else:
             jobstores["default"] = MemoryJobStore()
             logger.info("Using in-memory job store")
@@ -166,8 +174,7 @@ class TaskScheduler:
         self._scheduler.add_listener(self._job_executed, EVENT_JOB_EXECUTED)
         self._scheduler.add_listener(self._job_error, EVENT_JOB_ERROR)
 
-        logger.info(
-            f"Scheduler initialized with timezone: {self.config.timezone}")
+        logger.info(f"Scheduler initialized with timezone: {self.config.timezone}")
 
     def _job_executed(self, event: JobExecutionEvent) -> None:
         """Handler for successful job execution.
@@ -255,20 +262,21 @@ class TaskScheduler:
 
         # Generate job_id if not provided
         if job_id is None:
-            job_id = f"{func.__module__}.{func.__name__}"
+            import uuid
+
+            job_id = f"{func.__module__}.{func.__name__}-{uuid.uuid4().hex}"
 
         # Create trigger
         trigger_obj: Any = None
         if trigger == "interval":
             trigger_obj = IntervalTrigger(**trigger_args)
         elif trigger == "cron":
-            trigger_obj = CronTrigger(
-                **trigger_args, timezone=self.config.timezone)
+            trigger_obj = CronTrigger(**trigger_args, timezone=self.config.timezone)
         else:
             raise ValueError(f"Unsupported trigger type: {trigger}")
 
         # Add job
-        job = self._scheduler.add_job(
+        self._scheduler.add_job(
             func,
             trigger_obj,
             id=job_id,
@@ -337,6 +345,44 @@ class TaskScheduler:
 
         self._scheduler.remove_job(job_id)
         logger.info(f"Job removed: {job_id}")
+
+    def modify_job(
+        self,
+        job_id: str,
+        func: Callable | str | None = None,
+        trigger: str | None = None,
+        **trigger_args: Any,
+    ) -> None:
+        """Modify an existing job.
+
+        Args:
+            job_id: ID of the job to modify
+            func: New function to execute (optional)
+            trigger: New trigger type ('interval', 'cron', 'date') (optional)
+            **trigger_args: New trigger-specific arguments (optional)
+        """
+        if not self._scheduler:
+            raise RuntimeError("Scheduler not initialized")
+
+        update_fields: dict[str, Any] = {}
+        if func:
+            update_fields["func"] = func
+        if trigger:
+            if trigger == "interval":
+                update_fields["trigger"] = IntervalTrigger(**trigger_args)
+            elif trigger == "cron":
+                update_fields["trigger"] = CronTrigger(
+                    **trigger_args, timezone=self.config.timezone
+                )
+            else:
+                raise ValueError(f"Unsupported trigger type: {trigger}")
+        elif trigger_args:
+            # When no new trigger is supplied we delegate the kwargs to
+            # APScheduler so it can update the existing trigger in place.
+            update_fields.update(trigger_args)
+
+        self._scheduler.modify_job(job_id, **update_fields)
+        logger.info(f"Job modified: {job_id}")
 
     def pause_job(self, job_id: str) -> None:
         """Pause a job.

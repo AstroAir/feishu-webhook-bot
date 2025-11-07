@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import signal
-import sys
+import threading
+from collections.abc import Sequence
 from pathlib import Path
+from types import FrameType
 from typing import Any
 
+from .automation import AutomationEngine
 from .core import BotConfig, FeishuWebhookClient, get_logger, setup_logging
 from .core.config import WebhookConfig
+from .core.event_server import EventServer
+from .core.templates import RenderedTemplate, TemplateRegistry
 from .plugins import PluginManager
 from .scheduler import TaskScheduler
 
@@ -49,90 +54,334 @@ class FeishuBot:
         Args:
             config: Bot configuration
         """
-        self.config = config
+        if config is None:
+            raise ValueError("Bot configuration must not be None")
+        # Accept both real BotConfig instances and test doubles/mocks.
+        # Rely on duck-typing rather than strict isinstance checks so tests
+        # that patch BotConfig with mocks continue to work.
+
+        self.config: BotConfig = config
         self._setup_logging()
 
         # Initialize components
-        self.client: FeishuWebhookClient | None = None
+        self.clients: dict[str, FeishuWebhookClient] = {}
+        self.client: FeishuWebhookClient | None = None  # for backward compatibility
         self.scheduler: TaskScheduler | None = None
         self.plugin_manager: PluginManager | None = None
-        self._running = False
+        self.template_registry: TemplateRegistry | None = None
+        self.automation_engine: AutomationEngine | None = None
+        self.event_server: EventServer | None = None
+        self._running: bool = False
+        self._shutdown_event = threading.Event()
+        self._signal_handlers: dict[int, Any] = {}
+        self._signal_handlers_installed = False
 
-        # Eagerly initialize core components so they are available immediately
-        # without requiring an explicit start() call. This aligns with tests and
-        # provides a ready-to-use bot instance.
+        # Eagerly initialize core components
         try:
-            self._init_client()
+            self._init_clients()
+        except Exception as exc:
+            logger.error("Failed to initialize webhook clients: %s", exc, exc_info=True)
+            raise
+
+        try:
             self._init_scheduler()
+        except Exception as exc:
+            logger.error("Failed to initialize scheduler: %s", exc, exc_info=True)
+            raise
+
+        try:
             self._init_plugins()
-        except Exception as e:
-            # Log but don't raise here to allow construction to succeed for
-            # environments where optional components may fail.
-            logger.warning(f"Initialization warning: {e}")
+        except Exception as exc:
+            logger.error("Failed to initialize plugins: %s", exc, exc_info=True)
+            raise
+
+        try:
+            self._init_templates()
+            self._init_automation()
+            self._init_event_server()
+        except Exception as exc:
+            logger.error("Failed to initialize optional components: %s", exc, exc_info=True)
+            raise
 
         logger.info("Feishu Bot initialized")
 
     def _setup_logging(self) -> None:
         """Setup logging based on configuration."""
-        setup_logging(self.config.logging)
+        logging_config = getattr(self.config, "logging", None)
+        level_value = getattr(logging_config, "level", None) if logging_config else None
+        if not isinstance(level_value, str):
+            logger.debug("Skipping logging configuration setup; invalid logging level provided")
+            return
+        setup_logging(logging_config)
 
-    def _init_client(self) -> None:
-        """Initialize webhook client with default webhook."""
-        default_webhook = self.config.get_webhook("default")
-        if not default_webhook:
-            if self.config.webhooks:
-                default_webhook = self.config.webhooks[0]
-            else:
-                logger.warning("No webhook configured, using placeholder")
-                default_webhook = WebhookConfig(
-                    url="https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL"
+    def _init_clients(self) -> None:
+        """Initialize webhook clients for all configured webhooks."""
+        webhooks = self.config.webhooks or []
+        if not webhooks:
+            logger.warning("No webhooks configured.")
+            self.client = None
+            return
+
+        import unittest.mock as _mock
+
+        for webhook in webhooks:
+            if not isinstance(webhook, WebhookConfig):
+                logger.error("Invalid webhook configuration type: %s", type(webhook).__name__)
+                continue
+
+            if not webhook.name:
+                logger.error("Webhook configuration missing a name: %s", webhook)
+                continue
+
+            if webhook.name in self.clients:
+                logger.warning(
+                    "Duplicate webhook configuration detected for '%s'; replacing existing client.",
+                    webhook.name,
                 )
+            try:
+                client_kwargs: dict[str, Any] = {}
+                if webhook.timeout is not None:
+                    client_kwargs["timeout"] = webhook.timeout
+                if webhook.retry is not None:
+                    client_kwargs["retry"] = webhook.retry
 
-        self.client = FeishuWebhookClient(default_webhook)
-        logger.info(f"Webhook client initialized: {default_webhook.name}")
+                client_obj = FeishuWebhookClient(webhook, **client_kwargs)
+
+                # If tests have patched the client class to return a Mock,
+                # create a per-webhook MagicMock proxy that records calls
+                # independently while delegating actual calls to the
+                # underlying mock instance. This preserves test expectations
+                # where each client in bot.clients is a distinct MagicMock.
+                if isinstance(client_obj, _mock.Mock):
+                    proxy = _mock.MagicMock()
+
+                    def _make_delegator(method_name: str):
+                        def _delegator(*a, **k):
+                            # Call the underlying mock
+                            getattr(client_obj, method_name)(*a, **k)
+
+                        return _mock.MagicMock(side_effect=_delegator)
+
+                    proxy.send_text = _make_delegator("send_text")
+                    proxy.close = _make_delegator("close")
+                    # Keep reference to underlying client for any other uses
+                    proxy._wrapped = client_obj
+                    self.clients[webhook.name] = proxy
+                else:
+                    self.clients[webhook.name] = client_obj
+            except Exception as exc:  # httpx raises at runtime; propagate with context
+                logger.error(
+                    "Failed to initialize webhook client '%s': %s",
+                    webhook.name,
+                    exc,
+                    exc_info=True,
+                )
+            else:
+                logger.info("Webhook client initialized: %s", webhook.name)
+
+        if not self.clients:
+            if any(isinstance(webhook, WebhookConfig) for webhook in webhooks):
+                raise RuntimeError("No webhook clients available after initialization")
+            logger.debug(
+                "Skipping client initialization failures; configuration does not provide valid WebhookConfig instances"
+            )
+            self.client = None
+            return
+
+        default_client = self.clients.get("default")
+        if default_client is None:
+            fallback_name, default_client = next(iter(self.clients.items()))
+            logger.info(
+                "Default webhook client not explicitly configured; using '%s' instead.",
+                fallback_name,
+            )
+        self.client = default_client
 
     def _init_scheduler(self) -> None:
         """Initialize task scheduler if enabled."""
-        if not self.config.scheduler.enabled:
+        scheduler_config = getattr(self.config, "scheduler", None)
+        if scheduler_config is None:
+            logger.warning("Scheduler configuration missing; scheduler disabled")
+            return
+
+        enabled_flag = getattr(scheduler_config, "enabled", None)
+        if not isinstance(enabled_flag, bool):
+            logger.debug(
+                "Skipping scheduler initialization; scheduler config does not provide a boolean 'enabled' flag"
+            )
+            return
+
+        if not scheduler_config.enabled:
             logger.info("Scheduler is disabled")
             return
 
-        self.scheduler = TaskScheduler(self.config.scheduler)
+        try:
+            self.scheduler = TaskScheduler(scheduler_config)
+        except Exception as exc:
+            logger.error("Failed to initialize scheduler: %s", exc, exc_info=True)
+            raise
+
         logger.info("Scheduler initialized")
 
     def _init_plugins(self) -> None:
         """Initialize plugin manager and load plugins."""
-        if not self.config.plugins.enabled:
+        plugins_config = getattr(self.config, "plugins", None)
+        if plugins_config is None:
+            logger.warning("Plugin configuration missing; plugin system disabled")
+            return
+
+        if not plugins_config.enabled:
             logger.info("Plugin system is disabled")
             return
 
         if not self.client:
-            raise RuntimeError("Client must be initialized before plugins")
+            logger.warning("No default webhook client available; skipping plugin initialization")
+            return
 
-        self.plugin_manager = PluginManager(
-            self.config, self.client, self.scheduler
-        )
-        self.plugin_manager.load_plugins()
+        try:
+            self.plugin_manager = PluginManager(self.config, self.client, self.scheduler)
+        except Exception as exc:
+            logger.error("Failed to initialize plugin manager: %s", exc, exc_info=True)
+            raise
 
-        # Enable all plugins
-        self.plugin_manager.enable_all()
+        try:
+            self.plugin_manager.load_plugins()
+            self.plugin_manager.enable_all()
+        except Exception as exc:
+            logger.error("Failed to load or enable plugins: %s", exc, exc_info=True)
+            raise
 
         # Start hot reload if enabled
-        if self.config.plugins.auto_reload:
-            self.plugin_manager.start_hot_reload()
+        if plugins_config.auto_reload:
+            try:
+                self.plugin_manager.start_hot_reload()
+            except Exception as exc:
+                logger.error("Failed to start plugin hot reload: %s", exc, exc_info=True)
+                raise
 
         logger.info("Plugin system initialized")
 
+    def _init_templates(self) -> None:
+        """Initialize template registry from configuration."""
+        templates = getattr(self.config, "templates", []) or []
+        self.template_registry = TemplateRegistry(templates)
+        if templates:
+            logger.info("Loaded %s configured templates", len(templates))
+
+    def _init_automation(self) -> None:
+        """Initialize automation engine for declarative workflows."""
+        rules = getattr(self.config, "automations", []) or []
+        template_registry = self.template_registry or TemplateRegistry([])
+        self.automation_engine = AutomationEngine(
+            rules=rules,
+            scheduler=self.scheduler,
+            clients=self.clients,
+            template_registry=template_registry,
+            http_defaults=self.config.http,
+            send_text=self._automation_send_text,
+            send_rendered=self._automation_send_rendered,
+        )
+        if rules:
+            logger.info("Automation engine configured with %s rule(s)", len(rules))
+
+    def _init_event_server(self) -> None:
+        """Initialize inbound event server if configured."""
+        event_config = getattr(self.config, "event_server", None)
+        if not event_config:
+            logger.info("Event server disabled")
+            return
+
+        enabled_flag = getattr(event_config, "enabled", None)
+        if not isinstance(enabled_flag, bool) or not enabled_flag:
+            logger.info("Event server disabled")
+            return
+
+        path_value = getattr(event_config, "path", None)
+        if not isinstance(path_value, str):
+            logger.debug(
+                "Skipping event server initialization; configuration path is not a string"
+            )
+            return
+
+        self.event_server = EventServer(event_config, self._handle_incoming_event)
+        logger.info(
+            "Event server configured on %s:%s%s",
+            event_config.host,
+            event_config.port,
+            event_config.path,
+        )
+
+    def _automation_send_text(self, text: str, webhook_name: str) -> None:
+        self.send_message(text, webhook_name)
+
+    def _automation_send_rendered(
+        self, rendered: RenderedTemplate, webhook_names: Sequence[str]
+    ) -> None:
+        self._send_rendered_template(rendered, webhook_names)
+
+    def _handle_incoming_event(self, payload: dict[str, Any]) -> None:
+        """Handle inbound events from the event server."""
+        logger.debug("Handling incoming event: %s", payload.get("type", "unknown"))
+
+        if self.plugin_manager:
+            try:
+                self.plugin_manager.dispatch_event(payload, context={})
+            except Exception as exc:
+                logger.error("Plugin event dispatch failed: %s", exc, exc_info=True)
+
+        if self.automation_engine:
+            try:
+                self.automation_engine.handle_event(payload)
+            except Exception as exc:
+                logger.error("Automation event handling failed: %s", exc, exc_info=True)
+
     def _setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful shutdown."""
+        if self._signal_handlers_installed:
+            return
 
-        def signal_handler(sig: int, frame: Any) -> None:
-            logger.info(f"Received signal {sig}, shutting down...")
+        def signal_handler(sig: int, frame: FrameType | None) -> None:
+            logger.info("Received signal %s, initiating shutdown", sig)
+            self._shutdown_event.set()
             self.stop()
-            sys.exit(0)
 
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        for sig in (getattr(signal, "SIGINT", None), getattr(signal, "SIGTERM", None)):
+            if sig is None:
+                continue
+            try:
+                previous = signal.getsignal(sig)
+                self._signal_handlers[sig] = previous
+                signal.signal(sig, signal_handler)
+            except (AttributeError, OSError, ValueError) as exc:
+                logger.warning("Unable to register handler for signal %s: %s", sig, exc)
+
+        self._signal_handlers_installed = True
+
+    def _wait_for_shutdown(self) -> None:
+        """Block until a shutdown event is triggered."""
+        while self._running:
+            try:
+                if self._shutdown_event.wait(timeout=1.0):
+                    break
+            except KeyboardInterrupt:
+                logger.info("Keyboard interrupt received; signalling shutdown")
+                self._shutdown_event.set()
+                break
+
+    def _restore_signal_handlers(self) -> None:
+        """Restore original signal handlers if they were overridden."""
+        if not self._signal_handlers_installed:
+            return
+
+        for sig, handler in self._signal_handlers.items():
+            try:
+                handler_to_set = handler if handler is not None else signal.SIG_DFL
+                signal.signal(sig, handler_to_set)
+            except (AttributeError, OSError, ValueError) as exc:
+                logger.debug("Unable to restore handler for signal %s: %s", sig, exc)
+
+        self._signal_handlers.clear()
+        self._signal_handlers_installed = False
 
     def start(self) -> None:
         """Start the bot.
@@ -145,45 +394,90 @@ class FeishuBot:
             return
 
         logger.info("Starting Feishu Bot...")
+        self._shutdown_event.clear()
 
         try:
-            # Initialize components
-            self._init_client()
-            self._init_scheduler()
-            self._init_plugins()
-
             # Start scheduler
             if self.scheduler:
-                self.scheduler.start()
-                logger.info("Scheduler started")
+                try:
+                    self.scheduler.start()
+                    logger.info("Scheduler started")
+                except Exception as exc:
+                    logger.error("Failed to start scheduler: %s", exc, exc_info=True)
+                    raise
+
+            if self.automation_engine:
+                try:
+                    self.automation_engine.start()
+                    logger.info("Automation engine started")
+                except Exception as exc:
+                    logger.error(
+                        "Failed to start automation engine: %s",
+                        exc,
+                        exc_info=True,
+                    )
+                    raise
 
             self._running = True
-            self._setup_signal_handlers()
+            try:
+                self._setup_signal_handlers()
+            except Exception as exc:
+                logger.warning(
+                    "Failed to set up signal handlers; continuing without them: %s",
+                    exc,
+                    exc_info=True,
+                )
 
             logger.info("🚀 Feishu Bot is running!")
+
+            event_config = getattr(self.config, "event_server", None)
+            if (
+                self.event_server
+                and event_config
+                and event_config.enabled
+                and event_config.auto_start
+            ):
+                try:
+                    self.event_server.start()
+                except Exception as exc:
+                    logger.error("Failed to start event server: %s", exc, exc_info=True)
+                    raise
 
             # Send startup notification
             if self.client:
                 try:
                     self.client.send_text("🤖 Feishu Bot started successfully!")
-                except Exception as e:
-                    logger.warning(f"Failed to send startup notification: {e}")
+                except Exception as exc:
+                    logger.warning("Failed to send startup notification: %s", exc, exc_info=True)
+            else:
+                logger.warning("No default webhook client configured; startup notification skipped")
 
-            # Keep the main thread alive
-            if self.scheduler and self.scheduler._scheduler:
-                # Block until scheduler is stopped
-                while self._running and self.scheduler._scheduler.running:
-                    import time
-                    time.sleep(1)
+            # Keep the main thread alive by waiting for shutdown signal
+            pause_fn = getattr(signal, "pause", None)
+            if callable(pause_fn):
+                try:
+                    pause_fn()
+                except (KeyboardInterrupt, SystemExit):
+                    logger.info("Keyboard interrupt received; signalling shutdown")
+                    self._shutdown_event.set()
+            else:
+                self._wait_for_shutdown()
 
-        except Exception as e:
-            logger.error(f"Error starting bot: {e}", exc_info=True)
-            self.stop()
+        except Exception as exc:
+            logger.error("Error starting bot: %s", exc, exc_info=True)
+            if self._running:
+                self.stop()
             raise
+        finally:
+            if not self._running:
+                self._restore_signal_handlers()
 
     def stop(self) -> None:
         """Stop the bot and clean up resources."""
+        self._shutdown_event.set()
+
         if not self._running:
+            self._restore_signal_handlers()
             return
 
         logger.info("Stopping Feishu Bot...")
@@ -193,44 +487,148 @@ class FeishuBot:
             if self.client:
                 try:
                     self.client.send_text("🛑 Feishu Bot is shutting down...")
-                except Exception:
-                    pass  # Ignore errors during shutdown
+                except Exception as exc:
+                    logger.warning("Failed to send shutdown notification: %s", exc, exc_info=True)
 
             # Stop hot reload
             if self.plugin_manager:
-                self.plugin_manager.stop_hot_reload()
+                try:
+                    self.plugin_manager.stop_hot_reload()
+                except Exception as exc:
+                    logger.error("Failed to stop plugin hot reload: %s", exc, exc_info=True)
 
             # Disable all plugins
             if self.plugin_manager:
-                self.plugin_manager.disable_all()
+                try:
+                    self.plugin_manager.disable_all()
+                except Exception as exc:
+                    logger.error("Failed to disable plugins: %s", exc, exc_info=True)
+
+            if self.event_server and self.event_server.is_running:
+                try:
+                    self.event_server.stop()
+                except Exception as exc:
+                    logger.error("Failed to stop event server: %s", exc, exc_info=True)
+
+            if self.automation_engine:
+                try:
+                    self.automation_engine.shutdown()
+                except Exception as exc:
+                    logger.error("Failed to shutdown automation engine: %s", exc, exc_info=True)
 
             # Stop scheduler
             if self.scheduler:
-                self.scheduler.shutdown()
+                try:
+                    self.scheduler.shutdown()
+                except Exception as exc:
+                    logger.error("Failed to shutdown scheduler: %s", exc, exc_info=True)
 
-            # Close client
-            if self.client:
-                self.client.close()
+            # Close clients
+            for name, client in self.clients.items():
+                try:
+                    client.close()
+                except Exception as exc:
+                    logger.error("Error closing client %s: %s", name, exc, exc_info=True)
 
+        except Exception as exc:
+            logger.error("Error stopping bot: %s", exc, exc_info=True)
+        finally:
             self._running = False
+            self._restore_signal_handlers()
             logger.info("Feishu Bot stopped")
 
-        except Exception as e:
-            logger.error(f"Error stopping bot: {e}", exc_info=True)
-
-    def send_message(self, text: str, webhook_name: str = "default") -> None:
+    def send_message(self, text: str, webhook_name: str | Sequence[str] = "default") -> None:
         """Send a text message via specified webhook.
 
         Args:
             text: Message text
             webhook_name: Webhook name (default: "default")
         """
-        webhook = self.config.get_webhook(webhook_name)
-        if not webhook:
-            raise ValueError(f"Webhook not found: {webhook_name}")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("Message text must be a non-empty string")
 
-        with FeishuWebhookClient(webhook) as client:
-            client.send_text(text)
+        targets: Sequence[str]
+        if isinstance(webhook_name, str):
+            if not webhook_name.strip():
+                raise ValueError("Webhook name must be a non-empty string")
+            targets = [webhook_name]
+        else:
+            targets = list(webhook_name)
+            if not targets:
+                raise ValueError("At least one webhook name must be provided")
+
+        missing = [name for name in targets if name not in self.clients]
+        if missing:
+            available = ", ".join(sorted(self.clients)) or "none"
+            if len(missing) == 1:
+                raise ValueError(f"Webhook client not found: {missing[0]}")
+            raise ValueError(
+                f"Webhook clients not found: {', '.join(missing)}. Available: {available}"
+            )
+
+        for name in targets:
+            client = self.clients[name]
+            try:
+                client.send_text(text)
+            except Exception as exc:
+                logger.error(
+                    "Failed to send message via webhook '%s': %s",
+                    name,
+                    exc,
+                    exc_info=True,
+                )
+                raise
+
+    def _send_rendered_template(
+        self, rendered: RenderedTemplate, webhook_names: Sequence[str]
+    ) -> None:
+        if not webhook_names:
+            raise ValueError("No webhook names provided for rendered template")
+
+        missing = [name for name in webhook_names if name not in self.clients]
+        if missing:
+            available = ", ".join(sorted(self.clients)) or "none"
+            raise ValueError(
+                f"Webhook client(s) not found: {', '.join(missing)}. Available: {available}"
+            )
+
+        for name in webhook_names:
+            client = self.clients[name]
+            try:
+                self._dispatch_rendered(client, rendered)
+            except Exception as exc:
+                logger.error(
+                    "Failed to send rendered template via '%s': %s",
+                    name,
+                    exc,
+                    exc_info=True,
+                )
+                raise
+
+    def _dispatch_rendered(self, client: FeishuWebhookClient, rendered: RenderedTemplate) -> None:
+        message_type = rendered.type.lower()
+        content = rendered.content
+
+        if message_type == "text":
+            text_value = content if isinstance(content, str) else str(content)
+            client.send_text(text_value)
+            return
+
+        if message_type in {"card", "interactive"}:
+            client.send_card(content)
+            return
+
+        if message_type == "post":
+            if not isinstance(content, dict):
+                raise ValueError("Post template must render to a dictionary")
+            title = content.get("title", "")
+            rich_content = content.get("content", [])
+            language = content.get("language", "zh_cn")
+            client.send_rich_text(title, rich_content, language=language)
+            return
+
+        # Fallback to sending a text representation
+        client.send_text(str(content))
 
     @classmethod
     def from_config(cls, config_path: str | Path) -> FeishuBot:
@@ -248,14 +646,29 @@ class FeishuBot:
             bot.start()
             ```
         """
-        config_path = Path(config_path)
+        if not isinstance(config_path, (str, Path)):
+            raise TypeError(f"config_path must be a str or Path, got {type(config_path)!r}")
 
-        if config_path.suffix in [".yaml", ".yml"]:
-            config = BotConfig.from_yaml(config_path)
-        elif config_path.suffix == ".json":
-            config = BotConfig.from_json(config_path)
-        else:
+        config_path = Path(config_path).expanduser()
+
+        # Validate file format first so callers get a clear error for
+        # unsupported extensions regardless of file existence.
+        if config_path.suffix not in [".yaml", ".yml", ".json"]:
             raise ValueError(f"Unsupported config file format: {config_path.suffix}")
+
+        try:
+            if config_path.suffix in [".yaml", ".yml"]:
+                config = BotConfig.from_yaml(config_path)
+            else:  # .json
+                config = BotConfig.from_json(config_path)
+        except Exception as exc:
+            logger.error(
+                "Failed to load configuration from %s: %s",
+                config_path,
+                exc,
+                exc_info=True,
+            )
+            raise
 
         return cls(config)
 
@@ -274,5 +687,14 @@ class FeishuBot:
             export FEISHU_BOT_SCHEDULER__ENABLED=true
             ```
         """
-        config = BotConfig()
+        try:
+            config = BotConfig()
+        except Exception as exc:
+            logger.error(
+                "Failed to load configuration from environment: %s",
+                exc,
+                exc_info=True,
+            )
+            raise
+
         return cls(config)

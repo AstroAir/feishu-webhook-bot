@@ -14,7 +14,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from ..core.client import FeishuWebhookClient
-from ..core.config import BotConfig, PluginConfig
+from ..core.config import BotConfig
 from ..core.logger import get_logger
 from .base import BasePlugin
 
@@ -46,7 +46,7 @@ class PluginFileHandler(FileSystemEventHandler):
             return
 
         # Only watch Python files
-        if not event.src_path.endswith(".py"):
+        if not str(event.src_path).endswith(".py"):
             return
 
         current_time = time.time()
@@ -57,6 +57,25 @@ class PluginFileHandler(FileSystemEventHandler):
         logger.info(f"Plugin file changed: {event.src_path}")
 
         # Reload plugins after delay
+        self.manager.reload_plugins()
+
+    def on_created(self, event: FileSystemEvent) -> None:
+        """Handle file creation events."""
+        if event.is_directory or not str(event.src_path).endswith(".py"):
+            return
+        current_time = time.time()
+        # Debounce creation events to avoid duplicate reloads (create -> mod)
+        if current_time - self._last_event_time < self.delay:
+            return
+        self._last_event_time = current_time
+        logger.info(f"New plugin file detected: {event.src_path}")
+        self.manager.reload_plugins()
+
+    def on_deleted(self, event: FileSystemEvent) -> None:
+        """Handle file deletion events."""
+        if event.is_directory or not str(event.src_path).endswith(".py"):
+            return
+        logger.info(f"Plugin file deleted: {event.src_path}")
         self.manager.reload_plugins()
 
 
@@ -136,23 +155,28 @@ class PluginManager:
             # Generate module name
             module_name = f"feishu_bot_plugin_{file_path.stem}"
 
-            # If module already loaded, reload it
+            # If module already loaded, try to reload it. If the existing
+            # module has no spec (can happen for modules loaded from a
+            # previous dynamic import), remove it and load fresh.
             if module_name in sys.modules:
-                module = importlib.reload(sys.modules[module_name])
-            else:
-                # Load module from file
-                spec = importlib.util.spec_from_file_location(module_name, file_path)
-                if spec is None or spec.loader is None:
-                    logger.error(f"Failed to load spec for plugin: {file_path}")
-                    return None
+                # Always drop the previous module to avoid reload issues when
+                # specs are missing (common with dynamically loaded modules
+                # under test environments).
+                del sys.modules[module_name]
 
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
+            # Load module from file
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
+            if spec is None or spec.loader is None:
+                logger.error(f"Failed to load spec for plugin: {file_path}")
+                return None
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
 
             # Find plugin class (subclass of BasePlugin)
             plugin_class = None
-            for name, obj in inspect.getmembers(module, inspect.isclass):
+            for _name, obj in inspect.getmembers(module, inspect.isclass):
                 if (
                     issubclass(obj, BasePlugin)
                     and obj is not BasePlugin
@@ -233,7 +257,6 @@ class PluginManager:
         try:
             # Patch register_job to actually register with scheduler
             if self.scheduler:
-                original_register = plugin.register_job
 
                 def patched_register(
                     func: Any,
@@ -250,6 +273,20 @@ class PluginManager:
                     return actual_job_id
 
                 plugin.register_job = patched_register  # type: ignore
+                # Patch cleanup to remove jobs from the scheduler when the
+                # plugin is disabled.
+                def patched_cleanup() -> None:
+                    try:
+                        for jid in list(plugin._job_ids):
+                            try:
+                                self.scheduler.remove_job(jid)
+                            except Exception:
+                                logger.exception("Failed to remove job %s", jid)
+                        plugin._job_ids.clear()
+                    except Exception as e:
+                        logger.error("Error during plugin cleanup: %s", e)
+
+                plugin.cleanup_jobs = patched_cleanup  # type: ignore
 
             plugin.on_enable()
             logger.info(f"Plugin enabled: {name}")
@@ -274,14 +311,6 @@ class PluginManager:
             return False
 
         try:
-            # Remove all jobs registered by this plugin
-            if self.scheduler:
-                for job_id in plugin._job_ids:
-                    try:
-                        self.scheduler.remove_job(job_id)
-                    except Exception as e:
-                        logger.warning(f"Error removing job {job_id}: {e}")
-
             plugin.on_disable()
             plugin.cleanup_jobs()
             logger.info(f"Plugin disabled: {name}")
@@ -332,9 +361,10 @@ class PluginManager:
             return
 
         event_handler = PluginFileHandler(self, delay=self.config.plugins.reload_delay)
-        self._observer = Observer()
-        self._observer.schedule(event_handler, str(plugin_dir), recursive=False)
-        self._observer.start()
+        observer = Observer()
+        observer.schedule(event_handler, str(plugin_dir), recursive=False)
+        observer.start()
+        self._observer = observer
 
         logger.info(f"Hot reload enabled for: {plugin_dir}")
 
@@ -345,3 +375,21 @@ class PluginManager:
             self._observer.join()
             self._observer = None
             logger.info("Hot reload stopped")
+
+    def dispatch_event(self, event: dict[str, Any], context: dict[str, Any] | None = None) -> None:
+        """Forward an inbound event to all loaded plugins."""
+
+        for plugin in self.plugins.values():
+            handler = getattr(plugin, "handle_event", None)
+            if not handler:
+                continue
+            try:
+                handler(event, context or {})
+            except Exception as exc:
+                metadata = plugin.metadata()
+                logger.error(
+                    "Plugin '%s' failed to handle event: %s",
+                    metadata.name,
+                    exc,
+                    exc_info=True,
+                )

@@ -4,8 +4,9 @@ This plugin monitors system status and sends alerts periodically.
 """
 
 import platform
-import psutil
 from datetime import datetime
+
+import psutil
 
 from feishu_webhook_bot.core.client import CardBuilder
 from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata

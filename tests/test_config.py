@@ -1,104 +1,123 @@
 """Tests for configuration module."""
 
-import tempfile
-from pathlib import Path
+import json
 
 import pytest
 import yaml
+from pydantic import ValidationError
+
 from feishu_webhook_bot.core import BotConfig, WebhookConfig
-from feishu_webhook_bot.core.config import LoggingConfig, PluginConfig, SchedulerConfig
+from feishu_webhook_bot.core.config import (
+    PluginConfig,
+    SchedulerConfig,
+)
 
 
-def test_webhook_config():
-    """Test webhook configuration."""
-    config = WebhookConfig(
-        url="https://example.com/webhook", secret="test-secret", name="test"
-    )
+class TestConfigModels:
+    """Tests for individual Pydantic config models and their validation."""
 
-    assert config.url == "https://example.com/webhook"
-    assert config.secret == "test-secret"
-    assert config.name == "test"
+    def test_webhook_config_validation(self):
+        """Test validation rules within WebhookConfig."""
+        with pytest.raises(ValidationError, match="URL cannot be empty"):
+            WebhookConfig(url="", name="test")
+        with pytest.raises(ValidationError, match="URL must start with http"):
+            WebhookConfig(url="example.com", name="test")
 
+    def test_scheduler_config_validation(self):
+        """Test validation rules within SchedulerConfig."""
+        with pytest.raises(ValidationError, match="job_store_type must be"):
+            SchedulerConfig(job_store_type="invalid")
 
-def test_scheduler_config():
-    """Test scheduler configuration."""
-    config = SchedulerConfig(
-        enabled=True, timezone="Asia/Shanghai", job_store_type="memory"
-    )
-
-    assert config.enabled is True
-    assert config.timezone == "Asia/Shanghai"
-    assert config.job_store_type == "memory"
-
-
-def test_plugin_config():
-    """Test plugin configuration."""
-    config = PluginConfig(
-        enabled=True, plugin_dir="plugins", auto_reload=True, reload_delay=1.0
-    )
-
-    assert config.enabled is True
-    assert config.plugin_dir == "plugins"
-    assert config.auto_reload is True
-    assert config.reload_delay == 1.0
+    def test_plugin_config_validation(self):
+        """Test validation rules within PluginConfig."""
+        with pytest.raises(ValidationError, match="reload_delay must be positive"):
+            PluginConfig(reload_delay=0)
+        with pytest.raises(ValidationError, match="reload_delay must be positive"):
+            PluginConfig(reload_delay=-1.0)
 
 
-def test_logging_config():
-    """Test logging configuration."""
-    config = LoggingConfig(level="INFO", log_file="logs/bot.log")
+class TestBotConfig:
+    """Tests for the main BotConfig class and its functionality."""
 
-    assert config.level == "INFO"
-    assert config.log_file == "logs/bot.log"
-
-
-def test_bot_config_default():
-    """Test bot config with defaults."""
-    config = BotConfig()
-
-    assert len(config.webhooks) == 1
-    assert config.scheduler.enabled is True
-    assert config.plugins.enabled is True
-    assert config.logging.level == "INFO"
-
-
-def test_bot_config_from_yaml():
-    """Test loading bot config from YAML."""
-    config_data = {
-        "webhooks": [
-            {"url": "https://example.com/webhook", "name": "test", "secret": None}
-        ],
-        "scheduler": {"enabled": True, "timezone": "UTC"},
-        "plugins": {"enabled": True, "plugin_dir": "plugins"},
-        "logging": {"level": "DEBUG"},
-    }
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config_data, f)
-        temp_path = f.name
-
-    try:
-        config = BotConfig.from_yaml(temp_path)
-
+    def test_bot_config_defaults(self):
+        """Test that BotConfig initializes with sensible defaults."""
+        config = BotConfig()
         assert len(config.webhooks) == 1
-        assert config.webhooks[0].url == "https://example.com/webhook"
-        assert config.scheduler.timezone == "UTC"
+        assert config.scheduler.enabled is True
+        assert config.plugins.enabled is True
+        assert config.logging.level == "INFO"
+        assert config.general.name == "Feishu Bot"
+
+    def test_get_webhook(self):
+        """Test the get_webhook helper method."""
+        config = BotConfig(
+            webhooks=[
+                WebhookConfig(url="https://a.com", name="first"),
+                WebhookConfig(url="https://b.com", name="second"),
+            ]
+        )
+        assert config.get_webhook("first").url == "https://a.com"
+        assert config.get_webhook("second").url == "https://b.com"
+        assert config.get_webhook("nonexistent") is None
+
+    def test_from_yaml(self, tmp_path):
+        """Test loading configuration from a YAML file."""
+        config_path = tmp_path / "config.yaml"
+        config_data = {
+            "logging": {"level": "DEBUG"},
+            "general": {"name": "My YAML Bot"},
+        }
+        config_path.write_text(yaml.dump(config_data))
+
+        config = BotConfig.from_yaml(config_path)
         assert config.logging.level == "DEBUG"
-    finally:
-        Path(temp_path).unlink()
+        assert config.general.name == "My YAML Bot"
 
+    def test_from_json(self, tmp_path):
+        """Test loading configuration from a JSON file."""
+        config_path = tmp_path / "config.json"
+        config_data = {
+            "logging": {"level": "WARNING"},
+            "general": {"name": "My JSON Bot"},
+        }
+        config_path.write_text(json.dumps(config_data))
 
-def test_bot_config_get_webhook():
-    """Test getting webhook by name."""
-    config = BotConfig(
-        webhooks=[
-            WebhookConfig(url="https://example.com/1", name="first"),
-            WebhookConfig(url="https://example.com/2", name="second"),
-        ]
-    )
+        config = BotConfig.from_json(config_path)
+        assert config.logging.level == "WARNING"
+        assert config.general.name == "My JSON Bot"
 
-    webhook = config.get_webhook("first")
-    assert webhook is not None
-    assert webhook.url == "https://example.com/1"
+    def test_from_env(self, monkeypatch):
+        """Test loading and overriding configuration from environment variables."""
+        monkeypatch.setenv("FEISHU_BOT_LOGGING__LEVEL", "CRITICAL")
+        monkeypatch.setenv("FEISHU_BOT_SCHEDULER__ENABLED", "false")
+        monkeypatch.setenv("FEISHU_BOT_WEBHOOKS__0__URL", "https://env.example.com")
+        monkeypatch.setenv("FEISHU_BOT_WEBHOOKS__0__NAME", "env-webhook")
 
-    webhook = config.get_webhook("nonexistent")
-    assert webhook is None
+        # Pydantic-settings reads env vars on initialization
+        config = BotConfig()
+
+        assert config.logging.level == "CRITICAL"
+        assert config.scheduler.enabled is False
+        assert len(config.webhooks) == 1
+        assert config.webhooks[0].url == "https://env.example.com"
+        assert config.webhooks[0].name == "env-webhook"
+
+    def test_loading_error_handling(self, tmp_path):
+        """Test error handling for file loading methods."""
+        # File not found
+        with pytest.raises(FileNotFoundError):
+            BotConfig.from_yaml("nonexistent.yaml")
+        with pytest.raises(FileNotFoundError):
+            BotConfig.from_json("nonexistent.json")
+
+        # Invalid YAML syntax
+        invalid_yaml = tmp_path / "invalid.yaml"
+        invalid_yaml.write_text("key: value: nested_value")
+        with pytest.raises(ValueError, match="Invalid YAML"):
+            BotConfig.from_yaml(invalid_yaml)
+
+        # Invalid JSON syntax
+        invalid_json = tmp_path / "invalid.json"
+        invalid_json.write_text('{"key": "value",}')  # trailing comma
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            BotConfig.from_json(invalid_json)

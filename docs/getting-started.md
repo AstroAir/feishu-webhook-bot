@@ -15,11 +15,13 @@ This guide will help you get started with the Feishu Webhook Bot framework.
 uv is a fast Python package installer and resolver.
 
 **Windows (PowerShell):**
+
 ```powershell
 irm https://astral.sh/uv/install.ps1 | iex
 ```
 
 **macOS/Linux:**
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
@@ -97,7 +99,93 @@ plugins:
 logging:
   level: "INFO"
   log_file: "logs/bot.log"
+
+http:
+  timeout: 10.0
+  retry:
+    max_attempts: 3
+    backoff_seconds: 1.0
+    backoff_multiplier: 2.0
+    max_backoff_seconds: 30.0
+
+templates: []
+automations: []
+event_server:
+  enabled: false
+  host: "0.0.0.0"
+  port: 8000
+  path: "/feishu/events"
 ```
+
+All configuration values support environment-variable expansion. For example, you
+can keep secrets out of version control by setting:
+
+```powershell
+$env:FEISHU_WEBHOOK_SECRET = "super-secret"
+```
+
+and referencing `${FEISHU_WEBHOOK_SECRET}` in `config.yaml`.
+
+### Declarative Automations
+
+You can define scheduled or event-driven workflows without writing Python code.
+
+```yaml
+automations:
+  - name: "daily-summary"
+    trigger:
+      type: "schedule"
+      schedule:
+        mode: "cron"
+        arguments: { day_of_week: "mon-fri", hour: "9", minute: "30" }
+    actions:
+      - type: "send_text"
+        text: "Good morning! Here is your daily summary."
+```
+
+Automation actions support `send_text`, `send_template`, and `http_request`. Use
+`http_request` to call external APIs and stash the JSON response for the next
+action in the chain.
+
+### Message Templates
+
+Define templates once and reuse them in automations or plugins:
+
+```yaml
+templates:
+  - name: "simple-card"
+    type: "card"
+    content: |
+      { "header": { "title": { "tag": "plain_text", "content": "${title}" } },
+        "elements": [ { "tag": "markdown", "content": "${body}" } ] }
+```
+
+Render the template from an automation:
+
+```yaml
+actions:
+  - type: "send_template"
+    template: "simple-card"
+    context:
+      title: "Morning Update"
+      body: "All systems operational."
+```
+
+### Webhook Event Server
+
+Set `event_server.enabled: true` to spin up a FastAPI listener that accepts
+Feishu events and routes them to automations and plugins:
+
+```yaml
+event_server:
+  enabled: true
+  verification_token: "${FEISHU_EVENT_TOKEN}"
+  signature_secret: "${FEISHU_EVENT_SECRET}"
+```
+
+Point your Feishu app's event webhook to `http://host:port/path`. Use the
+`Plugin.handle_event` hook or automation event triggers to react without
+polling.
 
 ### Create Plugin Directory
 
@@ -115,7 +203,7 @@ feishu-webhook-bot start --config config.yaml
 
 You should see output like:
 
-```
+```text
 2024-01-01 10:00:00 - setup - INFO - Logging configured: level=INFO
 2024-01-01 10:00:00 - bot - INFO - Feishu Bot initialized
 2024-01-01 10:00:00 - client - INFO - Webhook client initialized: default
@@ -184,7 +272,7 @@ With hot-reload enabled, the plugin will be loaded automatically when you save t
 
 You should see:
 
-```
+```text
 INFO - Plugin loaded: hello-world
 INFO - Plugin enabled: hello-world
 INFO - Scheduled jobs: hello_world.send_hello
@@ -224,7 +312,8 @@ Sends customizable reminders throughout the day - located at `plugins/reminder.p
 
 1. **Persistent job storage**: Switch to SQLite job store for persistence
 2. **Environment variables**: Use environment variables for sensitive config
-3. **Multiple bots**: Run multiple bot instances with different configs
+3. **Declarative automations**: Link multiple actions (API calls + messages) using the new `automations` section
+4. **Multiple bots**: Run multiple bot instances with different configs
 
 ## Troubleshooting
 
@@ -238,7 +327,8 @@ Sends customizable reminders throughout the day - located at `plugins/reminder.p
 
 **Problem:** Plugin file exists but doesn't load
 
-**Solution:** 
+**Solution:**
+
 - Check that filename doesn't start with underscore
 - Verify class inherits from `BasePlugin`
 - Check logs for error messages
@@ -248,6 +338,7 @@ Sends customizable reminders throughout the day - located at `plugins/reminder.p
 **Problem:** No messages appear in Feishu group
 
 **Solution:**
+
 - Verify webhook URL is correct
 - Check if bot is still in the group
 - Look for error messages in logs
@@ -258,6 +349,7 @@ Sends customizable reminders throughout the day - located at `plugins/reminder.p
 **Problem:** Plugin changes don't take effect
 
 **Solution:**
+
 - Ensure `auto_reload: true` in config.yaml
 - Check that `plugin_dir` path is correct
 - Verify watchdog is installed: `uv pip list | grep watchdog`
@@ -275,28 +367,3 @@ Sends customizable reminders throughout the day - located at `plugins/reminder.p
 - Check out [Contributing Guidelines](../CONTRIBUTING.md)
 
 Happy bot building! 🚀
-
-This project uses [uv](https://docs.astral.sh/uv/) for Python and dependency management.
-
-## Prerequisites
-
-- Python 3.12 or newer
-- uv installed
-
-## Install dependencies
-
-```powershell
-uv sync --all-groups
-```
-
-## Run the CLI
-
-```powershell
-uv run feishu-webhook-bot --name Alice
-```
-
-## Run tests
-
-```powershell
-uv run pytest -q
-```

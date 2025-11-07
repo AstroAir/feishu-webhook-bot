@@ -89,7 +89,7 @@ class BasePlugin(ABC):
         This is called during plugin discovery and loading.
         Use this for initialization that doesn't require the bot to be running.
         """
-        pass
+        self.logger.debug("on_load called for %s", self.__class__.__name__)
 
     def on_enable(self) -> None:
         """Called when plugin is enabled.
@@ -97,21 +97,21 @@ class BasePlugin(ABC):
         This is called after the bot starts and the plugin is ready to use.
         Use this to register scheduled jobs, set up resources, etc.
         """
-        pass
+        self.logger.debug("on_enable default no-op for %s", self.__class__.__name__)
 
     def on_disable(self) -> None:
         """Called when plugin is disabled or bot is shutting down.
 
         Use this to clean up resources, save state, etc.
         """
-        pass
+        self.logger.debug("on_disable default no-op for %s", self.__class__.__name__)
 
     def on_unload(self) -> None:
         """Called when plugin is unloaded (before hot reload).
 
         Use this for cleanup before the plugin is reloaded.
         """
-        pass
+        self.logger.debug("on_unload default no-op for %s", self.__class__.__name__)
 
     def register_job(
         self,
@@ -160,3 +160,12 @@ class BasePlugin(ABC):
         """
         # Plugins can store config in config file under plugins section
         return default
+
+    def handle_event(self, event: dict[str, Any], context: dict[str, Any] | None = None) -> None:
+        """Handle an inbound Feishu event.
+
+        Plugins can override this to implement reactive behaviour triggered by
+        webhook events forwarded by the bot. The default implementation is a
+        no-op.
+        """
+        return None

@@ -1,0 +1,79 @@
+{
+  "testModules": [
+    {
+      "moduleId": "tests/test_bot.py",
+      "tests": [
+        {
+          "name": "collection_error_tests/test_bot.py",
+          "fullName": "tests/test_bot.py",
+          "state": "failed",
+          "errors": [
+            {
+              "message": "ImportError while importing test module 'D:\\Project\\feishu-webhook-bot\\tests\\test_bot.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\nC:\\Users\\Max Qian\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\importlib\\__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests\\test_bot.py:9: in <module>\n    from feishu_webhook_bot import FeishuBot\nsrc\\feishu_webhook_bot\\__init__.py:31: in <module>\n    from .bot import FeishuBot\nsrc\\feishu_webhook_bot\\bot.py:12: in <module>\n    from .automation import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\__init__.py:3: in <module>\n    from .engine import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\engine.py:22: in <module>\n    from ..scheduler import TaskScheduler\nsrc\\feishu_webhook_bot\\scheduler\\__init__.py:9: in <module>\n    from .scheduler import TaskScheduler, job\nsrc\\feishu_webhook_bot\\scheduler\\scheduler.py:16: in <module>\n    from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent\nE   ModuleNotFoundError: No module named 'apscheduler'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_cli.py",
+      "tests": [
+        {
+          "name": "collection_error_tests/test_cli.py",
+          "fullName": "tests/test_cli.py",
+          "state": "failed",
+          "errors": [
+            {
+              "message": "ImportError while importing test module 'D:\\Project\\feishu-webhook-bot\\tests\\test_cli.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\nC:\\Users\\Max Qian\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\importlib\\__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests\\test_cli.py:7: in <module>\n    from feishu_webhook_bot import __version__\nsrc\\feishu_webhook_bot\\__init__.py:31: in <module>\n    from .bot import FeishuBot\nsrc\\feishu_webhook_bot\\bot.py:12: in <module>\n    from .automation import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\__init__.py:3: in <module>\n    from .engine import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\engine.py:22: in <module>\n    from ..scheduler import TaskScheduler\nsrc\\feishu_webhook_bot\\scheduler\\__init__.py:9: in <module>\n    from .scheduler import TaskScheduler, job\nsrc\\feishu_webhook_bot\\scheduler\\scheduler.py:16: in <module>\n    from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent\nE   ModuleNotFoundError: No module named 'apscheduler'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_client.py",
+      "tests": [
+        {
+          "name": "collection_error_tests/test_client.py",
+          "fullName": "tests/test_client.py",
+          "state": "failed",
+          "errors": [
+            {
+              "message": "ImportError while importing test module 'D:\\Project\\feishu-webhook-bot\\tests\\test_client.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\nC:\\Users\\Max Qian\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\importlib\\__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests\\test_client.py:10: in <module>\n    from pytest_httpx import HTTPXMock\nE   ModuleNotFoundError: No module named 'pytest_httpx'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_plugins.py",
+      "tests": [
+        {
+          "name": "collection_error_tests/test_plugins.py",
+          "fullName": "tests/test_plugins.py",
+          "state": "failed",
+          "errors": [
+            {
+              "message": "ImportError while importing test module 'D:\\Project\\feishu-webhook-bot\\tests\\test_plugins.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\nC:\\Users\\Max Qian\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\importlib\\__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests\\test_plugins.py:10: in <module>\n    from feishu_webhook_bot.plugins import BasePlugin, PluginManager\nsrc\\feishu_webhook_bot\\__init__.py:31: in <module>\n    from .bot import FeishuBot\nsrc\\feishu_webhook_bot\\bot.py:12: in <module>\n    from .automation import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\__init__.py:3: in <module>\n    from .engine import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\engine.py:22: in <module>\n    from ..scheduler import TaskScheduler\nsrc\\feishu_webhook_bot\\scheduler\\__init__.py:9: in <module>\n    from .scheduler import TaskScheduler, job\nsrc\\feishu_webhook_bot\\scheduler\\scheduler.py:16: in <module>\n    from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent\nE   ModuleNotFoundError: No module named 'apscheduler'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_scheduler.py",
+      "tests": [
+        {
+          "name": "collection_error_tests/test_scheduler.py",
+          "fullName": "tests/test_scheduler.py",
+          "state": "failed",
+          "errors": [
+            {
+              "message": "ImportError while importing test module 'D:\\Project\\feishu-webhook-bot\\tests\\test_scheduler.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\nC:\\Users\\Max Qian\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\importlib\\__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests\\test_scheduler.py:8: in <module>\n    from feishu_webhook_bot.scheduler import TaskScheduler, job\nsrc\\feishu_webhook_bot\\__init__.py:31: in <module>\n    from .bot import FeishuBot\nsrc\\feishu_webhook_bot\\bot.py:12: in <module>\n    from .automation import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\__init__.py:3: in <module>\n    from .engine import AutomationEngine\nsrc\\feishu_webhook_bot\\automation\\engine.py:22: in <module>\n    from ..scheduler import TaskScheduler\nsrc\\feishu_webhook_bot\\scheduler\\__init__.py:9: in <module>\n    from .scheduler import TaskScheduler, job\nsrc\\feishu_webhook_bot\\scheduler\\scheduler.py:16: in <module>\n    from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent\nE   ModuleNotFoundError: No module named 'apscheduler'"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

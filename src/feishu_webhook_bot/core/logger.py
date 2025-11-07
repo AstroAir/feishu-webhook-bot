@@ -9,10 +9,9 @@ This module provides centralized logging configuration with support for:
 from __future__ import annotations
 
 import logging
-import sys
+from contextlib import suppress
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -59,15 +58,11 @@ def setup_logging(config: LoggingConfig | None = None) -> None:
 
     # Clear any existing handlers (and close them to release resources)
     root_logger = logging.getLogger()
-    for h in list(root_logger.handlers):
-        try:
-            h.flush()
-        except Exception:
-            pass
-        try:
-            h.close()
-        except Exception:
-            pass
+    for handler in list(root_logger.handlers):
+        with suppress(Exception):
+            handler.flush()
+        with suppress(Exception):
+            handler.close()
     root_logger.handlers.clear()
 
     # Set root logger level
