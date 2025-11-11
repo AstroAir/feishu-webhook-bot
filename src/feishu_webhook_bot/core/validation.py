@@ -150,7 +150,7 @@ def check_config_completeness(config_path: str | Path) -> dict[str, Any]:
             print(f"Missing: {section}")
         ```
     """
-    result = {
+    result: dict[str, Any] = {
         "is_valid": False,
         "completeness_percentage": 0,
         "configured_fields": [],
@@ -203,15 +203,15 @@ def check_config_completeness(config_path: str | Path) -> dict[str, Any]:
         if section in config_dict:
             value = config_dict[section]
             # Check if section has meaningful content
-            if isinstance(value, list) and len(value) > 0:
-                result["configured_sections"].append(section)
-                result["configured_fields"].append(section)
-            elif isinstance(value, dict) and any(
-                v is not None and v != {} and v != [] for v in value.values()
+            if (
+                isinstance(value, list)
+                and len(value) > 0
+                or isinstance(value, dict)
+                and any(v is not None and v != {} and v != [] for v in value.values())
+                or value is not None
+                and value != {}
+                and value != []
             ):
-                result["configured_sections"].append(section)
-                result["configured_fields"].append(section)
-            elif value is not None and value != {} and value != []:
                 result["configured_sections"].append(section)
                 result["configured_fields"].append(section)
 
@@ -267,7 +267,9 @@ def suggest_config_improvements(config_path: str | Path) -> list[str]:
 
     # Check scheduler
     if not config.scheduler.enabled:
-        suggestions.append("Scheduler is disabled - enable it to use scheduled tasks and automations")
+        suggestions.append(
+            "Scheduler is disabled - enable it to use scheduled tasks and automations"
+        )
 
     # Check plugins
     if not config.plugins.enabled:
@@ -277,9 +279,7 @@ def suggest_config_improvements(config_path: str | Path) -> list[str]:
 
     # Check logging
     if config.logging.level == "DEBUG":
-        suggestions.append(
-            "Logging level is DEBUG - consider using INFO or WARNING for production"
-        )
+        suggestions.append("Logging level is DEBUG - consider using INFO or WARNING for production")
     if not config.logging.log_file:
         suggestions.append("No log file configured - logs will only go to console")
 
@@ -306,4 +306,3 @@ def suggest_config_improvements(config_path: str | Path) -> list[str]:
         )
 
     return suggestions
-

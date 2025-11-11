@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from feishu_webhook_bot.core.config import BotConfig, EnvironmentConfig
+from feishu_webhook_bot.core.config import BotConfig
 
 
 @pytest.fixture
@@ -62,14 +62,14 @@ class TestEnvironmentRetrieval:
     def test_get_environment_by_name(self, mock_config):
         """Test getting an environment by name."""
         env = mock_config.get_environment("development")
-        
+
         assert env is not None
         assert env.name == "development"
 
     def test_get_nonexistent_environment(self, mock_config):
         """Test getting an environment that doesn't exist."""
         env = mock_config.get_environment("nonexistent")
-        
+
         assert env is None
 
     def test_get_all_environments(self, mock_config):
@@ -87,7 +87,7 @@ class TestEnvironmentVariables:
     def test_get_environment_variables(self, mock_config):
         """Test getting environment variables."""
         variables = mock_config.get_environment_variables("development")
-        
+
         assert variables is not None
         assert variables["FEISHU_WEBHOOK_URL"] == "https://dev.example.com/webhook"
         assert variables["LOG_LEVEL"] == "DEBUG"
@@ -97,7 +97,7 @@ class TestEnvironmentVariables:
         """Test getting variables for different environments."""
         dev_vars = mock_config.get_environment_variables("development")
         prod_vars = mock_config.get_environment_variables("production")
-        
+
         assert dev_vars["LOG_LEVEL"] == "DEBUG"
         assert prod_vars["LOG_LEVEL"] == "WARNING"
         assert dev_vars["API_TIMEOUT"] == "30"
@@ -106,13 +106,13 @@ class TestEnvironmentVariables:
     def test_get_variables_for_nonexistent_environment(self, mock_config):
         """Test getting variables for an environment that doesn't exist."""
         variables = mock_config.get_environment_variables("nonexistent")
-        
+
         assert variables == {}
 
     def test_environment_variable_types(self, mock_config):
         """Test that environment variables are strings."""
         variables = mock_config.get_environment_variables("development")
-        
+
         for key, value in variables.items():
             assert isinstance(key, str)
             assert isinstance(value, str)
@@ -123,52 +123,51 @@ class TestEnvironmentOverrides:
 
     def test_apply_environment_overrides(self, mock_config):
         """Test applying environment overrides."""
-        original_log_level = mock_config.logging.level
-        
-        mock_config.apply_environment_overrides("production")
-        
+
+        updated_config = mock_config.apply_environment_overrides("production")
+
         # Log level should be overridden
-        assert mock_config.logging.level == "WARNING"
-        assert mock_config.logging.format == "json"
+        assert updated_config.logging.level == "WARNING"
+        assert updated_config.logging.format == "json"
 
     def test_overrides_for_different_environments(self, mock_config):
         """Test applying overrides for different environments."""
         # Apply development overrides
-        mock_config.apply_environment_overrides("development")
-        assert mock_config.logging.level == "DEBUG"
-        
+        dev_config = mock_config.apply_environment_overrides("development")
+        assert dev_config.logging.level == "DEBUG"
+
         # Apply production overrides
-        mock_config.apply_environment_overrides("production")
-        assert mock_config.logging.level == "WARNING"
+        prod_config = mock_config.apply_environment_overrides("production")
+        assert prod_config.logging.level == "WARNING"
 
     def test_partial_overrides(self, mock_config):
         """Test that partial overrides work correctly."""
         original_format = mock_config.logging.format
-        
+
         # Staging only overrides level, not format
-        mock_config.apply_environment_overrides("staging")
-        
-        assert mock_config.logging.level == "INFO"
+        staging_config = mock_config.apply_environment_overrides("staging")
+
+        assert staging_config.logging.level == "INFO"
         # Format should remain unchanged
         assert mock_config.logging.format == original_format
 
     def test_nested_overrides(self, mock_config):
         """Test nested configuration overrides."""
-        mock_config.apply_environment_overrides("production")
-        
+        prod_config = mock_config.apply_environment_overrides("production")
+
         # Both logging.level and logging.format should be overridden
-        assert mock_config.logging.level == "WARNING"
-        assert mock_config.logging.format == "json"
+        assert prod_config.logging.level == "WARNING"
+        assert prod_config.logging.format == "json"
 
     def test_overrides_for_nonexistent_environment(self, mock_config):
         """Test applying overrides for an environment that doesn't exist."""
         original_log_level = mock_config.logging.level
-        
-        # Should not raise, just do nothing
-        mock_config.apply_environment_overrides("nonexistent")
-        
+
+        # Should not raise, just return original config
+        result_config = mock_config.apply_environment_overrides("nonexistent")
+
         # Config should remain unchanged
-        assert mock_config.logging.level == original_log_level
+        assert result_config.logging.level == original_log_level
 
 
 class TestActiveEnvironment:
@@ -181,7 +180,7 @@ class TestActiveEnvironment:
     def test_change_active_environment(self, mock_config):
         """Test changing the active environment."""
         mock_config.active_environment = "production"
-        
+
         assert mock_config.active_environment == "production"
 
     @patch.dict(os.environ, {"ENVIRONMENT": "production"})
@@ -195,9 +194,12 @@ class TestActiveEnvironment:
             ],
             active_environment="${ENVIRONMENT}",
         )
-        
+
         # Should expand environment variable
-        assert config.active_environment == "production" or config.active_environment == "${ENVIRONMENT}"
+        assert (
+            config.active_environment == "production"
+            or config.active_environment == "${ENVIRONMENT}"
+        )
 
     def test_default_active_environment(self):
         """Test default active environment."""
@@ -207,7 +209,7 @@ class TestActiveEnvironment:
                 {"name": "development", "variables": [], "overrides": {}},
             ],
         )
-        
+
         # Should default to None or first environment
         assert config.active_environment is None or config.active_environment == "development"
 
@@ -232,7 +234,7 @@ class TestEnvironmentVariableExpansion:
                 }
             ],
         )
-        
+
         variables = config.get_environment_variables("test")
         # Variable expansion happens at runtime
         assert "EXPANDED_VAR" in variables
@@ -255,7 +257,7 @@ class TestEnvironmentVariableExpansion:
                 }
             ],
         )
-        
+
         variables = config.get_environment_variables("test")
         assert "KEY1" in variables
         assert "KEY2" in variables
@@ -266,11 +268,16 @@ class TestEnvironmentTaskConditions:
 
     def test_task_condition_with_environment(self, mock_config):
         """Test that tasks can use environment in conditions."""
-        from feishu_webhook_bot.core.config import TaskConditionConfig, TaskDefinitionConfig, TaskActionConfig
-        
+        from feishu_webhook_bot.core.config import (
+            TaskActionConfig,
+            TaskConditionConfig,
+            TaskDefinitionConfig,
+        )
+
         task = TaskDefinitionConfig(
             name="env_task",
             enabled=True,
+            schedule={"mode": "interval", "arguments": {"minutes": 5}},
             conditions=[
                 TaskConditionConfig(
                     type="environment",
@@ -280,22 +287,26 @@ class TestEnvironmentTaskConditions:
             actions=[
                 TaskActionConfig(
                     type="send_message",
-                    webhook="default",
                     message="Production task",
                 )
             ],
         )
-        
+
         assert task.conditions[0].type == "environment"
         assert task.conditions[0].environment == "production"
 
     def test_multiple_environment_conditions(self, mock_config):
         """Test tasks with multiple environment conditions."""
-        from feishu_webhook_bot.core.config import TaskConditionConfig, TaskDefinitionConfig, TaskActionConfig
-        
+        from feishu_webhook_bot.core.config import (
+            TaskActionConfig,
+            TaskConditionConfig,
+            TaskDefinitionConfig,
+        )
+
         task = TaskDefinitionConfig(
             name="multi_env_task",
             enabled=True,
+            schedule={"mode": "interval", "arguments": {"minutes": 5}},
             conditions=[
                 TaskConditionConfig(
                     type="environment",
@@ -309,12 +320,11 @@ class TestEnvironmentTaskConditions:
             actions=[
                 TaskActionConfig(
                     type="send_message",
-                    webhook="default",
                     message="Multi-env task",
                 )
             ],
         )
-        
+
         assert len(task.conditions) == 2
         assert all(c.type == "environment" for c in task.conditions)
 
@@ -334,7 +344,7 @@ class TestEnvironmentConfigValidation:
                 }
             ],
         )
-        
+
         assert len(config.environments) == 1
         assert config.environments[0].name == "test"
 
@@ -350,7 +360,7 @@ class TestEnvironmentConfigValidation:
                 }
             ],
         )
-        
+
         variables = config.get_environment_variables("test")
         assert variables == {}
 
@@ -366,7 +376,6 @@ class TestEnvironmentConfigValidation:
                 }
             ],
         )
-        
+
         env = config.get_environment("test")
         assert env.overrides == {}
-

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
@@ -183,9 +183,9 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
     to_encode = data.copy()
 
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -216,7 +216,9 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         return None
 
 
-def update_security_config(secret_key: str, algorithm: str = "HS256", token_expire_minutes: int = 30) -> None:
+def update_security_config(
+    secret_key: str, algorithm: str = "HS256", token_expire_minutes: int = 30
+) -> None:
     """Update JWT security configuration.
 
     This should be called during application initialization with values from config.
@@ -238,5 +240,6 @@ def update_security_config(secret_key: str, algorithm: str = "HS256", token_expi
     SECRET_KEY = secret_key
     ALGORITHM = algorithm
     ACCESS_TOKEN_EXPIRE_MINUTES = token_expire_minutes
-    logger.info(f"Security config updated: algorithm={algorithm}, token_expire={token_expire_minutes}min")
-
+    logger.info(
+        f"Security config updated: algorithm={algorithm}, token_expire={token_expire_minutes}min"
+    )

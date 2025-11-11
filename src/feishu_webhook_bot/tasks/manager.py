@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+import contextlib
+from typing import TYPE_CHECKING, Any
 
 from ..core.config import BotConfig, TaskDefinitionConfig
 from ..core.logger import get_logger
 from .executor import TaskExecutor
+
+if TYPE_CHECKING:
+    from ..ai.agent import AIAgent
 
 logger = get_logger("task.manager")
 
@@ -20,6 +24,7 @@ class TaskManager:
         scheduler: Any = None,
         plugin_manager: Any = None,
         clients: dict[str, Any] | None = None,
+        ai_agent: AIAgent | None = None,
     ):
         """Initialize task manager.
 
@@ -28,11 +33,13 @@ class TaskManager:
             scheduler: Task scheduler instance
             plugin_manager: Plugin manager instance
             clients: Dictionary of webhook clients
+            ai_agent: AI agent for AI-powered task actions
         """
         self.config = config
         self.scheduler = scheduler
         self.plugin_manager = plugin_manager
         self.clients = clients or {}
+        self.ai_agent = ai_agent
         self._registered_jobs: set[str] = set()
         self._task_instances: dict[str, TaskDefinitionConfig] = {}
         self._execution_counts: dict[str, int] = {}
@@ -156,6 +163,7 @@ class TaskManager:
                 context=context,
                 plugin_manager=self.plugin_manager,
                 clients=self.clients,
+                ai_agent=self.ai_agent,
             )
 
             # Execute task
@@ -164,13 +172,9 @@ class TaskManager:
 
             # Log result
             if result["success"]:
-                logger.info(
-                    f"Task {task_name} completed successfully in {result['duration']:.2f}s"
-                )
+                logger.info(f"Task {task_name} completed successfully in {result['duration']:.2f}s")
             else:
-                logger.error(
-                    f"Task {task_name} failed: {result.get('error', 'Unknown error')}"
-                )
+                logger.error(f"Task {task_name} failed: {result.get('error', 'Unknown error')}")
 
             # Handle retry on failure
             if not result["success"] and task.error_handling.retry_on_failure:
@@ -258,10 +262,8 @@ class TaskManager:
         job_id = f"task.{task_name}"
         job = None
         if self.scheduler:
-            try:
+            with contextlib.suppress(Exception):
                 job = self.scheduler.get_job(job_id)
-            except Exception:
-                pass
 
         return {
             "name": task_name,
@@ -278,11 +280,10 @@ class TaskManager:
         Returns:
             List of task status dictionaries
         """
-        return [self.get_task_status(name) for name in self._task_instances.keys()]
+        return [self.get_task_status(name) for name in self._task_instances]
 
     def reload_tasks(self) -> None:
         """Reload tasks from configuration."""
         logger.info("Reloading tasks...")
         self.stop()
         self.start()
-

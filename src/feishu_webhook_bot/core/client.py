@@ -383,7 +383,7 @@ class CardBuilder:
         ```
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize card builder."""
         self.card: dict[str, Any] = {"schema": "2.0", "elements": []}
 

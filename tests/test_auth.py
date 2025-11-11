@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from feishu_webhook_bot.auth.database import DatabaseManager, init_database
+from feishu_webhook_bot.auth.database import DatabaseManager
 from feishu_webhook_bot.auth.models import User
 from feishu_webhook_bot.auth.security import (
     calculate_password_strength,
@@ -17,8 +17,8 @@ from feishu_webhook_bot.auth.security import (
     verify_password,
 )
 from feishu_webhook_bot.auth.service import (
-    AuthService,
     AuthenticationError,
+    AuthService,
     RegistrationError,
 )
 
@@ -394,7 +394,7 @@ class TestUserModel:
 
     def test_user_is_locked(self, test_db):
         """Test user is_locked method."""
-        with test_db.get_session() as session:
+        with test_db.get_session():
             # User not locked
             user = User(
                 email="test@example.com",
@@ -404,11 +404,11 @@ class TestUserModel:
             assert user.is_locked() is False
 
             # User locked in future
-            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=30)
+            user.locked_until = datetime.now(UTC) + timedelta(minutes=30)
             assert user.is_locked() is True
 
             # User lock expired
-            user.locked_until = datetime.now(timezone.utc) - timedelta(minutes=1)
+            user.locked_until = datetime.now(UTC) - timedelta(minutes=1)
             assert user.is_locked() is False
 
 
@@ -495,4 +495,3 @@ class TestAuthService:
         # Should be able to login now
         user, _ = auth_service.authenticate_user("test@example.com", "TestPass123!")
         assert user is not None
-

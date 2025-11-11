@@ -8,6 +8,10 @@
 ## ✨ Features
 
 - **📨 Rich Messaging**: Support for text, rich text, interactive cards (JSON v2.0), and images
+- **🤖 AI Integration**: Built-in AI capabilities with pydantic-ai for intelligent conversations
+  - Multi-turn conversation support with context management
+  - Tool/function calling for web search, calculations, and more
+  - Support for OpenAI, Anthropic, Google, Groq, and other providers
 - **⏰ Task Scheduling**: Built-in APScheduler for cron jobs and periodic tasks
 - **🔌 Plugin System**: Extensible architecture with hot-reload support
 - **🔐 Authentication**: Complete user authentication system with JWT tokens and secure password hashing
@@ -134,8 +138,11 @@ feishu-webhook-bot send --webhook "https://..." --text "Hello!"
 # List loaded plugins
 feishu-webhook-bot plugins --config config.yaml
 
+# Launch the web UI
+feishu-webhook-bot webui --config config.yaml
+
 # Show version
-feishu-webhook-bot version
+feishu-webhook-bot --version
 ```
 
 ### Python API
@@ -213,10 +220,8 @@ client.send_card(card)
 
 ```python
 # Send an image
-client.send_image(
-    image_key="img_xxx",  # Image key from Feishu
-    title="Image Title"
-)
+# Note: The image must be uploaded to Feishu first to get an image_key
+client.send_image("img_v2_xxxxx")
 ```
 
 ### CardBuilder Methods
@@ -224,15 +229,220 @@ client.send_image(
 The `CardBuilder` class provides a fluent API for building interactive cards:
 
 - `set_config(**kwargs)` - Set card configuration (e.g., `wide_screen_mode=True`)
-- `set_header(title, template="blue")` - Set card header with template color
+- `set_header(title, template="blue", subtitle=None)` - Set card header with template color and optional subtitle
 - `add_markdown(content)` - Add markdown element
-- `add_text(content)` - Add plain text element
+- `add_text(content, text_tag="plain_text")` - Add plain text element with configurable text tag
 - `add_divider()` - Add visual divider
-- `add_button(text, url)` - Add clickable button
+- `add_button(text, url=None, button_type="default")` - Add clickable button with optional URL and button type
+- `add_image(img_key, alt="")` - Add image element with Feishu image key
 - `add_note(content)` - Add footer note
 - `build()` - Build and return the card JSON
 
 Available header templates: `blue`, `red`, `orange`, `yellow`, `green`, `turquoise`, `purple`
+
+Button types: `default`, `primary`, `danger`
+
+## 🤖 AI Features
+
+The framework includes built-in AI capabilities powered by [pydantic-ai](https://ai.pydantic.dev/), enabling intelligent conversations with your Feishu bot.
+
+### Quick Start with AI
+
+1. **Configure AI in your config file:**
+
+```yaml
+ai:
+  enabled: true
+  model: "openai:gpt-4o"  # or anthropic:claude-3-5-sonnet-20241022, etc.
+  api_key: ${OPENAI_API_KEY}
+  system_prompt: "You are a helpful AI assistant integrated with Feishu."
+  max_conversation_turns: 10
+  temperature: 0.7
+  tools_enabled: true
+  web_search_enabled: true
+```
+
+2. **Set your API key:**
+
+```bash
+export OPENAI_API_KEY="your-api-key-here"
+```
+
+3. **Enable event server to receive messages:**
+
+```yaml
+event_server:
+  enabled: true
+  auto_start: true
+  host: "0.0.0.0"
+  port: 8080
+  path: "/webhook"
+```
+
+4. **Start your bot:**
+
+```python
+from feishu_webhook_bot import FeishuBot
+
+bot = FeishuBot.from_config("config.yaml")
+bot.start()
+```
+
+### AI Capabilities
+
+#### Core Features
+- **Multi-turn Conversations**: Maintains context across multiple messages per user
+- **Web Search**: Automatically searches the web for current information using DuckDuckGo
+- **Tool Calling**: Built-in tools for calculations, time queries, and more
+- **Multiple Providers**: Support for OpenAI, Anthropic, Google, Groq, and others
+- **Custom Tools**: Register your own tools for the AI to use
+
+#### Advanced Features
+- **Streaming Responses**: Real-time streaming of AI responses for better user experience
+- **Structured Output**: Validate AI responses using Pydantic models with automatic retry
+- **Output Validators**: Custom validation logic with automatic retry on validation errors
+- **MCP Support**: Model Context Protocol integration for standardized tool and resource access
+- **Multi-Agent Orchestration (A2A)**: Coordinate multiple specialized agents for complex tasks
+
+### Direct AI Usage
+
+You can also use the AI agent directly:
+
+```python
+from feishu_webhook_bot.ai import AIAgent, AIConfig
+
+config = AIConfig(
+    enabled=True,
+    model="openai:gpt-4o",
+    api_key="your-api-key",
+)
+
+agent = AIAgent(config)
+agent.start()
+
+# Chat with the agent
+response = await agent.chat("user123", "What is the weather like today?")
+print(response)
+
+await agent.stop()
+```
+
+### Advanced AI Examples
+
+#### Streaming Responses
+
+```python
+from feishu_webhook_bot.ai import AIAgent, AIConfig, StreamingConfig
+
+config = AIConfig(
+    enabled=True,
+    model="openai:gpt-4o",
+    streaming=StreamingConfig(enabled=True, debounce_ms=100),
+)
+
+agent = AIAgent(config)
+agent.start()
+
+# Stream the response
+async for chunk in agent.chat_stream("user123", "Tell me a story"):
+    print(chunk, end="", flush=True)
+
+await agent.stop()
+```
+
+#### Multi-Agent Orchestration
+
+```python
+from feishu_webhook_bot.ai import AIAgent, AIConfig, MultiAgentConfig
+
+config = AIConfig(
+    enabled=True,
+    model="openai:gpt-4o",
+    multi_agent=MultiAgentConfig(
+        enabled=True,
+        orchestration_mode="sequential",  # or "concurrent", "hierarchical"
+        max_agents=3,
+    ),
+)
+
+agent = AIAgent(config)
+agent.start()
+
+# Multiple specialized agents work together
+response = await agent.chat("user123", "Research quantum computing and explain it")
+print(response)
+
+await agent.stop()
+```
+
+#### MCP Integration
+
+The framework supports [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) for standardized tool and resource access. MCP servers are automatically registered as toolsets with the AI agent.
+
+**Supported Transport Types:**
+- **stdio**: Run MCP server as subprocess (recommended)
+- **streamable-http**: Modern HTTP streaming transport
+- **sse**: HTTP Server-Sent Events (deprecated)
+
+**Example with stdio transport:**
+
+```python
+from feishu_webhook_bot.ai import AIAgent, AIConfig, MCPConfig
+
+config = AIConfig(
+    enabled=True,
+    model="openai:gpt-4o",
+    mcp=MCPConfig(
+        enabled=True,
+        servers=[
+            {
+                "name": "python-runner",
+                "command": "uv",
+                "args": "run mcp-run-python stdio",  # Can be string or list
+            },
+            {
+                "name": "filesystem",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+            }
+        ],
+        timeout_seconds=30,
+    ),
+)
+
+agent = AIAgent(config)
+agent.start()
+
+# Agent can now use tools from all MCP servers
+response = await agent.chat("user123", "Calculate fibonacci(10) using Python")
+print(response)
+
+await agent.stop()
+```
+
+**Example with HTTP transport:**
+
+```python
+config = AIConfig(
+    enabled=True,
+    model="openai:gpt-4o",
+    mcp=MCPConfig(
+        enabled=True,
+        servers=[
+            {
+                "name": "weather-api",
+                "url": "http://localhost:3001/mcp",  # Streamable HTTP
+            }
+        ],
+    ),
+)
+```
+
+**Prerequisites:**
+- Install pydantic-ai with MCP support: `pip install 'pydantic-ai-slim[mcp]'`
+- Have MCP servers available (e.g., `mcp-run-python`, `@modelcontextprotocol/server-filesystem`)
+
+For more examples, see `examples/mcp_integration_example.py` and `examples/advanced_ai_features.py`.
 
 ## 🤖 Automation & Workflows
 
@@ -641,6 +851,259 @@ scripts/task.ps1 [task]
 ```
 
 Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:build`, `docs:serve`, `ci`
+
+## 🔧 Troubleshooting
+
+### AI Integration Issues
+
+#### API Key Not Working
+
+**Problem:** AI responses fail with authentication errors
+
+**Solutions:**
+1. Verify API key is set correctly:
+   ```bash
+   echo $OPENAI_API_KEY  # Linux/macOS
+   echo $env:OPENAI_API_KEY  # Windows PowerShell
+   ```
+
+2. Check API key format in config:
+   ```yaml
+   ai:
+     api_key: ${OPENAI_API_KEY}  # Use environment variable
+     # OR
+     api_key: "sk-..."  # Direct key (not recommended)
+   ```
+
+3. Ensure the correct provider prefix:
+   - OpenAI: `openai:gpt-4o`
+   - Anthropic: `anthropic:claude-3-5-sonnet-20241022`
+   - Google: `google:gemini-1.5-pro`
+
+#### MCP Server Connection Failures
+
+**Problem:** MCP servers fail to connect
+
+**Solutions:**
+1. Install pydantic-ai with MCP support:
+   ```bash
+   pip install 'pydantic-ai-slim[mcp]'
+   ```
+
+2. Verify MCP server is installed:
+   ```bash
+   # For Python servers
+   uv tool install mcp-run-python
+
+   # For Node.js servers
+   npm install -g @modelcontextprotocol/server-filesystem
+   ```
+
+3. Increase timeout if server is slow:
+   ```yaml
+   ai:
+     mcp:
+       timeout_seconds: 60  # Increase from default 30
+   ```
+
+4. Check server command and args:
+   ```yaml
+   ai:
+     mcp:
+       servers:
+         - name: "python-runner"
+           command: "uv"  # Must be in PATH
+           args: "run mcp-run-python stdio"
+   ```
+
+#### Conversation Context Lost
+
+**Problem:** AI doesn't remember previous messages
+
+**Solutions:**
+1. Increase conversation turns:
+   ```yaml
+   ai:
+     max_conversation_turns: 20  # Default is 10
+   ```
+
+2. Increase conversation timeout:
+   ```yaml
+   ai:
+     conversation_timeout_minutes: 60  # Default is 30
+   ```
+
+3. Check if multi-agent mode is enabled (doesn't preserve context):
+   ```yaml
+   ai:
+     multi_agent:
+       enabled: false  # Disable if you need conversation history
+   ```
+
+### Event Server Issues
+
+#### Webhook Events Not Received
+
+**Problem:** Bot doesn't respond to Feishu messages
+
+**Solutions:**
+1. Verify event server is running:
+   ```yaml
+   event_server:
+     enabled: true
+     auto_start: true
+     host: "0.0.0.0"
+     port: 8080
+   ```
+
+2. Check if port is accessible:
+   ```bash
+   curl http://localhost:8080/webhook
+   ```
+
+3. Verify Feishu webhook configuration:
+   - URL should point to your server: `http://your-server:8080/webhook`
+   - Enable "Message" events in Feishu app settings
+   - Add bot to the conversation
+
+4. Check firewall and network settings
+
+#### Verification Token Mismatch
+
+**Problem:** Events rejected with verification errors
+
+**Solutions:**
+1. Verify token matches Feishu app settings:
+   ```yaml
+   verification_token: "your-token-from-feishu"
+   ```
+
+2. Check encryption key if using encrypted events:
+   ```yaml
+   encrypt_key: "your-encrypt-key-from-feishu"
+   ```
+
+### Plugin Issues
+
+#### Plugin Not Loading
+
+**Problem:** Custom plugin doesn't appear in bot
+
+**Solutions:**
+1. Check plugin directory:
+   ```yaml
+   plugins:
+     enabled: true
+     plugin_dir: "plugins"  # Verify path is correct
+   ```
+
+2. Verify plugin file structure:
+   ```python
+   # plugins/my_plugin.py
+   from feishu_webhook_bot.plugins import BasePlugin
+
+   class MyPlugin(BasePlugin):
+       name = "my_plugin"  # Must be set
+       # ...
+   ```
+
+3. Check logs for plugin errors:
+   ```bash
+   tail -f logs/bot.log | grep plugin
+   ```
+
+#### Hot Reload Not Working
+
+**Problem:** Plugin changes don't take effect
+
+**Solutions:**
+1. Enable auto-reload:
+   ```yaml
+   plugins:
+     auto_reload: true
+     reload_interval: 5  # seconds
+   ```
+
+2. Manually reload via CLI:
+   ```bash
+   feishu-webhook-bot reload-plugins
+   ```
+
+### Performance Issues
+
+#### High Memory Usage
+
+**Solutions:**
+1. Reduce conversation history:
+   ```yaml
+   ai:
+     max_conversation_turns: 5  # Reduce from default 10
+   ```
+
+2. Enable conversation cleanup:
+   ```yaml
+   ai:
+     conversation_timeout_minutes: 15  # Reduce from default 30
+   ```
+
+3. Disable unused features:
+   ```yaml
+   ai:
+     web_search_enabled: false
+     mcp:
+       enabled: false
+   ```
+
+#### Slow AI Responses
+
+**Solutions:**
+1. Use faster models:
+   ```yaml
+   ai:
+     model: "openai:gpt-4o-mini"  # Faster than gpt-4o
+     # OR
+     model: "anthropic:claude-3-haiku-20240307"
+   ```
+
+2. Reduce max tokens:
+   ```yaml
+   ai:
+     max_tokens: 500  # Reduce from default 1000
+   ```
+
+3. Disable streaming if not needed:
+   ```yaml
+   ai:
+     streaming:
+       enabled: false
+   ```
+
+### Getting Help
+
+If you're still experiencing issues:
+
+1. **Enable debug logging:**
+   ```yaml
+   logging:
+     level: "DEBUG"
+     log_file: "logs/bot.log"
+   ```
+
+2. **Check the logs:**
+   ```bash
+   tail -f logs/bot.log
+   ```
+
+3. **Run tests:**
+   ```bash
+   pytest tests/ -v
+   ```
+
+4. **Report an issue:**
+   - Include your configuration (remove sensitive data)
+   - Include relevant log excerpts
+   - Describe steps to reproduce
+   - Visit: https://github.com/AstroAir/feishu-webhook-bot/issues
 
 ## 🤝 Contributing
 

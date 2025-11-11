@@ -24,6 +24,14 @@ nav:
   - Guides:
       - Plugin Development: plugin-guide.md
       - Automation & Workflows: automation-guide.md
+      - YAML Configuration: yaml-configuration-guide.md
+      - Enhanced YAML Features: enhanced-yaml-features.md
+  - AI Features:
+      - AI Enhancements: AI_ENHANCEMENTS.md
+      - Multi-Provider Guide: AI_MULTI_PROVIDER_GUIDE.md
+      - MCP Integration: MCP_INTEGRATION.md
+  - Security:
+      - Authentication: authentication.md
   - Reference:
       - API: api.md
   - Contributing: contributing.md

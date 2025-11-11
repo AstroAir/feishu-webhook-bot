@@ -7,9 +7,8 @@ This example demonstrates:
 4. Using FastAPI authentication endpoints
 """
 
-from nicegui import app, ui
+from nicegui import ui
 
-from feishu_webhook_bot.auth.database import init_database
 from feishu_webhook_bot.auth.middleware import get_current_nicegui_user, logout_user, require_auth
 from feishu_webhook_bot.auth.ui import AuthUI
 
@@ -153,9 +152,7 @@ def setup_authentication_example():
 
             with ui.row():
                 ui.label(f"{current_user['username']}").classes("q-mr-md")
-                ui.button("Dashboard", on_click=lambda: ui.navigate.to("/dashboard")).props(
-                    "flat"
-                )
+                ui.button("Dashboard", on_click=lambda: ui.navigate.to("/dashboard")).props("flat")
                 ui.button("Logout", on_click=handle_logout).props("flat")
 
         with ui.column().classes("q-pa-md"):
@@ -164,21 +161,17 @@ def setup_authentication_example():
             with ui.card().style("width: 100%; max-width: 600px"):
                 ui.label("Change Password").classes("text-h6 q-mb-md")
 
-                current_password = ui.input(
-                    label="Current Password", password=True
-                ).props("outlined").classes("w-full")
-
-                new_password = ui.input(label="New Password", password=True).props(
-                    "outlined"
-                ).classes("w-full")
-
-                confirm_password = ui.input(
-                    label="Confirm New Password", password=True
-                ).props("outlined").classes("w-full")
-
-                ui.button("Update Password", icon="lock").props("color=primary").classes(
-                    "q-mt-md"
+                ui.input(label="Current Password", password=True).props("outlined").classes(
+                    "w-full"
                 )
+
+                ui.input(label="New Password", password=True).props("outlined").classes("w-full")
+
+                ui.input(label="Confirm New Password", password=True).props("outlined").classes(
+                    "w-full"
+                )
+
+                ui.button("Update Password", icon="lock").props("color=primary").classes("q-mt-md")
 
     def handle_logout():
         """Handle user logout."""
@@ -212,4 +205,3 @@ if __name__ == "__main__":
     print("\nPress Ctrl+C to stop")
 
     run_example()
-

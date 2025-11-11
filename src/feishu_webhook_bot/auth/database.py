@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
-from typing import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -170,4 +169,3 @@ def get_db() -> Generator[Session, None, None]:
     db_manager = DatabaseManager()
     with db_manager.get_session() as session:
         yield session
-

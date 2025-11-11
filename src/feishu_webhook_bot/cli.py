@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
@@ -21,13 +21,13 @@ logger = get_logger("cli")
 try:
     from .config_ui import run_ui as _run_ui
 except Exception:
-    _run_ui = None
+    _run_ui = None  # type: ignore[assignment]
 run_ui = _run_ui
 
 try:
     from .core.client import FeishuWebhookClient as _FeishuWebhookClient
 except Exception:
-    _FeishuWebhookClient = None
+    _FeishuWebhookClient = None  # type: ignore[assignment,misc]
 FeishuWebhookClient = _FeishuWebhookClient
 
 
@@ -217,9 +217,9 @@ def cmd_start(args: argparse.Namespace) -> int:
                 # When the constructor is patched with a mock, make the returned
                 # instance expose the same MagicMock so test assertions against it
                 # still succeed.
-                from_config_attr = getattr(FeishuBot, "from_config")
+                from_config_attr = FeishuBot.from_config
                 if hasattr(from_config_attr, "call_count"):
-                    setattr(bot, "from_config", from_config_attr)
+                    bot.from_config = from_config_attr  # type: ignore[method-assign]
             else:
                 config = BotConfig.from_yaml(config_path)
                 logging_config = getattr(config, "logging", None)

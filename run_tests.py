@@ -1,15 +1,15 @@
 """Test runner script for enhanced YAML configuration tests."""
 
-import sys
 import subprocess
+import sys
 
 
-def run_tests():
+def run_tests() -> int:
     """Run all tests with coverage."""
     print("=" * 80)
     print("Running Enhanced YAML Configuration Tests")
     print("=" * 80)
-    
+
     # Test files to run
     test_files = [
         "tests/test_task_executor.py",
@@ -21,7 +21,7 @@ def run_tests():
         "tests/test_config_watcher.py",
         "tests/test_integration.py",
     ]
-    
+
     # Run tests with coverage
     cmd = [
         "pytest",
@@ -31,11 +31,11 @@ def run_tests():
         "--cov-report=term-missing",
         "--cov-report=html",
     ] + test_files
-    
+
     print(f"\nRunning command: {' '.join(cmd)}\n")
-    
+
     result = subprocess.run(cmd)
-    
+
     print("\n" + "=" * 80)
     if result.returncode == 0:
         print("✅ All tests passed!")
@@ -44,16 +44,16 @@ def run_tests():
         print("❌ Some tests failed!")
         print(f"\nExit code: {result.returncode}")
     print("=" * 80)
-    
+
     return result.returncode
 
 
-def run_specific_test(test_name):
+def run_specific_test(test_name: str) -> int:
     """Run a specific test file."""
     print(f"Running {test_name}...")
-    
+
     cmd = ["pytest", "-v", "--tb=short", f"tests/{test_name}"]
-    
+
     result = subprocess.run(cmd)
     return result.returncode
 
@@ -66,11 +66,10 @@ if __name__ == "__main__":
             test_name = f"test_{test_name}"
         if not test_name.endswith(".py"):
             test_name = f"{test_name}.py"
-        
+
         exit_code = run_specific_test(test_name)
     else:
         # Run all tests
         exit_code = run_tests()
-    
-    sys.exit(exit_code)
 
+    sys.exit(exit_code)

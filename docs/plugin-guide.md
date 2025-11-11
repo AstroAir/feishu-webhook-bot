@@ -656,6 +656,6 @@ class DataReporterPlugin(BasePlugin):
 
 ## Next Steps
 
-- Check out the [example plugins](../plugins/) for more inspiration
+- Check out the example plugins in the repository for more inspiration
 - Read the [API Reference](api.md) for detailed API documentation
 - Join our community for help and discussions

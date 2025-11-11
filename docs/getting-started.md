@@ -340,8 +340,7 @@ automations:
         event_type: "im.message.receive_v1"
         conditions:
           - path: "event.message.content"
-            operator: "contains"
-            value: "urgent"
+            contains: "urgent"
     actions:
       - type: "send_text"
         text: "🚨 Urgent message received!"
@@ -460,7 +459,7 @@ automations:
 
 ## Getting Help
 
-- 📖 Read the [full documentation](../README.md)
+- 📖 Read the [full documentation](index.md)
 - 🐛 Report issues on [GitHub](https://github.com/AstroAir/feishu-webhook-bot/issues)
 - 💬 Ask questions in [Discussions](https://github.com/AstroAir/feishu-webhook-bot/discussions)
 
@@ -468,6 +467,6 @@ automations:
 
 - Explore the [Plugin Development Guide](plugin-guide.md)
 - Review the [API Documentation](api.md)
-- Check out [Contributing Guidelines](../CONTRIBUTING.md)
+- Check out [Contributing Guidelines](contributing.md)
 
 Happy bot building! 🚀

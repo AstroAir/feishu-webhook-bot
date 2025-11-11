@@ -47,7 +47,7 @@ class UIMemoryLogHandler(logging.Handler):
         self.ring = ring
         self.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
 
-    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record)
             self.ring.append((record.levelno, msg))
@@ -333,9 +333,14 @@ def build_list_editor(
     rebuild()
 
     with ui.row().classes("items-center gap-2 flex-wrap pt-1"):
+
+        def add_and_rebuild() -> None:
+            item_list.append(default_item.copy())
+            rebuild()
+
         ui.button(
             add_button_text,
-            on_click=lambda: [item_list.append(default_item.copy()), rebuild()],
+            on_click=add_and_rebuild,
         ).props("outline")
 
     return rebuild
@@ -415,7 +420,7 @@ def build_ui(config_path: Path) -> None:
             )
             ui.separator().props("vertical").classes("mx-1 opacity-50")
 
-            async def on_upload(e):
+            async def on_upload(e: Any) -> None:
                 try:
                     content = e.content.read().decode("utf-8")
                     new_data = yaml.safe_load(content)
@@ -431,7 +436,7 @@ def build_ui(config_path: Path) -> None:
                 "flat color=white text-color=white icon=upload"
             ).classes("w-12")
 
-            def on_export():
+            def on_export() -> None:
                 try:
                     cfg = _form_to_config(state["form"])
                     yaml_str = yaml.dump(cfg.to_dict(), sort_keys=False, allow_unicode=True)
@@ -448,7 +453,7 @@ def build_ui(config_path: Path) -> None:
             profiles_dir.mkdir(exist_ok=True)
             profile_files = {p.stem: p for p in profiles_dir.glob("*.yaml")}
 
-            async def save_profile():
+            async def save_profile() -> None:
                 with ui.dialog() as dialog, ui.card():
                     name_input = ui.input("Profile Name")
                     ui.button("Save", on_click=lambda: dialog.submit(name_input.value))
@@ -465,7 +470,7 @@ def build_ui(config_path: Path) -> None:
                     except Exception as e:
                         ui.notify(f"Failed to save profile: {e}", type="negative")
 
-            async def load_profile(profile_name):
+            async def load_profile(profile_name: str) -> None:
                 if not profile_name:
                     return
                 try:
@@ -588,7 +593,7 @@ def build_ui(config_path: Path) -> None:
                             with ui.row().classes("items-center gap-2"):
                                 ui.label(name)
 
-                                def on_toggle(n=name):
+                                def on_toggle(n: str = name) -> None:
                                     if not controller.bot or not controller.bot.plugin_manager:
                                         ui.notify("Bot not running", type="warning")
                                         return
@@ -733,15 +738,15 @@ def build_ui(config_path: Path) -> None:
                                     "text-sm text-gray-600"
                                 )
 
-                                def _pause(jid=job.id):
+                                def _pause(jid: str = job.id) -> None:
                                     if controller.bot and controller.bot.scheduler:
                                         controller.bot.scheduler.pause_job(jid)
 
-                                def _resume(jid=job.id):
+                                def _resume(jid: str = job.id) -> None:
                                     if controller.bot and controller.bot.scheduler:
                                         controller.bot.scheduler.resume_job(jid)
 
-                                def _remove(jid=job.id):
+                                def _remove(jid: str = job.id) -> None:
                                     if controller.bot and controller.bot.scheduler:
                                         controller.bot.scheduler.remove_job(jid)
 

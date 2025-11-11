@@ -301,6 +301,7 @@ class PluginManager:
                     return actual_job_id
 
                 plugin.register_job = patched_register  # type: ignore
+
                 # Patch cleanup to remove jobs from the scheduler when the
                 # plugin is disabled.
                 def patched_cleanup() -> None:

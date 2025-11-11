@@ -96,6 +96,37 @@ pytest tests/ -x
 pytest tests/ --lf
 ```
 
+### Run MCP Integration Tests
+
+```bash
+# All MCP tests (excluding trio backend)
+pytest tests/test_mcp_integration.py -v -k "not trio"
+
+# Only configuration tests
+pytest tests/test_mcp_integration.py::TestMCPConfig -v
+
+# Only tests that don't require API key
+pytest tests/test_mcp_integration.py -v -k "not Agent"
+
+# Only tests that require API key (set OPENAI_API_KEY first)
+export OPENAI_API_KEY='your-key'
+pytest tests/test_mcp_integration.py::TestAIAgentMCPIntegration -v
+```
+
+### Run AI Integration Tests
+
+```bash
+# All AI tests
+pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v -k "not trio"
+
+# Tests that don't require API key
+pytest tests/test_ai_integration.py -v -k "not Agent"
+
+# Tests that require API key
+export OPENAI_API_KEY='your-key'
+pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
+```
+
 ## Test Categories
 
 ### 1. Task Execution Tests (`test_task_executor.py`)
@@ -146,6 +177,31 @@ pytest tests/ --lf
 - Component integration
 - Full bot initialization
 - Error handling integration
+
+### 9. AI Integration Tests (`test_ai_integration.py`)
+- AI configuration
+- Conversation management
+- AI agent functionality
+- Tool registry
+- Bot integration with AI
+
+### 10. Advanced AI Tests (`test_advanced_ai.py`)
+- Streaming configuration
+- MCP configuration
+- Multi-agent configuration
+- MCP client functionality
+- Agent orchestration
+- Specialized agents
+
+### 11. MCP Integration Tests (`test_mcp_integration.py`) **NEW**
+- MCP configuration (stdio, HTTP, SSE transports)
+- MCP client initialization and lifecycle
+- MCP transport types
+- MCP error handling
+- AI agent MCP integration
+- MCP with built-in tools
+- Lazy MCP initialization
+- Graceful degradation
 
 ## Writing New Tests
 
@@ -260,6 +316,44 @@ pytest tests/ --timeout=300
 Install coverage:
 ```bash
 pip install pytest-cov
+```
+
+### Trio Backend Errors (MCP/AI Tests)
+
+**Error:** `ModuleNotFoundError: No module named 'trio'`
+
+**Solution:** Run tests with `-k "not trio"`:
+```bash
+pytest tests/ -v -k "not trio"
+```
+
+### Many Tests Skipped (MCP/AI Tests)
+
+**Issue:** Tests skip with "OPENAI_API_KEY not set"
+
+**Solution:** Set the API key to run all tests:
+```bash
+export OPENAI_API_KEY='your-openai-api-key'
+pytest tests/test_mcp_integration.py -v
+```
+
+### MCP Tests Failing
+
+**Error:** `RuntimeError: pydantic-ai MCP support not available`
+
+**Solution:** Install MCP support:
+```bash
+pip install 'pydantic-ai-slim[mcp]'
+```
+
+### Test Import Errors for `tests.mocks`
+
+**Error:** `ModuleNotFoundError: No module named 'tests'`
+
+**Solution:** Run pytest from project root:
+```bash
+cd /path/to/feishu-webhook-bot
+pytest tests/ -v
 ```
 
 ## Test Metrics

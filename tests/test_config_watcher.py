@@ -19,15 +19,13 @@ def temp_config_file(tmp_path):
     """Create a temporary configuration file."""
     config_path = tmp_path / "test_config.yaml"
     config_data = {
-        "webhooks": [
-            {"name": "default", "url": "https://example.com/webhook"}
-        ],
+        "webhooks": [{"name": "default", "url": "https://example.com/webhook"}],
         "logging": {"level": "INFO"},
     }
-    
+
     with open(config_path, "w") as f:
         yaml.dump(config_data, f)
-    
+
     return config_path
 
 
@@ -77,6 +75,7 @@ class TestConfigFileHandler:
 
         # Simulate file modification
         from watchdog.events import FileModifiedEvent
+
         event = FileModifiedEvent(str(temp_config_file))
 
         # Wait for debounce
@@ -94,6 +93,7 @@ class TestConfigFileHandler:
         )
 
         from watchdog.events import FileModifiedEvent
+
         event = FileModifiedEvent(str(temp_config_file))
 
         # Trigger multiple rapid modifications
@@ -142,7 +142,8 @@ class TestConfigWatcher:
         # Stop watcher
         watcher.stop()
         time.sleep(0.5)  # Give it time to stop
-        assert not watcher._observer.is_alive()
+        # After stopping, observer should be None
+        assert watcher._observer is None
 
     def test_watcher_multiple_start_calls(self, temp_config_file, mock_reload_callback):
         """Test that multiple start calls don't cause issues."""
@@ -189,7 +190,9 @@ class TestConfigReload:
         mock_reload_callback.assert_called_once_with(new_config)
 
     @patch("feishu_webhook_bot.core.config_watcher.BotConfig.from_yaml")
-    def test_reload_handles_invalid_config(self, mock_from_yaml, temp_config_file, mock_reload_callback):
+    def test_reload_handles_invalid_config(
+        self, mock_from_yaml, temp_config_file, mock_reload_callback
+    ):
         """Test that reload handles invalid configuration."""
         # Simulate load failure
         mock_from_yaml.side_effect = Exception("Invalid config")
@@ -213,9 +216,7 @@ class TestConfigReload:
         """Test that reload validates config before loading."""
         # Setup mocks
         mock_validate.return_value = (True, [])
-        new_config = BotConfig(
-            webhooks=[{"name": "default", "url": "https://example.com/webhook"}]
-        )
+        new_config = BotConfig(webhooks=[{"name": "default", "url": "https://example.com/webhook"}])
         mock_from_yaml.return_value = new_config
 
         handler = ConfigFileHandler(
@@ -303,4 +304,3 @@ class TestIntegration:
 
         # Observer should be stopped
         assert not observer.is_alive()
-

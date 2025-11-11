@@ -1,0 +1,85 @@
+# Example configuration for Feishu Bot with AI capabilities
+# This demonstrates how to configure the AI agent with pydantic-ai
+
+# Webhook configuration
+webhooks:
+  - name: default
+    url: ${FEISHU_WEBHOOK_URL}  # Set via environment variable
+    secret: ${FEISHU_WEBHOOK_SECRET}  # Optional: for signature verification
+    timeout: 30.0
+
+# Event server configuration (required for receiving messages)
+event_server:
+  enabled: true
+  auto_start: true
+  host: "0.0.0.0"
+  port: 8080
+  path: "/webhook"
+  verification_token: ${FEISHU_VERIFICATION_TOKEN}  # For Feishu event verification
+
+# AI configuration
+ai:
+  enabled: true
+  
+  # Model configuration
+  # Supported formats:
+  # - OpenAI: "openai:gpt-4o", "openai:gpt-4-turbo", "openai:gpt-3.5-turbo"
+  # - Anthropic: "anthropic:claude-3-5-sonnet-20241022", "anthropic:claude-3-opus-20240229"
+  # - Google: "google:gemini-1.5-pro", "google:gemini-1.5-flash"
+  # - Groq: "groq:llama-3.1-70b-versatile", "groq:mixtral-8x7b-32768"
+  model: "openai:gpt-4o"
+  
+  # API key (can also be set via environment variable)
+  # For OpenAI: OPENAI_API_KEY
+  # For Anthropic: ANTHROPIC_API_KEY
+  # For Google: GOOGLE_API_KEY
+  # For Groq: GROQ_API_KEY
+  api_key: ${OPENAI_API_KEY}
+  
+  # System prompt - defines the AI's behavior and personality
+  system_prompt: |
+    You are a helpful AI assistant integrated with Feishu (Lark).
+    You help users with their questions and tasks in a professional and friendly manner.
+    
+    When answering questions:
+    - Be concise and clear
+    - Use web search when you need current information
+    - Provide accurate and helpful responses
+    - Format your responses for easy reading in chat
+    
+    You have access to tools for:
+    - Web search (for current information)
+    - Time/date queries
+    - Mathematical calculations
+  
+  # Conversation settings
+  max_conversation_turns: 10  # Number of conversation turns to keep in history
+  conversation_timeout_minutes: 30  # Minutes before conversation expires
+  
+  # Model parameters
+  temperature: 0.7  # 0.0 = deterministic, 2.0 = very creative
+  max_tokens: null  # null = use model default, or set a specific limit
+  
+  # Tool/function calling
+  tools_enabled: true
+  
+  # Web search configuration
+  web_search_enabled: true
+  web_search_max_results: 5
+
+# Logging configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  handlers:
+    - type: console
+    - type: file
+      filename: logs/feishu_bot.log
+      max_bytes: 10485760  # 10MB
+      backup_count: 5
+
+# General settings
+general:
+  timezone: "Asia/Shanghai"
+  language: "zh-CN"
+

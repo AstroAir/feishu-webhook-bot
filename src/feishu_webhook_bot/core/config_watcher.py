@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from watchdog.observers import Observer
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+from watchdog.observers import Observer as ObserverClass
 
 from .config import BotConfig
 from .logger import get_logger
@@ -48,7 +52,14 @@ class ConfigFileHandler(FileSystemEventHandler):
             return
 
         # Check if the modified file is our config file
-        event_path = Path(event.src_path).resolve()
+        src_path = event.src_path
+        if isinstance(src_path, bytes):
+            src_path_str = src_path.decode("utf-8")
+        elif isinstance(src_path, (bytearray, memoryview)):
+            src_path_str = bytes(src_path).decode("utf-8")
+        else:
+            src_path_str = str(src_path)
+        event_path = Path(src_path_str).resolve()
         if event_path != self.config_path:
             return
 
@@ -134,7 +145,7 @@ class ConfigWatcher:
         self.config_path = Path(config_path).resolve()
         self.reload_callback = reload_callback
         self.reload_delay = reload_delay
-        self._observer: Observer | None = None
+        self._observer: Observer | None = None  # type: ignore[valid-type]
         self._handler: ConfigFileHandler | None = None
 
     def start(self) -> None:
@@ -157,12 +168,12 @@ class ConfigWatcher:
         )
 
         # Create observer
-        self._observer = Observer()
-        
+        self._observer = ObserverClass()
+
         # Watch the directory containing the config file
         watch_dir = self.config_path.parent
         self._observer.schedule(self._handler, str(watch_dir), recursive=False)
-        
+
         # Start observer
         self._observer.start()
         logger.info("Config watcher started")
@@ -246,4 +257,3 @@ def create_config_watcher(
             logger.error(f"Failed to apply new configuration to bot: {e}", exc_info=True)
 
     return ConfigWatcher(config_path, reload_callback, reload_delay)
-

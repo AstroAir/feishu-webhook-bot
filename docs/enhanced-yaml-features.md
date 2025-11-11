@@ -389,6 +389,6 @@ if not is_valid:
 For issues or questions:
 
 - Check the [documentation](yaml-configuration-guide.md)
-- Review [examples](../config.enhanced.example.yaml)
+- Review the example configuration files in the repository
 - Open an issue on GitHub
 

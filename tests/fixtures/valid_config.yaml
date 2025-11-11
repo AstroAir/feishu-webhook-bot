@@ -72,6 +72,7 @@ task_templates:
   - name: "http_health_check"
     description: "Template for HTTP health checks"
     base_task:
+      name: "health_check_template"
       schedule:
         mode: "interval"
         arguments:

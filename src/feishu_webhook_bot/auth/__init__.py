@@ -25,4 +25,3 @@ __all__ = [
     "validate_password_strength",
     "create_access_token",
 ]
-

@@ -10,9 +10,8 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from ..core.logger import get_logger
-from .database import DatabaseManager
 from .security import calculate_password_strength
-from .service import AuthService, AuthenticationError, RegistrationError
+from .service import AuthenticationError, AuthService, RegistrationError
 
 logger = get_logger("auth.routes")
 
@@ -105,19 +104,17 @@ async def register(
 
         logger.info(f"User registered and authenticated: {user.username}")
 
-        return AuthResponse(
-            access_token=access_token, token_type="bearer", user=user.to_dict()
-        )
+        return AuthResponse(access_token=access_token, token_type="bearer", user=user.to_dict())
 
     except RegistrationError as e:
         logger.warning(f"Registration failed: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Unexpected error during registration: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during registration",
-        )
+        ) from e
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -143,23 +140,23 @@ async def login(
 
         logger.info(f"User logged in: {user.username}")
 
-        return AuthResponse(
-            access_token=access_token, token_type="bearer", user=user.to_dict()
-        )
+        return AuthResponse(access_token=access_token, token_type="bearer", user=user.to_dict())
 
     except AuthenticationError as e:
         logger.warning(f"Login failed for {data.login}: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Unexpected error during login: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during login",
-        )
+        ) from e
 
 
 @router.post("/check-password-strength", response_model=PasswordStrengthResponse)
-async def check_password_strength(password: str = Field(..., min_length=1)) -> PasswordStrengthResponse:
+async def check_password_strength(
+    password: str = Field(..., min_length=1)
+) -> PasswordStrengthResponse:
     """Check password strength and provide feedback.
 
     Args:
@@ -199,4 +196,3 @@ def setup_auth_routes(app: Any) -> None:
     """
     app.include_router(router)
     logger.info("Authentication routes registered")
-

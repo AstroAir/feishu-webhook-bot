@@ -8,9 +8,9 @@ from typing import Any
 from nicegui import app, ui
 
 from ..core.logger import get_logger
-from .database import DatabaseManager, init_database
+from .database import init_database
 from .security import calculate_password_strength
-from .service import AuthService, AuthenticationError, RegistrationError
+from .service import AuthenticationError, AuthService, RegistrationError
 
 logger = get_logger("auth.ui")
 
@@ -30,7 +30,7 @@ class AuthUI:
 
         # Store current user in app storage
         if not hasattr(app.storage, "user"):
-            app.storage.user = {"authenticated": False, "user_data": None, "token": None}
+            app.storage.user = {"authenticated": False, "user_data": None, "token": None}  # type: ignore[misc,assignment]
 
     def build_registration_page(self) -> None:
         """Build the registration page with NiceGUI components."""
@@ -38,38 +38,50 @@ class AuthUI:
 
         with ui.card().classes("absolute-center").style("width: 450px; padding: 30px"):
             ui.label("Create Account").classes("text-h4 text-center q-mb-md")
-            ui.label("Register for Feishu Webhook Bot").classes("text-subtitle2 text-center text-grey-7 q-mb-lg")
+            ui.label("Register for Feishu Webhook Bot").classes(
+                "text-subtitle2 text-center text-grey-7 q-mb-lg"
+            )
 
             # Email field
-            email_input = ui.input(
-                label="Email",
-                placeholder="your.email@example.com",
-                validation={
-                    "Invalid email format": lambda value: self._validate_email(value)
-                },
-            ).props("outlined").classes("w-full")
+            email_input = (
+                ui.input(
+                    label="Email",
+                    placeholder="your.email@example.com",
+                    validation={"Invalid email format": lambda value: self._validate_email(value)},
+                )
+                .props("outlined")
+                .classes("w-full")
+            )
 
             # Username field
-            username_input = ui.input(
-                label="Username",
-                placeholder="username",
-                validation={
-                    "Username must be 3-50 characters": lambda value: 3 <= len(value) <= 50,
-                    "Only letters, numbers, hyphens, and underscores allowed": lambda value: bool(
-                        re.match(r"^[a-zA-Z0-9_-]+$", value)
-                    ),
-                },
-            ).props("outlined").classes("w-full")
+            username_input = (
+                ui.input(
+                    label="Username",
+                    placeholder="username",
+                    validation={
+                        "Username must be 3-50 characters": lambda value: 3 <= len(value) <= 50,
+                        "Only letters, numbers, hyphens, and underscores allowed": (
+                            lambda value: bool(re.match(r"^[a-zA-Z0-9_-]+$", value))
+                        ),
+                    },
+                )
+                .props("outlined")
+                .classes("w-full")
+            )
 
             # Password field with visibility toggle
             password_visible = {"value": False}
 
             with ui.row().classes("w-full items-center"):
-                password_input = ui.input(
-                    label="Password",
-                    placeholder="Enter password",
-                    password=True,
-                ).props("outlined").classes("flex-grow")
+                password_input = (
+                    ui.input(
+                        label="Password",
+                        placeholder="Enter password",
+                        password=True,
+                    )
+                    .props("outlined")
+                    .classes("flex-grow")
+                )
 
                 ui.button(
                     icon="visibility" if not password_visible["value"] else "visibility_off",
@@ -91,14 +103,18 @@ class AuthUI:
             )
 
             # Password confirmation field
-            password_confirm_input = ui.input(
-                label="Confirm Password",
-                placeholder="Re-enter password",
-                password=True,
-                validation={
-                    "Passwords must match": lambda value: value == password_input.value
-                },
-            ).props("outlined").classes("w-full")
+            password_confirm_input = (
+                ui.input(
+                    label="Confirm Password",
+                    placeholder="Re-enter password",
+                    password=True,
+                    validation={
+                        "Passwords must match": lambda value: value == password_input.value
+                    },
+                )
+                .props("outlined")
+                .classes("w-full")
+            )
 
             # Error message display
             error_label = ui.label("").classes("text-negative text-caption q-mt-sm")
@@ -135,7 +151,7 @@ class AuthUI:
                     )
 
                     # Store user session
-                    app.storage.user = {
+                    app.storage.user = {  # type: ignore[misc,assignment]
                         "authenticated": True,
                         "user_data": user_obj.to_dict(),
                         "token": token,
@@ -165,7 +181,9 @@ class AuthUI:
             ui.button(
                 "Create Account",
                 on_click=handle_register,
-            ).props("unelevated color=primary").classes("w-full q-mt-md").bind_enabled_from(
+            ).props(
+                "unelevated color=primary"
+            ).classes("w-full q-mt-md").bind_enabled_from(
                 loading, "value", backward=lambda x: not x
             )
 
@@ -180,20 +198,26 @@ class AuthUI:
 
         with ui.card().classes("absolute-center").style("width: 400px; padding: 30px"):
             ui.label("Welcome Back").classes("text-h4 text-center q-mb-md")
-            ui.label("Sign in to your account").classes("text-subtitle2 text-center text-grey-7 q-mb-lg")
+            ui.label("Sign in to your account").classes(
+                "text-subtitle2 text-center text-grey-7 q-mb-lg"
+            )
 
             # Login field (email or username)
-            login_input = ui.input(
-                label="Email or Username", placeholder="Enter your email or username"
-            ).props("outlined").classes("w-full")
+            login_input = (
+                ui.input(label="Email or Username", placeholder="Enter your email or username")
+                .props("outlined")
+                .classes("w-full")
+            )
 
             # Password field with visibility toggle
             password_visible = {"value": False}
 
             with ui.row().classes("w-full items-center"):
-                password_input = ui.input(
-                    label="Password", placeholder="Enter password", password=True
-                ).props("outlined").classes("flex-grow")
+                password_input = (
+                    ui.input(label="Password", placeholder="Enter password", password=True)
+                    .props("outlined")
+                    .classes("flex-grow")
+                )
 
                 ui.button(
                     icon="visibility" if not password_visible["value"] else "visibility_off",
@@ -228,7 +252,7 @@ class AuthUI:
                     )
 
                     # Store user session
-                    app.storage.user = {
+                    app.storage.user = {  # type: ignore[misc,assignment]
                         "authenticated": True,
                         "user_data": user.to_dict(),
                         "token": token,
@@ -256,9 +280,9 @@ class AuthUI:
                 finally:
                     loading["value"] = False
 
-            ui.button("Sign In", on_click=handle_login).props(
-                "unelevated color=primary"
-            ).classes("w-full q-mt-md").bind_enabled_from(loading, "value", backward=lambda x: not x)
+            ui.button("Sign In", on_click=handle_login).props("unelevated color=primary").classes(
+                "w-full q-mt-md"
+            ).bind_enabled_from(loading, "value", backward=lambda x: not x)
 
             # Link to registration page
             with ui.row().classes("w-full justify-center q-mt-md"):
@@ -288,9 +312,7 @@ class AuthUI:
         visible_state["value"] = not visible_state["value"]
         password_input.password = not visible_state["value"]
 
-    def _update_password_strength(
-        self, password: str, label: Any, progress_bar: Any
-    ) -> None:
+    def _update_password_strength(self, password: str, label: Any, progress_bar: Any) -> None:
         """Update password strength indicator.
 
         Args:
@@ -320,4 +342,3 @@ class AuthUI:
 
         # Update progress bar
         progress_bar.value = score / 100
-

@@ -76,6 +76,7 @@ class FeishuBot:
         self.task_manager: TaskManager | None = None
         self.event_server: EventServer | None = None
         self.config_watcher: Any = None
+        self.ai_agent: Any = None  # AIAgent instance
         self._running: bool = False
         self._shutdown_event = threading.Event()
         self._signal_handlers: dict[int, Any] = {}
@@ -105,6 +106,7 @@ class FeishuBot:
             self._init_automation()
             self._init_tasks()
             self._init_event_server()
+            self._init_ai_agent()
             self._init_config_watcher()
         except Exception as exc:
             logger.error("Failed to initialize optional components: %s", exc, exc_info=True)
@@ -162,10 +164,12 @@ class FeishuBot:
                 if isinstance(client_obj, _mock.Mock):
                     proxy = _mock.MagicMock()
 
-                    def _make_delegator(method_name: str):
-                        def _delegator(*a, **k):
+                    def _make_delegator(
+                        method_name: str, client: Any = client_obj
+                    ) -> _mock.MagicMock:
+                        def _delegator(*a: Any, **k: Any) -> Any:
                             # Call the underlying mock
-                            getattr(client_obj, method_name)(*a, **k)
+                            getattr(client, method_name)(*a, **k)
 
                         return _mock.MagicMock(side_effect=_delegator)
 
@@ -190,7 +194,8 @@ class FeishuBot:
             if any(isinstance(webhook, WebhookConfig) for webhook in webhooks):
                 raise RuntimeError("No webhook clients available after initialization")
             logger.debug(
-                "Skipping client initialization failures; configuration does not provide valid WebhookConfig instances"
+                "Skipping client initialization failures; "
+                "configuration does not provide valid WebhookConfig instances"
             )
             self.client = None
             return
@@ -214,7 +219,8 @@ class FeishuBot:
         enabled_flag = getattr(scheduler_config, "enabled", None)
         if not isinstance(enabled_flag, bool):
             logger.debug(
-                "Skipping scheduler initialization; scheduler config does not provide a boolean 'enabled' flag"
+                "Skipping scheduler initialization; "
+                "scheduler config does not provide a boolean 'enabled' flag"
             )
             return
 
@@ -346,9 +352,7 @@ class FeishuBot:
 
         path_value = getattr(event_config, "path", None)
         if not isinstance(path_value, str):
-            logger.debug(
-                "Skipping event server initialization; configuration path is not a string"
-            )
+            logger.debug("Skipping event server initialization; configuration path is not a string")
             return
 
         self.event_server = EventServer(event_config, self._handle_incoming_event)
@@ -358,6 +362,36 @@ class FeishuBot:
             event_config.port,
             event_config.path,
         )
+
+    def _init_ai_agent(self) -> None:
+        """Initialize AI agent if configured."""
+        ai_config = getattr(self.config, "ai", None)
+        if not ai_config:
+            logger.info("AI agent disabled")
+            return
+
+        enabled_flag = getattr(ai_config, "enabled", None)
+        if not isinstance(enabled_flag, bool) or not enabled_flag:
+            logger.info("AI agent disabled")
+            return
+
+        try:
+            from .ai import AIAgent
+            from .ai.config import AIConfig
+
+            # Convert to AIConfig if it's a dict
+            if isinstance(ai_config, dict):
+                ai_config = AIConfig(**ai_config)
+            elif not hasattr(ai_config, "enabled"):
+                logger.warning("Invalid AI configuration, skipping AI agent initialization")
+                return
+
+            self.ai_agent = AIAgent(ai_config)
+            logger.info("AI agent initialized with model: %s", ai_config.model)
+        except ImportError as exc:
+            logger.error("Failed to import AI modules: %s", exc, exc_info=True)
+        except Exception as exc:
+            logger.error("Failed to initialize AI agent: %s", exc, exc_info=True)
 
     def _automation_send_text(self, text: str, webhook_name: str) -> None:
         self.send_message(text, webhook_name)
@@ -371,6 +405,15 @@ class FeishuBot:
         """Handle inbound events from the event server."""
         logger.debug("Handling incoming event: %s", payload.get("type", "unknown"))
 
+        # Handle AI chat messages
+        if self.ai_agent and self._is_chat_message(payload):
+            try:
+                import asyncio
+
+                asyncio.create_task(self._handle_ai_chat(payload))
+            except Exception as exc:
+                logger.error("AI chat handling failed: %s", exc, exc_info=True)
+
         if self.plugin_manager:
             try:
                 self.plugin_manager.dispatch_event(payload, context={})
@@ -382,6 +425,53 @@ class FeishuBot:
                 self.automation_engine.handle_event(payload)
             except Exception as exc:
                 logger.error("Automation event handling failed: %s", exc, exc_info=True)
+
+    def _is_chat_message(self, payload: dict[str, Any]) -> bool:
+        """Check if the payload is a chat message that should be handled by AI.
+
+        Args:
+            payload: Event payload
+
+        Returns:
+            True if this is a chat message
+        """
+        # Check for Feishu message event structure
+        event_type = payload.get("type")
+        if event_type == "message":
+            return True
+
+        # Check for nested event structure
+        event = payload.get("event", {})
+        return event.get("type") == "message"
+
+    async def _handle_ai_chat(self, payload: dict[str, Any]) -> None:
+        """Handle AI chat message.
+
+        Args:
+            payload: Event payload
+        """
+        try:
+            # Extract message content and user ID from payload
+            event = payload.get("event", payload)
+            message_content = event.get("text", event.get("content", ""))
+            user_id = event.get("sender", {}).get("sender_id", {}).get("user_id", "unknown")
+
+            if not message_content:
+                logger.warning("Received empty message, skipping AI processing")
+                return
+
+            logger.info("Processing AI chat from user %s: %s", user_id, message_content[:100])
+
+            # Get AI response
+            response = await self.ai_agent.chat(user_id, message_content)
+
+            # Send response back via webhook
+            if response and self.client:
+                self.client.send_text(response)
+                logger.info("Sent AI response to user %s", user_id)
+
+        except Exception as exc:
+            logger.error("Error handling AI chat: %s", exc, exc_info=True)
 
     def _setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful shutdown."""
@@ -484,6 +574,14 @@ class FeishuBot:
                         exc,
                         exc_info=True,
                     )
+
+            if self.ai_agent:
+                try:
+                    self.ai_agent.start()
+                    logger.info("AI agent started")
+                except Exception as exc:
+                    logger.error("Failed to start AI agent: %s", exc, exc_info=True)
+                    raise
 
             self._running = True
             try:
@@ -596,6 +694,19 @@ class FeishuBot:
                     self.config_watcher.stop()
                 except Exception as exc:
                     logger.error("Failed to stop config watcher: %s", exc, exc_info=True)
+
+            # Stop AI agent
+            if self.ai_agent:
+                try:
+                    import asyncio
+
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(self.ai_agent.stop())
+                    else:
+                        loop.run_until_complete(self.ai_agent.stop())
+                except Exception as exc:
+                    logger.error("Failed to stop AI agent: %s", exc, exc_info=True)
 
             # Stop scheduler
             if self.scheduler:

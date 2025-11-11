@@ -33,7 +33,7 @@ class CloseOnEmitFileHandler(RotatingFileHandler):
     directory cleanup on Windows during tests.
     """
 
-    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             super().emit(record)
         finally:

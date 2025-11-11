@@ -273,9 +273,9 @@ class TaskParameterConfig(BaseModel):
 class TaskActionConfig(BaseModel):
     """Action to be executed as part of a task."""
 
-    type: Literal["plugin_method", "send_message", "http_request", "python_code"] = Field(
-        ..., description="Type of action to execute"
-    )
+    type: Literal[
+        "plugin_method", "send_message", "http_request", "python_code", "ai_chat", "ai_query"
+    ] = Field(..., description="Type of action to execute")
     plugin_name: str | None = Field(default=None, description="Plugin name for plugin_method")
     method_name: str | None = Field(default=None, description="Method name for plugin_method")
     message: str | None = Field(default=None, description="Message for send_message")
@@ -284,6 +284,26 @@ class TaskActionConfig(BaseModel):
         default=None, description="HTTP request config for http_request"
     )
     code: str | None = Field(default=None, description="Python code for python_code action")
+
+    # AI action fields
+    ai_prompt: str | None = Field(default=None, description="Prompt for AI chat/query actions")
+    ai_user_id: str | None = Field(default=None, description="User ID for AI conversation context")
+    ai_system_prompt: str | None = Field(
+        default=None, description="Override system prompt for this AI action"
+    )
+    ai_temperature: float | None = Field(
+        default=None, ge=0.0, le=2.0, description="Override temperature for this AI action"
+    )
+    ai_max_tokens: int | None = Field(
+        default=None, ge=1, description="Override max tokens for this AI action"
+    )
+    ai_save_response_as: str | None = Field(
+        default=None, description="Save AI response to context with this key"
+    )
+    ai_structured_output: bool = Field(
+        default=False, description="Use structured output for AI response"
+    )
+
     parameters: dict[str, Any] = Field(
         default_factory=dict, description="Parameters to pass to the action"
     )
@@ -323,9 +343,7 @@ class TaskDefinitionConfig(BaseModel):
     )
 
     # Actions
-    actions: list[TaskActionConfig] = Field(
-        default_factory=list, description="Actions to execute"
-    )
+    actions: list[TaskActionConfig] = Field(default_factory=list, description="Actions to execute")
 
     # Error handling
     error_handling: TaskErrorHandlingConfig = Field(
@@ -335,9 +353,7 @@ class TaskDefinitionConfig(BaseModel):
     # Execution settings
     timeout: float | None = Field(default=None, ge=0.0, description="Task timeout in seconds")
     priority: int = Field(default=100, description="Task priority (lower runs first)")
-    max_concurrent: int = Field(
-        default=1, ge=1, description="Maximum concurrent executions"
-    )
+    max_concurrent: int = Field(default=1, ge=1, description="Maximum concurrent executions")
 
     # Context
     context: dict[str, Any] = Field(
@@ -656,6 +672,9 @@ class BotConfig(BaseSettings):
         default=False, description="Enable hot-reloading of configuration changes"
     )
 
+    # AI configuration - import will be added at runtime to avoid circular imports
+    ai: Any = Field(default=None, description="AI agent configuration (AIConfig)")
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> BotConfig:
         """Load configuration from a YAML file."""
@@ -765,7 +784,8 @@ class BotConfig(BaseSettings):
         """Get all environment variables from specified or active environment.
 
         Args:
-            environment_name: Name of environment to get variables from. If None, uses active_environment.
+            environment_name: Name of environment to get variables from.
+                If None, uses active_environment.
         """
         env = self.get_environment(environment_name)
         if not env:

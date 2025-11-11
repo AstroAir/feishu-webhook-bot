@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from email_validator import EmailNotValidError, validate_email
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 from ..core.logger import get_logger
 from .database import DatabaseManager
@@ -84,7 +82,7 @@ class AuthService:
             email_info = validate_email(email, check_deliverability=False)
             email = email_info.normalized
         except EmailNotValidError as e:
-            raise RegistrationError(f"Invalid email address: {str(e)}")
+            raise RegistrationError(f"Invalid email address: {str(e)}") from e
 
         # Validate username
         if len(username) < 3:
@@ -92,7 +90,9 @@ class AuthService:
         if len(username) > 50:
             raise RegistrationError("Username must be at most 50 characters long")
         if not username.replace("_", "").replace("-", "").isalnum():
-            raise RegistrationError("Username can only contain letters, numbers, hyphens, and underscores")
+            raise RegistrationError(
+                "Username can only contain letters, numbers, hyphens, and underscores"
+            )
 
         # Hash password
         hashed_password = get_password_hash(password)
@@ -118,11 +118,11 @@ class AuthService:
                 # Check which constraint was violated
                 error_msg = str(e.orig).lower()
                 if "email" in error_msg:
-                    raise RegistrationError("Email address already registered")
+                    raise RegistrationError("Email address already registered") from e
                 elif "username" in error_msg:
-                    raise RegistrationError("Username already taken")
+                    raise RegistrationError("Username already taken") from e
                 else:
-                    raise RegistrationError("User already exists")
+                    raise RegistrationError("User already exists") from e
 
     def authenticate_user(self, login: str, password: str) -> tuple[User, str]:
         """Authenticate a user and return user object with access token.
@@ -140,9 +140,7 @@ class AuthService:
         with self.db_manager.get_session() as session:
             # Find user by email or username
             user = (
-                session.query(User)
-                .filter((User.email == login) | (User.username == login))
-                .first()
+                session.query(User).filter((User.email == login) | (User.username == login)).first()
             )
 
             if not user:
@@ -153,8 +151,7 @@ class AuthService:
             if user.is_locked():
                 logger.warning(f"Login attempt on locked account: {login}")
                 raise AuthenticationError(
-                    f"Account is locked due to too many failed attempts. "
-                    f"Please try again later."
+                    "Account is locked due to too many failed attempts. " "Please try again later."
                 )
 
             # Check if account is active
@@ -169,7 +166,7 @@ class AuthService:
 
                 # Lock account if max attempts reached
                 if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
-                    user.locked_until = datetime.now(timezone.utc) + timedelta(
+                    user.locked_until = datetime.now(UTC) + timedelta(
                         minutes=LOCKOUT_DURATION_MINUTES
                     )
                     logger.warning(
@@ -196,7 +193,7 @@ class AuthService:
             logger.info(f"User authenticated successfully: {login}")
             return user, access_token
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> User | None:
         """Get user by email address.
 
         Args:
@@ -208,7 +205,7 @@ class AuthService:
         with self.db_manager.get_session() as session:
             return session.query(User).filter(User.email == email).first()
 
-    def get_user_by_username(self, username: str) -> Optional[User]:
+    def get_user_by_username(self, username: str) -> User | None:
         """Get user by username.
 
         Args:
@@ -220,7 +217,7 @@ class AuthService:
         with self.db_manager.get_session() as session:
             return session.query(User).filter(User.username == username).first()
 
-    def get_user_by_id(self, user_id: int) -> Optional[User]:
+    def get_user_by_id(self, user_id: int) -> User | None:
         """Get user by ID.
 
         Args:
@@ -268,4 +265,3 @@ class AuthService:
                 logger.info(f"Account unlocked: {user.username}")
                 return True
             return False
-

@@ -27,7 +27,7 @@ try:
 
     HAS_SQLALCHEMY = True
 except ImportError:
-    SQLAlchemyJobStore = None  # type: ignore
+    SQLAlchemyJobStore = None
     HAS_SQLALCHEMY = False
 
 from ..core.config import SchedulerConfig
@@ -137,9 +137,7 @@ class TaskScheduler:
                 jobstores["default"] = MemoryJobStore()
                 logger.info("Using in-memory job store (fallback)")
             else:
-                jobstore_obj = SQLAlchemyJobStore(  # type: ignore[misc]
-                    url=f"sqlite:///{self.config.job_store_path}"
-                )
+                jobstore_obj = SQLAlchemyJobStore(url=f"sqlite:///{self.config.job_store_path}")
                 if isinstance(jobstore_obj, BaseJobStore):
                     jobstores["default"] = jobstore_obj
                     logger.info(f"Using SQLite job store: {self.config.job_store_path}")
@@ -305,7 +303,7 @@ class TaskScheduler:
             ```
         """
         # Check if function has scheduling metadata
-        if not hasattr(func, "_scheduler_job") or not func._scheduler_job:  # type: ignore
+        if not hasattr(func, "_scheduler_job") or not func._scheduler_job:
             return None
 
         trigger_type = getattr(func, "_trigger_type", "interval")

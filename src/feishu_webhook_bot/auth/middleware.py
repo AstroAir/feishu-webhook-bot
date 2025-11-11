@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -104,7 +105,7 @@ def require_auth(func: Callable) -> Callable:
             payload = decode_access_token(token)
             if payload is None:
                 logger.warning("Expired or invalid token, redirecting to login")
-                app.storage.user = {"authenticated": False, "user_data": None, "token": None}
+                app.storage.user = {"authenticated": False, "user_data": None, "token": None}  # type: ignore[misc,assignment]
                 ui.navigate.to("/login")
                 return None
 
@@ -134,7 +135,7 @@ def logout_user() -> None:
     This function clears the user session from app storage.
     """
     if hasattr(app.storage, "user"):
-        app.storage.user = {"authenticated": False, "user_data": None, "token": None}
+        app.storage.user = {"authenticated": False, "user_data": None, "token": None}  # type: ignore[misc,assignment]
         logger.info("User logged out")
 
 
@@ -210,4 +211,3 @@ def setup_auth_middleware(app: Any) -> None:
     """
     app.middleware("http")(AuthMiddleware(app))
     logger.info("Authentication middleware registered")
-

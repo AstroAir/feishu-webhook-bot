@@ -1,21 +1,26 @@
 # Welcome to Feishu Webhook Bot
 
-A production-ready framework for building powerful Feishu (Lark) webhook bots with messaging, scheduling, plugins, and automation capabilities.
+A production-ready framework for building powerful Feishu (Lark) webhook bots with messaging, scheduling, plugins, AI capabilities, and automation.
 
 ## 🚀 Quick Links
 
 - **[Getting Started](getting-started.md)** - Installation, setup, and first bot
 - **[Plugin Development Guide](plugin-guide.md)** - Create custom plugins with scheduling
 - **[Automation Guide](automation-guide.md)** - Declarative workflows and event handling
+- **[AI Multi-Provider Guide](AI_MULTI_PROVIDER_GUIDE.md)** - Multi-provider AI support and AI-powered tasks
+- **[MCP Integration](MCP_INTEGRATION.md)** - Model Context Protocol integration
+- **[Authentication](authentication.md)** - User authentication and security
 - **[API Reference](api.md)** - Complete API documentation
 - **[Contributing](contributing.md)** - Development guidelines
 
 ## ✨ Key Features
 
 - **📨 Rich Messaging** - Text, rich text, interactive cards (JSON v2.0), and images
+- **🤖 AI Integration** - Built-in AI with pydantic-ai supporting multiple providers (OpenAI, Anthropic, Google, Groq, etc.)
 - **⏰ Task Scheduling** - Built-in APScheduler for cron jobs and periodic tasks
 - **🔌 Plugin System** - Extensible architecture with hot-reload support
 - **🤖 Automation Engine** - Declarative workflows triggered by schedules or events
+- **🔐 Authentication** - Complete user authentication system with JWT tokens
 - **⚙️ Configuration** - YAML/JSON config with Pydantic validation
 - **📝 Logging** - Comprehensive logging with rotation and Rich formatting
 - **🔄 Hot Reload** - Automatically reload plugins and configurations without restart
@@ -27,16 +32,19 @@ A production-ready framework for building powerful Feishu (Lark) webhook bots wi
 
 ### For Users
 
-1. **Getting Started** - Set up your first bot in minutes
-2. **Plugin Development** - Build custom plugins for your use cases
-3. **Automation Guide** - Create declarative workflows
-4. **Configuration Reference** - All available configuration options
+1. **[Getting Started](getting-started.md)** - Set up your first bot in minutes
+2. **[Plugin Development](plugin-guide.md)** - Build custom plugins for your use cases
+3. **[Automation Guide](automation-guide.md)** - Create declarative workflows
+4. **[AI Multi-Provider Guide](AI_MULTI_PROVIDER_GUIDE.md)** - Use AI capabilities with multiple providers
+5. **[MCP Integration](MCP_INTEGRATION.md)** - Model Context Protocol for advanced AI features
+6. **[Authentication](authentication.md)** - Secure your bot with user authentication
+7. **[YAML Configuration](yaml-configuration-guide.md)** - Complete configuration reference
 
 ### For Developers
 
-1. **API Reference** - Complete API documentation
-2. **Contributing** - How to contribute to the project
-3. **Architecture** - Understanding the codebase structure
+1. **[API Reference](api.md)** - Complete API documentation
+2. **[Contributing](contributing.md)** - How to contribute to the project
+3. **[AI Enhancements](AI_ENHANCEMENTS.md)** - Advanced AI features and improvements
 
 ## 🎯 Common Tasks
 
@@ -90,7 +98,7 @@ automations:
 
 ## 💬 Getting Help
 
-- 📖 Read the full [documentation](.)
+- 📖 Read the full [documentation](getting-started.md)
 - 🐛 Report issues on [GitHub](https://github.com/AstroAir/feishu-webhook-bot/issues)
 - 💬 Ask questions in [Discussions](https://github.com/AstroAir/feishu-webhook-bot/discussions)
 

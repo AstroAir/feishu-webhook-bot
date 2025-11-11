@@ -74,21 +74,14 @@ trigger:
     event_type: "im.message.receive_v1"
     conditions:
       - path: "event.message.content"
-        operator: "contains"
-        value: "alert"
+        contains: "alert"
 ```
 
-**Supported operators:**
+**Condition fields:**
 
-- `equals` - Exact match
-- `contains` - Substring match
-- `starts_with` - Prefix match
-- `ends_with` - Suffix match
-- `regex` - Regular expression match
-- `gt` - Greater than (numeric)
-- `lt` - Less than (numeric)
-- `gte` - Greater than or equal
-- `lte` - Less than or equal
+- `path` - Dot-separated path to value in event payload (required)
+- `equals` - Exact value match (optional)
+- `contains` - Substring match (optional)
 
 ## Actions
 
@@ -231,8 +224,7 @@ automations:
         event_type: "im.message.receive_v1"
         conditions:
           - path: "event.message.content"
-            operator: "contains"
-            value: "URGENT"
+            contains: "URGENT"
     actions:
       - type: "send_text"
         text: "🚨 URGENT message received!"
@@ -565,6 +557,8 @@ automations:
 
 Automatically respond to messages containing specific keywords:
 
+### Example: Keyword Responder
+
 ```yaml
 automations:
   - name: "keyword-responder"
@@ -576,8 +570,7 @@ automations:
         event_type: "im.message.receive_v1"
         conditions:
           - path: "event.message.content"
-            operator: "regex"
-            value: "(?i)(help|support|urgent)"  # Case-insensitive regex
+            contains: "help"  # Matches if message contains "help"
     default_webhooks: ["support"]
     actions:
       - type: "send_text"
@@ -591,10 +584,9 @@ automations:
 
 **Key Features:**
 
-- Uses regex for flexible matching
-- Case-insensitive pattern matching
+- Uses substring matching for flexible keywords
 - Immediate response to user
-- Easy to add more keywords
+- Easy to configure multiple keywords by adding more conditions
 
 #### Example 9: Event-Based Escalation
 
@@ -623,11 +615,9 @@ automations:
         event_type: "im.message.receive_v1"
         conditions:
           - path: "event.message.content"
-            operator: "contains"
-            value: "CRITICAL"
+            contains: "CRITICAL"
           - path: "event.message.content"
-            operator: "contains"
-            value: "PRODUCTION"
+            contains: "PRODUCTION"
     default_webhooks: ["escalation"]
     actions:
       # Extract issue details
@@ -689,11 +679,9 @@ automations:
         event_type: "im.message.receive_v1"
         conditions:
           - path: "event.message.content"
-            operator: "contains"
-            value: "github.com"
+            contains: "github.com"
           - path: "event.message.content"
-            operator: "contains"
-            value: "pull"
+            contains: "pull"
     default_webhooks: ["dev-team"]
     actions:
       # Parse GitHub URL
@@ -950,14 +938,11 @@ automations:
         conditions:
           # All conditions must be true (AND logic)
           - path: "event.message.content"
-            operator: "contains"
-            value: "deploy"
+            contains: "deploy"
           - path: "event.message.content"
-            operator: "contains"
-            value: "production"
+            contains: "production"
           - path: "event.sender.user_id"
-            operator: "equals"
-            value: "ou_xxx"  # Specific user ID
+            equals: "ou_xxx"  # Specific user ID
     actions:
       - type: "send_text"
         text: "🚀 Production deployment request received from authorized user"
@@ -1159,8 +1144,7 @@ automations:
         event_type: "im.message.receive_v1"
         conditions:
           - path: "event.message.content"
-            operator: "regex"
-            value: "deployed|deployment|release"
+            contains: "deployed"  # Matches deployment notifications
     actions:
       - type: "send_text"
         text: |
@@ -1411,16 +1395,13 @@ trigger:
     conditions:
       # All must be true (AND logic)
       - path: "event.message.content"
-        operator: "contains"
-        value: "bug"
+        contains: "bug"
 
       - path: "event.message.content"
-        operator: "contains"
-        value: "critical"
+        contains: "critical"
 
       - path: "event.sender.user_id"
-        operator: "equals"
-        value: "ou_xxx"
+        equals: "ou_xxx"
 ```
 
 ### Reusing Templates Across Automations

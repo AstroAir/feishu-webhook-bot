@@ -1,7 +1,7 @@
 """Mock scheduler for testing."""
 
-from typing import Any, Callable
-from unittest.mock import MagicMock
+from collections.abc import Callable
+from typing import Any
 
 
 class MockJob:
@@ -100,4 +100,3 @@ class MockScheduler:
     def clear(self) -> None:
         """Clear all jobs."""
         self.jobs.clear()
-

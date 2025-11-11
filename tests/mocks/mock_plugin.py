@@ -84,4 +84,3 @@ class MockPlugin(BasePlugin):
     def clear_history(self) -> None:
         """Clear call history."""
         self.call_history.clear()
-

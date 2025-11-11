@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from ..core.config import (
@@ -46,27 +47,50 @@ class TaskTemplateEngine:
         Args:
             template_name: Name of the template to use
             task_name: Name for the new task
-            overrides: Dictionary of values to override in the template
+            overrides: Dictionary of values to override/substitute in the template
 
         Returns:
             New task configuration
 
         Raises:
-            ValueError: If template not found
+            ValueError: If template not found or required parameters missing
         """
         template = self.get_template(template_name)
         if not template:
             raise ValueError(f"Template not found: {template_name}")
 
+        # Validate parameters if overrides provided
+        if overrides and template.parameters:
+            is_valid, errors = self.validate_template_parameters(template_name, overrides)
+            if not is_valid:
+                raise ValueError(f"Template validation failed: {', '.join(errors)}")
+
         # Start with base task configuration
         task_dict = template.base_task.model_dump()
-        
+
         # Update task name
         task_dict["name"] = task_name
 
-        # Apply overrides
+        # Apply parameter defaults
+        params = {}
+        if template.parameters:
+            for param in template.parameters:
+                overrides_dict = overrides or {}
+                if param.name in overrides_dict:
+                    params[param.name] = overrides_dict[param.name]
+                elif param.default is not None:
+                    params[param.name] = param.default
+
+        # Substitute parameters in task dict
+        if params:
+            task_dict = self._substitute_parameters(task_dict, params)
+
+        # Apply additional overrides (non-parameter fields)
         if overrides:
-            self._apply_overrides(task_dict, overrides)
+            param_names = {p.name for p in (template.parameters or [])}
+            non_param_overrides = {k: v for k, v in overrides.items() if k not in param_names}
+            if non_param_overrides:
+                self._apply_overrides(task_dict, non_param_overrides)
 
         # Create new task instance
         return TaskDefinitionConfig(**task_dict)
@@ -83,6 +107,32 @@ class TaskTemplateEngine:
                 self._apply_overrides(base[key], value)
             else:
                 base[key] = value
+
+    def _substitute_parameters(self, obj: Any, params: dict[str, Any]) -> Any:
+        """Recursively substitute ${param_name} placeholders in configuration.
+
+        Args:
+            obj: Configuration object (dict, list, or primitive)
+            params: Parameter values to substitute
+
+        Returns:
+            Configuration with substituted values
+        """
+        if isinstance(obj, dict):
+            return {k: self._substitute_parameters(v, params) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._substitute_parameters(item, params) for item in obj]
+        elif isinstance(obj, str):
+            # Replace ${param_name} patterns
+            def replacer(match: re.Match[str]) -> str:
+                param_name = match.group(1)
+                if param_name in params:
+                    return str(params[param_name])
+                return match.group(0)  # Keep original if not found
+
+            return re.sub(r"\$\{([^}]+)\}", replacer, obj)
+        else:
+            return obj
 
     def list_templates(self) -> list[str]:
         """List all available template names.
@@ -111,11 +161,11 @@ class TaskTemplateEngine:
             return False, [f"Template not found: {template_name}"]
 
         errors = []
-        
+
         # Check required parameters
         for param in template.parameters:
             if param.required and param.name not in parameters:
-                errors.append(f"Required parameter missing: {param.name}")
+                errors.append(f"required parameter missing: {param.name}")
 
         # Check parameter types
         for param in template.parameters:
@@ -205,4 +255,3 @@ def create_task_from_template_yaml(
         task_name,
         parameters,
     )
-

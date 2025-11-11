@@ -39,6 +39,18 @@ from .core import (
 from .plugins import BasePlugin, PluginManager, PluginMetadata
 from .scheduler import TaskScheduler, job
 
+# AI components - optional import
+try:
+    from .ai import AIAgent, AIConfig, ConversationManager, ToolRegistry
+
+    _ai_available = True
+except ImportError:
+    _ai_available = False
+    AIAgent = None  # type: ignore[assignment,misc]
+    AIConfig = None  # type: ignore[assignment,misc]
+    ConversationManager = None  # type: ignore[assignment,misc]
+    ToolRegistry = None  # type: ignore[assignment,misc]
+
 __all__ = [
     "__version__",
     "FeishuBot",
@@ -53,6 +65,17 @@ __all__ = [
     "get_logger",
     "setup_logging",
 ]
+
+# Add AI exports if available
+if _ai_available:
+    __all__.extend(
+        [
+            "AIAgent",
+            "AIConfig",
+            "ConversationManager",
+            "ToolRegistry",
+        ]
+    )
 
 try:  # pragma: no cover - best-effort during development
     __version__ = version("feishu-webhook-bot")
