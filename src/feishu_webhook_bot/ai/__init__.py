@@ -13,8 +13,10 @@ This package provides AI-powered features including:
 """
 
 from .agent import AIAgent, AIResponse
-from .config import AIConfig, MCPConfig, ModelProviderConfig, MultiAgentConfig, StreamingConfig
+from .config import AIConfig, ConversationPersistenceConfig, MCPConfig, ModelProviderConfig, MultiAgentConfig, StreamingConfig
 from .conversation import ConversationManager, ConversationState
+from .commands import CommandHandler, CommandResult
+from .conversation_store import ConversationRecord, MessageRecord, PersistentConversationManager
 from .exceptions import (
     AIError,
     AIServiceUnavailableError,
@@ -43,12 +45,18 @@ __all__ = [
     "AIAgent",
     "AIResponse",
     "AIConfig",
+    "ConversationPersistenceConfig",
     "MCPConfig",
     "MultiAgentConfig",
     "StreamingConfig",
     "ModelProviderConfig",
     "ConversationManager",
     "ConversationState",
+    "CommandHandler",
+    "CommandResult",
+    "PersistentConversationManager",
+    "ConversationRecord",
+    "MessageRecord",
     "ToolRegistry",
     "MCPClient",
     "AgentOrchestrator",

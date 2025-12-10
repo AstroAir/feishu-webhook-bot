@@ -1,0 +1,116 @@
+# Example configuration for Feishu Calendar Plugin
+#
+# This configuration shows how to set up the Feishu Calendar subscription plugin
+# to automatically send event reminders for upcoming calendar events.
+
+webhooks:
+  default:
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_ID"
+    # Optional: Webhook security secret for signed webhooks
+    # secret: "YOUR_WEBHOOK_SECRET"
+    headers:
+      User-Agent: "feishu-webhook-bot/1.0"
+
+plugins:
+  # Enable plugin system
+  enabled: true
+
+  # Plugin-specific settings
+  plugin_settings:
+    # Feishu Calendar plugin configuration
+    - plugin_name: "feishu-calendar"
+      enabled: true
+      settings:
+        # Required: Feishu App ID
+        # Get from: https://open.feishu.cn/app
+        app_id: "${FEISHU_APP_ID}"
+
+        # Required: Feishu App Secret
+        app_secret: "${FEISHU_APP_SECRET}"
+
+        # Calendar IDs to monitor
+        # "primary" refers to your personal calendar
+        # You can also specify other calendar IDs
+        calendar_ids:
+          - "primary"          # Your personal calendar
+          # - "team-calendar"   # Team calendar if you have access
+
+        # Check interval in minutes (how often to check for upcoming events)
+        check_interval_minutes: 5
+
+        # Reminder times in minutes before event starts
+        # Multiple reminder times are supported
+        # For example, with [15, 5]:
+        #   - First reminder 15 minutes before event starts
+        #   - Second reminder 5 minutes before event starts
+        reminder_minutes:
+          - 15
+          - 5
+
+        # Webhook name to use for sending reminders
+        # This should match a webhook configured in the webhooks section
+        webhook_name: "default"
+
+scheduler:
+  type: "background"  # Use background scheduler for plugin jobs
+
+logging:
+  level: "INFO"
+  # Set to DEBUG to see detailed calendar checking logs
+  # level: "DEBUG"
+
+
+# === SETUP INSTRUCTIONS ===
+#
+# 1. Get Feishu App Credentials:
+#    - Go to https://open.feishu.cn/app
+#    - Create a new Custom App
+#    - Set Redirect URL to your bot's URL
+#    - Copy App ID and App Secret
+#
+# 2. Grant Calendar Permissions:
+#    - In your app, request the following permissions:
+#      - calendar:calendar:read (Read calendar information)
+#      - calendar:event:read (Read events from calendars)
+#
+# 3. Set Environment Variables:
+#    export FEISHU_APP_ID="your_app_id"
+#    export FEISHU_APP_SECRET="your_app_secret"
+#
+# 4. Start the bot with this configuration:
+#    feishu-webhook-bot start --config feishu_calendar_config.yaml
+#
+# 5. The plugin will now:
+#    - Check your calendar every 5 minutes
+#    - Send reminders 15 and 5 minutes before events start
+#    - Display event details (title, time, location, organizer)
+
+
+# === CALENDAR ID REFERENCE ===
+#
+# Common calendar IDs:
+#   - "primary": Your personal calendar (most common)
+#   - "secondary": Additional personal calendar
+#   - Team calendar IDs can be found in Feishu's calendar interface
+#
+# To find your calendar IDs:
+#   1. Open Feishu Calendar app
+#   2. Look at the calendar list on the left
+#   3. Calendar IDs are usually shown in the calendar settings
+
+
+# === REMINDER CUSTOMIZATION ===
+#
+# Examples of reminder configurations:
+#
+# Single reminder 10 minutes before:
+#   reminder_minutes: [10]
+#
+# Multiple reminders (15, 10, 5 minutes):
+#   reminder_minutes: [15, 10, 5]
+#
+# Early warning for all-day meetings:
+#   reminder_minutes: [60, 30, 5]
+#
+# Only close reminders:
+#   reminder_minutes: [5]

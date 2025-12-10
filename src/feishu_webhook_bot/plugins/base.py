@@ -7,11 +7,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..core.client import FeishuWebhookClient
 from ..core.config import BotConfig
 from ..core.logger import get_logger
+
+if TYPE_CHECKING:
+    from ..core.client import FeishuWebhookClient
+    from ..core.provider import BaseProvider
+    from .config_schema import PluginConfigSchema
+    from .manifest import PluginManifest
 
 
 @dataclass
@@ -38,6 +43,12 @@ class BasePlugin(ABC):
 
     All plugins must inherit from this class and implement the required methods.
 
+    The plugin system supports both the legacy FeishuWebhookClient and the new
+    multi-provider architecture. Plugins can access:
+    - self.client: The default provider/client (backward compatible)
+    - self.providers: Dict of all available providers (new)
+    - self.get_provider(name): Get a specific provider by name
+
     Example:
         ```python
         from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata
@@ -58,21 +69,65 @@ class BasePlugin(ABC):
                 self.register_job(self.my_task, trigger='interval', minutes=5)
 
             def my_task(self):
+                # Use default client (backward compatible)
                 self.client.send_text("Hello from plugin!")
+
+                # Or use specific provider
+                qq_provider = self.get_provider("qq")
+                if qq_provider:
+                    qq_provider.send_text("Hello QQ!", "group:123456")
         ```
     """
 
-    def __init__(self, config: BotConfig, client: FeishuWebhookClient):
+    def __init__(
+        self,
+        config: BotConfig,
+        client: FeishuWebhookClient | BaseProvider | None = None,
+        providers: dict[str, BaseProvider] | None = None,
+    ):
         """Initialize the plugin.
 
         Args:
             config: Bot configuration
-            client: Feishu webhook client
+            client: Default webhook client or provider (for backward compatibility)
+            providers: Dict of all available providers (new multi-provider support)
         """
         self.config = config
-        self.client = client
+        self._client = client
+        self._providers: dict[str, BaseProvider] = providers or {}
         self.logger = get_logger(f"plugin.{self.metadata().name}")
         self._job_ids: list[str] = []
+
+    @property
+    def client(self) -> FeishuWebhookClient | BaseProvider | None:
+        """Get the default client/provider for backward compatibility."""
+        return self._client
+
+    @client.setter
+    def client(self, value: FeishuWebhookClient | BaseProvider | None) -> None:
+        """Set the default client/provider."""
+        self._client = value
+
+    @property
+    def providers(self) -> dict[str, BaseProvider]:
+        """Get all available providers."""
+        return self._providers
+
+    @providers.setter
+    def providers(self, value: dict[str, BaseProvider]) -> None:
+        """Set the providers dict."""
+        self._providers = value
+
+    def get_provider(self, name: str) -> BaseProvider | None:
+        """Get a specific provider by name.
+
+        Args:
+            name: Provider name
+
+        Returns:
+            Provider instance or None if not found
+        """
+        return self._providers.get(name)
 
     @abstractmethod
     def metadata(self) -> PluginMetadata:
@@ -197,3 +252,54 @@ class BasePlugin(ABC):
         no-op.
         """
         return None
+
+    # ========== Configuration Schema Support (Optional) ==========
+
+    # Optional class attributes for enhanced features
+    # Subclasses can set these to enable configuration schema and manifest support
+    config_schema: type[PluginConfigSchema] | None = None
+    PYTHON_DEPENDENCIES: list = []
+    PLUGIN_DEPENDENCIES: list = []
+    PERMISSIONS: list = []
+
+    def validate_config(self) -> tuple[bool, list[str]]:
+        """Validate this plugin's configuration against its schema.
+
+        Returns:
+            Tuple of (is_valid, list_of_error_messages)
+
+        Default implementation returns (True, []) for backward compatibility
+        if no schema is defined.
+        """
+        if self.config_schema is None:
+            return True, []
+
+        existing_config = self.get_all_config()
+        return self.config_schema.validate_config(existing_config)
+
+    def get_missing_config(self) -> list[str]:
+        """Get list of missing required configuration fields.
+
+        Returns:
+            List of field names that are required but not configured.
+            Empty list if no schema is defined.
+        """
+        if self.config_schema is None:
+            return []
+
+        existing_config = self.get_all_config()
+        missing = self.config_schema.get_missing_required(existing_config)
+        return [f.name for f in missing]
+
+    def get_manifest(self) -> PluginManifest:
+        """Return the plugin manifest with dependencies and permissions.
+
+        Override this method to provide complete manifest information.
+        Default implementation creates manifest from class attributes.
+
+        Returns:
+            PluginManifest instance
+        """
+        from .manifest import PluginManifest
+
+        return PluginManifest.from_plugin(self)

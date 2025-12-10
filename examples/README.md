@@ -1,17 +1,85 @@
 # Examples
 
-This directory contains comprehensive examples demonstrating the Feishu Webhook Bot's capabilities, with a focus on advanced AI features and MCP integration.
+This directory contains comprehensive examples demonstrating the Feishu Webhook Bot's capabilities, organized by category for easy navigation.
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [Basic Examples](#basic-examples)
+- [Quick Start Examples](#quick-start-examples)
 - [Core Module Examples](#core-module-examples)
+- [Provider Examples](#provider-examples)
+- [AI Module Examples](#ai-module-examples)
+- [Plugin System Examples](#plugin-system-examples)
+- [Client Examples](#client-examples)
 - [Authentication Examples](#authentication-examples)
-- [Advanced AI Examples](#advanced-ai-examples)
 - [MCP Integration Examples](#mcp-integration-examples)
+- [Scheduler Examples](#scheduler-examples)
+- [Automation Examples](#automation-examples)
 - [Running the Examples](#running-the-examples)
 - [Troubleshooting](#troubleshooting)
+
+## Directory Structure
+
+```text
+examples/
+├── quickstart/           # 快速入门示例
+│   ├── quickstart.py
+│   ├── basic_bot_example.py
+│   └── simple_message_example.py
+├── core/                 # 核心模块示例
+│   ├── circuit_breaker_example.py
+│   ├── message_queue_example.py
+│   ├── message_tracker_example.py
+│   ├── message_tracker_usage.py
+│   ├── config_watcher_example.py
+│   ├── config_validation_example.py
+│   ├── image_uploader_example.py
+│   ├── logging_example.py
+│   └── event_server_demo.py
+├── providers/            # 消息提供者示例
+│   ├── feishu_provider_example.py
+│   ├── qq_napcat_provider_example.py
+│   ├── multi_provider_example.py
+│   └── multi_provider_ai_example.py
+├── ai/                   # AI模块示例
+│   ├── conversation_manager_example.py
+│   ├── multi_agent_example.py
+│   ├── tool_registry_example.py
+│   ├── ai_retry_example.py
+│   ├── ai_agent_advanced_example.py
+│   ├── ai_bot_example.py
+│   ├── ai_capabilities_demo.py
+│   ├── ai_features_demo.py
+│   ├── ai_powered_tasks_example.py
+│   ├── ai_bot_config.yaml
+│   └── ai_tasks_config.yaml
+├── plugins/              # 插件系统示例
+│   ├── plugin_config_schema_example.py
+│   ├── plugin_dependency_example.py
+│   ├── plugin_manifest_example.py
+│   ├── plugin_demo.py
+│   ├── plugin_setup_wizard_example.py
+│   ├── use_calendar_plugin.py
+│   └── feishu_calendar_config.yaml
+├── client/               # 客户端示例
+│   ├── card_builder_example.py
+│   └── rich_text_example.py
+├── auth/                 # 认证系统示例
+│   ├── auth_demo.py
+│   ├── auth_api_demo.py
+│   ├── auth_advanced_demo.py
+│   └── auth_example.py
+├── mcp/                  # MCP集成示例
+│   ├── complete_mcp_bot_example.py
+│   ├── mcp_integration_example.py
+│   ├── mcp_tool_discovery_example.py
+│   └── mcp_transport_examples.py
+├── scheduler/            # 调度器示例
+│   ├── scheduler_demo.py
+│   └── task_manager_demo.py
+└── automation/           # 自动化引擎示例
+    └── automation_demo.py
+```
 
 ## Prerequisites
 
@@ -68,34 +136,455 @@ npm install -g @modelcontextprotocol/server-filesystem
 npx -y @modelcontextprotocol/server-filesystem /tmp
 ```
 
-## Basic Examples
+## Quick Start Examples
 
-### 1. Simple Bot Example
+### Basic Bot Example
 
-**File:** `simple_bot_example.py`
+**File:** `quickstart/basic_bot_example.py`
 
-Basic Feishu bot without AI capabilities.
+Complete introduction to creating a Feishu bot.
 
 ```bash
-python examples/simple_bot_example.py
+python examples/quickstart/basic_bot_example.py
+```
+
+**What it demonstrates:**
+- Creating a bot from code and YAML configuration
+- Sending different message types
+- Using the scheduler
+- Plugin integration basics
+- Event handling
+
+### Simple Message Example
+
+**File:** `quickstart/simple_message_example.py`
+
+The fastest way to send messages to Feishu.
+
+```bash
+python examples/quickstart/simple_message_example.py
+```
+
+**What it demonstrates:**
+- Simplest possible setup
+- Text, rich text, and card messages
+- Common use cases and templates
+- Error handling patterns
+- Environment variable configuration
+
+## Core Module Examples
+
+### Circuit Breaker Example
+
+**File:** `core/circuit_breaker_example.py`
+
+Demonstrates fault tolerance with the circuit breaker pattern.
+
+```bash
+python examples/core/circuit_breaker_example.py
+```
+
+**What it demonstrates:**
+- Basic circuit breaker usage
+- State transitions (CLOSED → OPEN → HALF_OPEN)
+- Decorator-based usage
+- Registry management
+- Excluded exceptions
+- Real-world patterns
+
+### Message Queue Example
+
+**File:** `core/message_queue_example.py`
+
+Demonstrates reliable message delivery with queuing.
+
+```bash
+python examples/core/message_queue_example.py
+```
+
+**What it demonstrates:**
+- Basic queue operations
+- Batch processing
+- Retry mechanisms with exponential backoff
+- Statistics and monitoring
+- Multi-provider queue integration
+
+### Message Tracker Example
+
+**File:** `core/message_tracker_example.py`
+
+Demonstrates message delivery tracking.
+
+```bash
+python examples/core/message_tracker_example.py
+```
+
+**What it demonstrates:**
+- Basic message tracking
+- Status transitions
+- Duplicate detection
+- SQLite persistence
+- Automatic cleanup
+- Statistics and monitoring
+
+### Config Watcher Example
+
+**File:** `core/config_watcher_example.py`
+
+Demonstrates configuration hot-reload.
+
+```bash
+python examples/core/config_watcher_example.py
+```
+
+**What it demonstrates:**
+- Watching configuration files
+- Automatic reload on modification
+- Validation before reload
+- Debouncing rapid changes
+- Error recovery
+
+### Config Validation Example
+
+**File:** `core/config_validation_example.py`
+
+Demonstrates configuration validation utilities.
+
+```bash
+python examples/core/config_validation_example.py
+```
+
+**What it demonstrates:**
+- JSON schema generation
+- YAML configuration validation
+- Custom validation functions
+- Schema for IDE support
+
+### Image Uploader Example
+
+**File:** `core/image_uploader_example.py`
+
+Demonstrates Feishu image upload functionality.
+
+```bash
+python examples/core/image_uploader_example.py
+```
+
+**What it demonstrates:**
+- Permission checking
+- Image upload workflow
+- Creating image cards
+- Base64 image handling
+- Error handling
+
+### Logging Example
+
+**File:** `core/logging_example.py`
+
+Demonstrates the logging system.
+
+```bash
+python examples/core/logging_example.py
+```
+
+**What it demonstrates:**
+- Different log levels
+- Named loggers
+- Custom log formats
+- File logging
+- Performance logging
+- Structured logging patterns
+
+## Provider Examples
+
+### Feishu Provider Example
+
+**File:** `providers/feishu_provider_example.py`
+
+Demonstrates the Feishu messaging provider.
+
+```bash
+python examples/providers/feishu_provider_example.py
+```
+
+**What it demonstrates:**
+- Provider configuration
+- Sending text, rich text, and card messages
+- HMAC-SHA256 signed webhooks
+- Circuit breaker integration
+- Message tracking
+
+### QQ Napcat Provider Example
+
+**File:** `providers/qq_napcat_provider_example.py`
+
+Demonstrates the QQ Napcat provider (OneBot11 protocol).
+
+```bash
+python examples/providers/qq_napcat_provider_example.py
+```
+
+**What it demonstrates:**
+- Provider configuration
+- Private and group messages
+- CQ code format
+- Target format (private:QQ号, group:群号)
+- Circuit breaker integration
+
+### Multi-Provider Example
+
+**File:** `providers/multi_provider_example.py`
+
+Demonstrates multi-provider orchestration.
+
+```bash
+python examples/providers/multi_provider_example.py
+```
+
+**What it demonstrates:**
+- Provider registry
+- Multi-platform messaging
+- Provider-specific formatting
+- Failover strategies
+- Load balancing
+- Unified message interface
+
+## AI Module Examples
+
+### Conversation Manager Example
+
+**File:** `ai/conversation_manager_example.py`
+
+Demonstrates conversation management for AI.
+
+```bash
+python examples/ai/conversation_manager_example.py
+```
+
+**What it demonstrates:**
+- Conversation state management
+- Multi-turn dialogue
+- Token tracking
+- Conversation cleanup
+- Export/import conversations
+
+### Multi-Agent Example
+
+**File:** `ai/multi_agent_example.py`
+
+Demonstrates multi-agent orchestration (A2A).
+
+```bash
+python examples/ai/multi_agent_example.py
+```
+
+**What it demonstrates:**
+- Specialized agents
+- Sequential, concurrent, hierarchical orchestration
+- Agent-to-agent communication
+- Error handling in multi-agent systems
+
+### Tool Registry Example
+
+**File:** `ai/tool_registry_example.py`
+
+Demonstrates the tool registry for AI agents.
+
+```bash
+python examples/ai/tool_registry_example.py
+```
+
+**What it demonstrates:**
+- Registering custom tools
+- Tool with parameters
+- Async tool support
+- Tool categories
+- Tool validation
+- Built-in web search tool
+
+### AI Retry Example
+
+**File:** `ai/ai_retry_example.py`
+
+Demonstrates retry mechanisms for AI operations.
+
+```bash
+python examples/ai/ai_retry_example.py
+```
+
+**What it demonstrates:**
+- Exponential backoff
+- Circuit breaker for AI
+- Rate limit handling
+- Timeout management
+- Error classification
+- Retry policies
+
+## Plugin System Examples
+
+### Plugin Config Schema Example
+
+**File:** `plugins/plugin_config_schema_example.py`
+
+Demonstrates plugin configuration schemas.
+
+```bash
+python examples/plugins/plugin_config_schema_example.py
+```
+
+**What it demonstrates:**
+- Configuration field types
+- Field validation
+- Environment variable fallbacks
+- Sensitive field handling
+- Schema documentation generation
+
+### Plugin Dependency Example
+
+**File:** `plugins/plugin_dependency_example.py`
+
+Demonstrates plugin dependency checking.
+
+```bash
+python examples/plugins/plugin_dependency_example.py
+```
+
+**What it demonstrates:**
+- Dependency declaration
+- Version compatibility checking
+- Dependency resolution order
+- Missing dependency handling
+- Optional dependencies with fallback
+
+### Plugin Manifest Example
+
+**File:** `plugins/plugin_manifest_example.py`
+
+Demonstrates plugin manifests.
+
+```bash
+python examples/plugins/plugin_manifest_example.py
+```
+
+**What it demonstrates:**
+- Plugin metadata
+- Dependencies declaration
+- Permissions and capabilities
+- Manifest validation
+- Version compatibility
+
+## Client Examples
+
+### Card Builder Example
+
+**File:** `client/card_builder_example.py`
+
+Demonstrates the CardBuilder for interactive cards.
+
+```bash
+python examples/client/card_builder_example.py
+```
+
+**What it demonstrates:**
+- Building cards with fluent API
+- Header styles and templates
+- Text, image, and button elements
+- Multi-column layouts
+- Alert and report card templates
+
+### Rich Text Example
+
+**File:** `client/rich_text_example.py`
+
+Demonstrates rich text (post) message formatting.
+
+```bash
+python examples/client/rich_text_example.py
+```
+
+**What it demonstrates:**
+- Rich text structure
+- Text styling (bold, italic, underline)
+- Links and mentions
+- Images in rich text
+- Multi-language support
+- Common templates
+
+## Scheduler Examples
+
+### Scheduler Demo
+
+**File:** `scheduler/scheduler_demo.py`
+
+Comprehensive demonstration of the task scheduler.
+
+```bash
+python examples/scheduler/scheduler_demo.py
 ```
 
 **What it demonstrates:**
 
-- Basic bot setup
-- Event handling
-- Webhook configuration
+- Scheduling tasks with cron expressions
+- Interval-based scheduling
+- Job management (add, remove, pause, resume)
+- Persistent vs in-memory job stores
+- Timezone-aware scheduling
+- Job decorators (@job)
+- Error handling and retry logic
 
-## Core Module Examples
+### Task Manager Demo
 
-### 2. Plugin System Demo
+**File:** `scheduler/task_manager_demo.py`
 
-**File:** `plugin_demo.py`
+Demonstrates the task manager for automated task execution.
+
+```bash
+python examples/scheduler/task_manager_demo.py
+```
+
+**What it demonstrates:**
+
+- Automated task execution
+- Task dependencies and retry logic
+- Task conditions (time, day, environment)
+- Integration with plugins
+- Cron-based scheduling
+- Multiple actions per task
+
+## Automation Examples
+
+### Automation Demo
+
+**File:** `automation/automation_demo.py`
+
+Comprehensive demonstration of the automation engine.
+
+```bash
+python examples/automation/automation_demo.py
+```
+
+**What it demonstrates:**
+
+- Declarative workflow definitions
+- Schedule-based triggers
+- Action types (send messages, HTTP requests, Python code, plugin calls)
+- Template rendering with variable substitution
+- Conditional execution
+
+---
+
+## Additional Examples
+
+The following are additional examples organized by category:
+
+### Plugin System Demo
+
+**File:** `plugins/plugin_demo.py`
 
 Comprehensive demonstration of the plugin system.
 
 ```bash
-python examples/plugin_demo.py
+python examples/plugins/plugin_demo.py
 ```
 
 **What it demonstrates:**
@@ -109,129 +598,34 @@ python examples/plugin_demo.py
 - Hot-reload functionality
 - Plugin loading priority
 
-**Prerequisites:**
+### Plugin Setup Wizard
 
-- None (uses temporary directories for plugins)
+**File:** `plugins/plugin_setup_wizard_example.py`
 
-**Expected output:**
-
-- 6 interactive demonstrations
-- Plugin creation and loading
-- Scheduled task execution
-- Configuration access
-- Event handling
-- Hot-reload in action
-- Priority-based loading
-
-### 3. Task Scheduler Demo
-
-**File:** `scheduler_demo.py`
-
-Comprehensive demonstration of the task scheduler.
+Interactive plugin setup wizard.
 
 ```bash
-python examples/scheduler_demo.py
+python examples/plugins/plugin_setup_wizard_example.py
 ```
 
-**What it demonstrates:**
+### Calendar Plugin Example
 
-- Scheduling tasks with cron expressions
-- Interval-based scheduling
-- Job management (add, remove, pause, resume)
-- Persistent vs in-memory job stores
-- Timezone-aware scheduling
-- Job decorators (@job)
-- Error handling and retry logic
+**File:** `plugins/use_calendar_plugin.py`
 
-**Prerequisites:**
-
-- None (creates temporary SQLite database for persistent store demo)
-
-**Expected output:**
-
-- 8 interactive demonstrations
-- Task scheduling with various triggers
-- Job lifecycle management
-- SQLite persistence
-- Timezone handling
-- Error recovery
-
-### 4. Automation Engine Demo
-
-**File:** `automation_demo.py`
-
-Comprehensive demonstration of the automation engine.
+Demonstrates using the Feishu calendar plugin.
 
 ```bash
-python examples/automation_demo.py
+python examples/plugins/use_calendar_plugin.py
 ```
 
-**What it demonstrates:**
+### Event Server Demo
 
-- Declarative workflow definitions
-- Schedule-based triggers
-- Action types:
-  - Send messages
-  - HTTP requests
-  - Python code execution
-  - Plugin method calls
-- Template rendering with variable substitution
-- Conditional execution
+**File:** `core/event_server_demo.py`
 
-**Prerequisites:**
-
-- None (uses temporary directories for plugins)
-
-**Expected output:**
-
-- 6 interactive demonstrations
-- Automated workflows
-- Template rendering
-- HTTP requests to external APIs
-- Python code execution
-- Plugin integration
-- Conditional logic
-
-### 5. Task Manager Demo
-
-**File:** `task_manager_demo.py`
-
-Comprehensive demonstration of the task manager.
+Demonstrates the event server for receiving webhooks.
 
 ```bash
-python examples/task_manager_demo.py
-```
-
-**What it demonstrates:**
-
-- Automated task execution
-- Task dependencies and retry logic
-- Task conditions (time, day, environment)
-- Integration with plugins
-- Cron-based scheduling
-- Multiple actions per task
-
-**Prerequisites:**
-
-- None (uses temporary directories for plugins)
-
-**Expected output:**
-
-- 7 interactive demonstrations
-- Task execution with various configurations
-- Dependency management
-- Retry logic
-- Plugin integration
-- Conditional execution
-
-### 6. Event Server Demo
-
-**File:** `event_server_demo.py`
-
-Comprehensive demonstration of the event server.
-
-```bash
-python examples/event_server_demo.py
+python examples/core/event_server_demo.py
 ```
 
 **What it demonstrates:**
@@ -242,46 +636,95 @@ python examples/event_server_demo.py
 - URL verification challenge
 - Event dispatching to plugins
 - Health check endpoint
-- Concurrent event handling
 
-**Prerequisites:**
+### AI Advanced Examples
 
-- None (uses temporary directories for plugins)
+**File:** `ai/ai_agent_advanced_example.py`
 
-**Expected output:**
-
-- 6 interactive demonstrations
-- HTTP server running on various ports
-- Event reception and processing
-- Security validation
-- Plugin event handling
-- Health monitoring
-
-**How to test manually:**
+Advanced AI agent examples.
 
 ```bash
-# Start the demo in one terminal
-python examples/event_server_demo.py
-
-# In another terminal, send test events
-curl -X POST http://localhost:8080/webhook \
-  -H "Content-Type: application/json" \
-  -d '{"type":"message","message":{"content":"Hello!"}}'
-
-# Check health
-curl http://localhost:8080/healthz
+python examples/ai/ai_agent_advanced_example.py
 ```
+
+### AI Bot Example
+
+**File:** `ai/ai_bot_example.py`
+
+Complete AI-powered bot example.
+
+```bash
+python examples/ai/ai_bot_example.py
+```
+
+### AI Capabilities Demo
+
+**File:** `ai/ai_capabilities_demo.py`
+
+Demonstrates advanced AI capabilities.
+
+```bash
+python examples/ai/ai_capabilities_demo.py
+```
+
+**What it demonstrates:**
+
+- Structured output validation
+- Streaming responses with debouncing
+- Result validators and retry logic
+- Custom model settings
+- Multi-agent orchestration
+
+### AI Features Demo
+
+**File:** `ai/ai_features_demo.py`
+
+Demonstrates all AI features.
+
+```bash
+python examples/ai/ai_features_demo.py
+```
+
+**What it demonstrates:**
+
+- Web search with caching
+- Conversation management with token tracking
+- Tool registry and custom tools
+- Circuit breaker for rate limiting
+- Conversation export/import
+
+### AI Powered Tasks
+
+**File:** `ai/ai_powered_tasks_example.py`
+
+Demonstrates AI-powered automated tasks.
+
+```bash
+python examples/ai/ai_powered_tasks_example.py
+```
+
+### Multi-Provider AI Example
+
+**File:** `providers/multi_provider_ai_example.py`
+
+Demonstrates AI with multiple providers.
+
+```bash
+python examples/providers/multi_provider_ai_example.py
+```
+
+---
 
 ## Authentication Examples
 
-### 7. Authentication Demo
+### Auth Demo
 
-**File:** `auth_demo.py`
+**File:** `auth/auth_demo.py`
 
-Comprehensive demonstration of all authentication features.
+Comprehensive demonstration of authentication features.
 
 ```bash
-python examples/auth_demo.py
+python examples/auth/auth_demo.py
 ```
 
 **What it demonstrates:**
@@ -292,27 +735,15 @@ python examples/auth_demo.py
 - User registration with validation
 - User authentication and login
 - Account lockout after failed attempts
-- Email verification
-- User operations (get by email, username, ID)
 
-**Prerequisites:**
+### Auth API Demo
 
-- None (uses in-memory SQLite database)
-
-**Expected output:**
-
-- Demonstrations of each authentication feature
-- Success and failure scenarios
-- Security best practices
-
-### 8. FastAPI Authentication Integration
-
-**File:** `auth_api_demo.py`
+**File:** `auth/auth_api_demo.py`
 
 Demonstrates authentication integration with FastAPI.
 
 ```bash
-python examples/auth_api_demo.py
+python examples/auth/auth_api_demo.py
 ```
 
 **What it demonstrates:**
@@ -321,45 +752,15 @@ python examples/auth_api_demo.py
 - Using authentication middleware
 - Protected endpoints with JWT tokens
 - Token-based API access
-- Rate limiting for security
-- CORS configuration
 
-**Prerequisites:**
+### Auth Advanced Demo
 
-- None (creates `demo_auth.db` SQLite database)
+**File:** `auth/auth_advanced_demo.py`
 
-**Expected output:**
-
-- FastAPI server running on http://localhost:8000
-- Interactive API docs at http://localhost:8000/docs
-- Working authentication endpoints
-
-**How to test:**
+Demonstrates advanced authentication scenarios.
 
 ```bash
-# Register a user
-curl -X POST http://localhost:8000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","username":"testuser","password":"SecureP@ss123","password_confirm":"SecureP@ss123"}'
-
-# Login
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"login":"test@example.com","password":"SecureP@ss123"}'
-
-# Access protected endpoint (use token from login response)
-curl -X GET http://localhost:8000/api/protected/profile \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
-
-### 9. Advanced Authentication Scenarios
-
-**File:** `auth_advanced_demo.py`
-
-Demonstrates advanced authentication scenarios and best practices.
-
-```bash
-python examples/auth_advanced_demo.py
+python examples/auth/auth_advanced_demo.py
 ```
 
 **What it demonstrates:**
@@ -368,196 +769,76 @@ python examples/auth_advanced_demo.py
 - Multiple concurrent sessions
 - Token expiration handling
 - Comprehensive error handling
-- Database session management
-- Security best practices
 
-**Prerequisites:**
+### Auth Example (NiceGUI)
 
-- None (uses in-memory SQLite database)
-
-**Expected output:**
-
-- Token refresh demonstration (includes 61-second wait)
-- Multiple session management
-- Error handling examples
-- Database transaction examples
-- Security recommendations
-
-**Note:** This example includes a 61-second wait to demonstrate token expiration. Be patient!
-
-### 10. NiceGUI Authentication Example
-
-**File:** `auth_example.py`
+**File:** `auth/auth_example.py`
 
 Demonstrates authentication with NiceGUI web interface.
 
 ```bash
-python examples/auth_example.py
+python examples/auth/auth_example.py
 ```
 
-**What it demonstrates:**
-
-- NiceGUI login and registration pages
-- Protected pages with authentication
-- Session management
-- User interface for authentication
-
-**Prerequisites:**
-
-- None (creates `example_auth.db` SQLite database)
-
-**Expected output:**
-
-- Web interface running on http://localhost:8080
-- Login and registration pages
-- Protected dashboard
-
-## Advanced AI Examples
-
-### 11. AI Features Demo
-
-**File:** `ai_features_demo.py`
-
-Demonstrates all advanced AI capabilities.
-
-```bash
-python examples/ai_features_demo.py
-```
-
-**What it demonstrates:**
-
-- Web search with caching
-- Conversation management with token tracking
-- Tool registry and custom tools
-- Circuit breaker for rate limiting
-- Conversation export/import
-- Performance optimizations
-
-**Prerequisites:**
-
-- `OPENAI_API_KEY` environment variable
-
-**Expected output:**
-
-- Demonstrations of each AI feature
-- Performance metrics
-- Example responses
-
-### 12. AI Capabilities Demo
-
-**File:** `ai_capabilities_demo.py`
-
-Demonstrates advanced AI capabilities including streaming and multi-agent orchestration.
-
-```bash
-python examples/ai_capabilities_demo.py
-```
-
-**What it demonstrates:**
-
-- Structured output validation
-- Streaming responses with debouncing
-- Result validators and retry logic
-- Custom model settings
-- Multi-agent orchestration (sequential, concurrent, hierarchical)
-- Specialized agents (search, analysis, response)
-- MCP integration
-
-**Prerequisites:**
-
-- `OPENAI_API_KEY` environment variable
-
-**Expected output:**
-
-- Demonstrations of each capability
-- Performance metrics
-- Example responses
+---
 
 ## MCP Integration Examples
 
-### 13. Complete MCP Bot Example
+### Complete MCP Bot Example
 
-**File:** `complete_mcp_bot_example.py`
+**File:** `mcp/complete_mcp_bot_example.py`
 
 End-to-end example of a Feishu bot with full MCP integration.
 
 ```bash
-python examples/complete_mcp_bot_example.py
+python examples/mcp/complete_mcp_bot_example.py
 ```
 
 **What it demonstrates:**
+
 - Complete bot setup with MCP
 - Multiple MCP servers (stdio and HTTP)
 - Combining MCP tools with built-in tools
 - Error recovery and graceful degradation
-- Real webhook event handling
 
-**Prerequisites:**
-- All Feishu environment variables
-- `OPENAI_API_KEY`
-- MCP servers (e.g., `mcp-run-python`)
+### MCP Transport Examples
 
-**Expected output:**
-- Bot starts and listens on http://0.0.0.0:8080/webhook
-- Tests AI capabilities including:
-  - Basic conversation
-  - Web search
-  - Python code execution via MCP
-  - Complex multi-tool tasks
+**File:** `mcp/mcp_transport_examples.py`
 
-**How to use:**
-1. Set all required environment variables
-2. Run the example
-3. Configure the webhook URL in your Feishu app settings
-4. Send messages to your bot in Feishu
-
-### 14. MCP Transport Types
-
-**File:** `mcp_transport_examples.py`
-
-Demonstrates each MCP transport type with examples.
+Demonstrates each MCP transport type.
 
 ```bash
-python examples/mcp_transport_examples.py
+python examples/mcp/mcp_transport_examples.py
 ```
 
 **What it demonstrates:**
-- **stdio transport**: Subprocess-based (recommended)
-- **HTTP streamable transport**: Modern HTTP-based
-- **SSE transport**: Server-Sent Events (deprecated)
+
+- stdio transport (subprocess-based)
+- HTTP streamable transport
+- SSE transport (deprecated)
 - Multiple transports simultaneously
-- Error recovery and fallback behavior
 
-**Prerequisites:**
-- `OPENAI_API_KEY`
-- Various MCP servers for different transports
+### MCP Integration Example
 
-**Examples included:**
-1. stdio with Python code execution
-2. stdio with list arguments (filesystem)
-3. HTTP streamable transport
-4. SSE transport (deprecated)
-5. Multiple transports together
-6. Error recovery with invalid servers
+**File:** `mcp/mcp_integration_example.py`
 
-**Note:** Comment out examples that require servers you don't have installed.
-
-### 15. MCP Integration Example
-
-**File:** `mcp_integration_example.py`
-
-Original MCP integration examples from Phase 3.
+Original MCP integration examples.
 
 ```bash
-python examples/mcp_integration_example.py
+python examples/mcp/mcp_integration_example.py
 ```
 
-**What it demonstrates:**
-- stdio MCP server (Python code execution)
-- HTTP streamable MCP server
-- Multiple MCP servers simultaneously
-- MCP error handling
-- MCP with Feishu bot integration
+### MCP Tool Discovery
+
+**File:** `mcp/mcp_tool_discovery_example.py`
+
+Demonstrates MCP tool discovery.
+
+```bash
+python examples/mcp/mcp_tool_discovery_example.py
+```
+
+---
 
 ## Running the Examples
 

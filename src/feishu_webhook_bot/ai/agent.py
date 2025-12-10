@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.settings import ModelSettings
 
 from ..core.logger import get_logger
 from .config import AIConfig
@@ -20,7 +21,13 @@ from .exceptions import (
 from .mcp_client import MCPClient
 from .multi_agent import AgentOrchestrator
 from .retry import CircuitBreaker
-from .tools import ToolRegistry, calculate, get_current_time, register_default_tools, web_search
+from .tools import (
+    ToolRegistry,
+    calculate,
+    get_current_time,
+    register_default_tools,
+    web_search,
+)
 
 logger = get_logger("ai.agent")
 
@@ -142,21 +149,8 @@ class AIAgent:
         if api_key:
             os.environ.setdefault(self._get_env_var_name(config.model), api_key)
 
-        # Determine output type based on configuration
-        output_type = AIResponse if config.structured_output_enabled else str
-
-        # Prepare toolsets (MCP servers will be added if enabled)
-        toolsets: list[Any] = []
-
         # Create the pydantic-ai agent
-        # Note: MCP servers will be added to toolsets after they're initialized
-        self._agent = Agent(
-            model=config.model,
-            deps_type=AIAgentDependencies,
-            output_type=output_type,
-            system_prompt=config.system_prompt,
-            toolsets=toolsets,
-        )
+        self._create_agent()
 
         # Register tools with the agent
         if config.tools_enabled:
@@ -174,6 +168,37 @@ class AIAgent:
             config.structured_output_enabled,
             config.mcp.enabled,
             config.multi_agent.enabled,
+        )
+
+    def _create_agent(self) -> None:
+        """Create the pydantic-ai agent with current configuration.
+
+        This method is called during initialization and when switching models.
+        It creates the Agent instance with the appropriate model settings.
+        """
+        # Determine output type based on configuration
+        output_type = AIResponse if self.config.structured_output_enabled else str
+
+        # Prepare toolsets (MCP servers will be added if enabled)
+        toolsets: list[Any] = []
+
+        # Create model settings with temperature and max_tokens
+        model_settings = None
+        if self.config.temperature is not None or self.config.max_tokens is not None:
+            model_settings = ModelSettings(
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+            )
+
+        # Create the pydantic-ai agent
+        # Note: MCP servers will be added to toolsets after they're initialized
+        self._agent = Agent(
+            model=self.config.model,
+            deps_type=AIAgentDependencies,
+            output_type=output_type,
+            system_prompt=self.config.system_prompt,
+            toolsets=toolsets,
+            model_settings=model_settings,
         )
 
     def _get_api_key_from_env(self, model: str) -> str | None:
@@ -310,6 +335,86 @@ class AIAgent:
             return output
 
         logger.info("Registered output validators with AI agent")
+
+    def register_tool(
+        self,
+        func: Callable[..., Any],
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Register a custom tool with the AI agent.
+
+        This method registers a custom tool function with both the tool registry
+        and makes it available to the AI agent. The tool can be sync or async.
+
+        Args:
+            func: Tool function (sync or async)
+            name: Tool name (defaults to function name)
+            description: Tool description (defaults to docstring)
+
+        Example:
+            def get_weather(city: str) -> str:
+                '''Get current weather for a city.'''
+                return f"Weather in {city}: Sunny"
+
+            agent.register_tool(get_weather)
+
+            # Or with custom metadata:
+            agent.register_tool(
+                get_weather,
+                name="weather",
+                description="Get weather information for any city"
+            )
+        """
+        tool_name = name or func.__name__
+        tool_desc = description or func.__doc__ or "No description"
+
+        self.tool_registry.register(tool_name, func, tool_desc, category="custom")
+        logger.info("Registered custom tool: %s", tool_name)
+
+    def register_tools_from_module(self, module: Any) -> int:
+        """Register all functions with _ai_tool marker from a module.
+
+        This method discovers all functions in a module that are marked with
+        the @ai_tool decorator and registers them with the AI agent.
+
+        Args:
+            module: Python module with tool functions
+
+        Returns:
+            Number of tools registered
+
+        Example:
+            # In my_tools.py:
+            from feishu_webhook_bot.ai.tools import ai_tool
+
+            @ai_tool(name="get_user", description="Get user information")
+            def get_user(user_id: str) -> str:
+                return f"User: {user_id}"
+
+            @ai_tool(description="Calculate something")
+            def compute(expression: str) -> str:
+                return str(eval(expression))
+
+            # In your agent initialization:
+            import my_tools
+            count = agent.register_tools_from_module(my_tools)
+            print(f"Registered {count} tools")
+        """
+        count = 0
+        for attr_name in dir(module):
+            obj = getattr(module, attr_name)
+            if callable(obj) and hasattr(obj, "_ai_tool_metadata"):
+                metadata = obj._ai_tool_metadata
+                self.register_tool(obj, **metadata)
+                count += 1
+
+        if count > 0:
+            logger.info("Registered %d tools from module: %s", count, module.__name__)
+        else:
+            logger.debug("No tools found to register in module: %s", module.__name__)
+
+        return count
 
     async def chat(self, user_id: str, message: str) -> str:
         """Process a chat message and generate a response.
@@ -558,6 +663,84 @@ class AIAgent:
             await self.mcp_client.stop()
 
         logger.info("AI agent stopped")
+
+    async def switch_model(self, model_name: str) -> bool:
+        """Switch to a different AI model.
+
+        This method validates the model is available, updates the configuration,
+        recreates the agent, and re-registers tools and validators.
+
+        Args:
+            model_name: Name of the model to switch to (e.g., "openai:gpt-4o")
+
+        Returns:
+            True if switch was successful
+
+        Raises:
+            ValueError: If model is not in available_models list
+
+        Example:
+            success = await agent.switch_model("anthropic:claude-3-5-sonnet-20241022")
+            if success:
+                print("Model switched successfully")
+        """
+        if self.config.available_models and model_name not in self.config.available_models:
+            raise ValueError(
+                f"Model '{model_name}' is not available. "
+                f"Available models: {', '.join(self.config.available_models)}"
+            )
+
+        # Store old model for rollback
+        old_model = self.config.model
+        old_agent = self._agent
+
+        try:
+            # Update config
+            self.config.model = model_name
+
+            # Set up API key for new model if needed
+            api_key = self._get_api_key_from_env(model_name)
+            if api_key:
+                os.environ.setdefault(self._get_env_var_name(model_name), api_key)
+
+            # Recreate agent with new model
+            self._create_agent()
+
+            # Re-register tools with the new agent
+            if self.config.tools_enabled:
+                self._register_agent_tools()
+
+            # Re-register output validators if enabled
+            if self.config.output_validators_enabled:
+                self._register_output_validators()
+
+            logger.info("Switched model from %s to %s", old_model, model_name)
+            return True
+
+        except Exception as exc:
+            # Rollback on failure
+            self.config.model = old_model
+            self._agent = old_agent
+            logger.error("Failed to switch model to %s: %s", model_name, exc, exc_info=True)
+            raise
+
+    @property
+    def current_model(self) -> str:
+        """Get current model name.
+
+        Returns:
+            Current model string (e.g., "openai:gpt-4o")
+        """
+        return self.config.model
+
+    @property
+    def available_models(self) -> list[str]:
+        """Get list of available models.
+
+        Returns:
+            List of available model names
+        """
+        return self.config.available_models or []
 
     async def get_stats(self) -> dict[str, Any]:
         """Get comprehensive statistics about the AI agent.

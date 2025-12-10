@@ -414,6 +414,152 @@ class WebhookConfig(BaseModel):
         return value.strip()
 
 
+class CircuitBreakerPolicyConfig(BaseModel):
+    """Configuration for circuit breaker fault tolerance."""
+
+    failure_threshold: int = Field(
+        default=5, ge=1, description="Number of failures before opening the circuit"
+    )
+    reset_timeout: float = Field(
+        default=30.0, ge=1.0, description="Seconds to wait before attempting recovery"
+    )
+    half_open_max_calls: int = Field(
+        default=3, ge=1, description="Max calls allowed in half-open state"
+    )
+
+
+class MessageQueueConfig(BaseModel):
+    """Configuration for message queue with async delivery and retry support."""
+
+    enabled: bool = Field(default=False, description="Enable message queue")
+    max_batch_size: int = Field(
+        default=10, ge=1, description="Maximum messages to process in one batch"
+    )
+    retry_delay: float = Field(
+        default=5.0, ge=0.0, description="Base delay for retries in seconds"
+    )
+    max_retries: int = Field(
+        default=3, ge=0, description="Maximum retry attempts per message"
+    )
+
+
+class MessageTrackingConfig(BaseModel):
+    """Configuration for message delivery tracking and persistence."""
+
+    enabled: bool = Field(default=False, description="Enable message tracking")
+    max_history: int = Field(
+        default=10000, ge=100, description="Maximum messages to track in memory"
+    )
+    cleanup_interval: float = Field(
+        default=3600.0, ge=60.0, description="Cleanup interval in seconds"
+    )
+    db_path: str | None = Field(
+        default=None, description="SQLite database path for persistence (None for in-memory)"
+    )
+
+
+class FeishuAPIConfig(BaseModel):
+    """Configuration for Feishu Open Platform API integration."""
+
+    enabled: bool = Field(default=False, description="Enable Feishu API integration")
+    app_id: str | None = Field(default=None, description="Feishu application ID")
+    app_secret: str | None = Field(default=None, description="Feishu application secret")
+    enable_oauth: bool = Field(default=False, description="Enable OAuth flow")
+    oauth_redirect_uri: str | None = Field(
+        default=None, description="OAuth redirect URI"
+    )
+
+    @model_validator(mode="after")
+    def validate_api_config(self) -> "FeishuAPIConfig":
+        """Validate that required fields are set when enabled."""
+        if self.enabled:
+            if not self.app_id or not self.app_secret:
+                raise ValueError(
+                    "Feishu API requires 'app_id' and 'app_secret' when enabled"
+                )
+        return self
+
+
+class ChatConfig(BaseModel):
+    """Configuration for chat bot functionality."""
+
+    enabled: bool = Field(default=True, description="Enable chat functionality")
+    enable_in_groups: bool = Field(default=True, description="Enable bot in group chats")
+    require_at_in_groups: bool = Field(
+        default=True, description="Require @bot mention in groups to respond"
+    )
+    enable_private: bool = Field(default=True, description="Enable private/direct chats")
+    command_prefix: str = Field(default="/", description="Prefix for chat commands")
+    max_message_length: int = Field(
+        default=4000, ge=100, description="Maximum response message length"
+    )
+    typing_indicator: bool = Field(
+        default=False,
+        description="Send typing indicator while processing (if supported)",
+    )
+    error_message: str = Field(
+        default="抱歉，处理您的消息时出现了问题，请稍后重试。",
+        description="Error message to send on processing failure",
+    )
+
+
+class ProviderConfigBase(BaseModel):
+    """Base configuration for message providers.
+
+    This is a polymorphic configuration that supports multiple provider types.
+    Each provider type may have additional fields specific to its implementation.
+    """
+
+    model_config = {"extra": "allow"}
+
+    provider_type: Literal["feishu", "napcat", "webhook", "custom"] = Field(
+        ..., description="Type of message provider"
+    )
+    name: str = Field(default="default", description="Provider instance name (unique)")
+    enabled: bool = Field(default=True, description="Whether this provider is enabled")
+    timeout: float | None = Field(default=None, ge=0.0, description="Request timeout in seconds")
+    retry: RetryPolicyConfig | None = Field(default=None, description="Retry policy configuration")
+    circuit_breaker: CircuitBreakerPolicyConfig | None = Field(
+        default=None, description="Circuit breaker configuration"
+    )
+    message_tracking: bool = Field(
+        default=False, description="Enable message delivery tracking"
+    )
+
+    # Feishu-specific fields
+    webhook_url: str | None = Field(default=None, description="Feishu webhook URL")
+    secret: str | None = Field(default=None, description="Feishu webhook signing secret")
+    headers: dict[str, str] = Field(
+        default_factory=dict, description="Extra HTTP headers"
+    )
+
+    # Napcat/QQ-specific fields
+    http_url: str | None = Field(default=None, description="Napcat OneBot11 HTTP API URL")
+    access_token: str | None = Field(default=None, description="Napcat access token")
+    default_target: str | None = Field(
+        default=None, description="Default target for messages (e.g., 'group:123456')"
+    )
+    bot_qq: str | None = Field(
+        default=None, description="Bot's QQ number for @mention detection"
+    )
+
+    # Feishu API configuration (nested)
+    api: FeishuAPIConfig | None = Field(
+        default=None, description="Feishu Open Platform API configuration"
+    )
+
+    @model_validator(mode="after")
+    def validate_provider_config(self) -> "ProviderConfigBase":
+        """Validate provider-specific required fields."""
+        if self.provider_type == "feishu":
+            if not self.webhook_url:
+                raise ValueError("Feishu provider requires 'webhook_url'")
+        elif self.provider_type == "napcat":
+            if not self.http_url:
+                raise ValueError("Napcat provider requires 'http_url'")
+        return self
+
+
 class SchedulerConfig(BaseModel):
     """Configuration for the APScheduler job scheduler."""
 
@@ -675,6 +821,34 @@ class BotConfig(BaseSettings):
     # AI configuration - import will be added at runtime to avoid circular imports
     ai: Any = Field(default=None, description="AI agent configuration (AIConfig)")
 
+    # Multi-provider configuration (new architecture)
+    providers: list[ProviderConfigBase] = Field(
+        default_factory=list,
+        description="Multi-provider configurations (Feishu, Napcat/QQ, etc.)",
+    )
+    default_provider: str | None = Field(
+        default=None,
+        description="Name of the default provider to use when not specified",
+    )
+
+    # Message queue configuration for async delivery with retry support
+    message_queue: MessageQueueConfig | None = Field(
+        default=None,
+        description="Message queue configuration for reliable async delivery",
+    )
+
+    # Global message tracking configuration
+    message_tracking: MessageTrackingConfig | None = Field(
+        default=None,
+        description="Global message tracking configuration for delivery tracking and persistence",
+    )
+
+    # Chat configuration
+    chat: ChatConfig = Field(
+        default_factory=ChatConfig,
+        description="Chat bot functionality settings",
+    )
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> BotConfig:
         """Load configuration from a YAML file."""
@@ -723,6 +897,32 @@ class BotConfig(BaseSettings):
             if webhook.name == name:
                 return webhook
         return None
+
+    def get_provider_config(self, name: str | None = None) -> ProviderConfigBase | None:
+        """Get provider configuration by name.
+
+        Args:
+            name: Provider name. If None, returns the default provider.
+
+        Returns:
+            Provider configuration or None if not found.
+        """
+        target_name = name or self.default_provider
+        if not target_name:
+            # Return first enabled provider if no default specified
+            for provider in self.providers:
+                if provider.enabled:
+                    return provider
+            return None
+
+        for provider in self.providers:
+            if provider.name == target_name and provider.enabled:
+                return provider
+        return None
+
+    def get_all_provider_configs(self) -> list[ProviderConfigBase]:
+        """Get all enabled provider configurations."""
+        return [p for p in self.providers if p.enabled]
 
     def get_task(self, name: str) -> TaskDefinitionConfig | None:
         """Get task configuration by name."""

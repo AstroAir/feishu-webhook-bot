@@ -2,21 +2,77 @@
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import bcrypt
 from jose import JWTError, jwt
 
 from ..core.logger import get_logger
 
+if TYPE_CHECKING:
+    from ..core.config import AuthConfig
+
 logger = get_logger("auth.security")
 
-# JWT settings (these should be configurable via config)
-SECRET_KEY = "your-secret-key-change-this-in-production"  # TODO: Move to config
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Default JWT settings (can be overridden by config or environment variables)
+DEFAULT_SECRET_KEY = "change-this-in-production"
+DEFAULT_ALGORITHM = "HS256"
+DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+
+def get_secret_key(config: AuthConfig | None = None) -> str:
+    """Get secret key from config, environment variable, or default.
+
+    Priority order:
+    1. Config value (if provided and not default)
+    2. JWT_SECRET_KEY environment variable
+    3. Default value (for development only)
+
+    Args:
+        config: Optional AuthConfig instance
+
+    Returns:
+        Secret key string
+    """
+    # Check config first (use jwt_secret_key field from AuthConfig)
+    if config and config.jwt_secret_key != "change-this-secret-key-in-production":
+        return config.jwt_secret_key
+
+    # Check environment variable
+    env_key = os.environ.get("JWT_SECRET_KEY")
+    if env_key:
+        return env_key
+
+    # Return default with warning in production
+    logger.warning(
+        "Using default SECRET_KEY - this is insecure for production! "
+        "Set JWT_SECRET_KEY environment variable or configure auth.jwt_secret_key"
+    )
+    return DEFAULT_SECRET_KEY
+
+
+def get_algorithm(config: AuthConfig | None = None) -> str:
+    """Get JWT algorithm from config or default."""
+    if config and config.jwt_algorithm:
+        return config.jwt_algorithm
+    return DEFAULT_ALGORITHM
+
+
+def get_token_expire_minutes(config: AuthConfig | None = None) -> int:
+    """Get token expiration time from config or default."""
+    if config and config.access_token_expire_minutes:
+        return config.access_token_expire_minutes
+    return DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES
+
+
+# Module-level variables for backward compatibility
+# These use the defaults unless explicitly set via update_security_config
+SECRET_KEY = get_secret_key()
+ALGORITHM = DEFAULT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 def get_password_hash(password: str) -> str:

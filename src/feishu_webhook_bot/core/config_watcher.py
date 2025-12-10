@@ -226,34 +226,177 @@ def create_config_watcher(
     """
 
     def reload_callback(new_config: BotConfig) -> None:
-        """Callback to reload bot configuration."""
+        """Callback to reload bot configuration with comprehensive component updates."""
+        old_config = getattr(bot_instance, "config", None)
+        components_reloaded: list[str] = []
+
         try:
             # Apply environment overrides if configured
             if new_config.active_environment:
                 new_config = new_config.apply_environment_overrides()
 
+            # Validate configuration changes
+            warnings = _validate_config_changes(old_config, new_config)
+            for warning in warnings:
+                logger.warning(f"Config change warning: {warning}")
+
             # Update bot configuration
             bot_instance.config = new_config
 
-            # Reload components that support hot-reload
+            # Reload plugins
             if hasattr(bot_instance, "plugin_manager") and bot_instance.plugin_manager:
                 logger.info("Reloading plugins...")
-                bot_instance.plugin_manager.reload_plugins()
+                try:
+                    bot_instance.plugin_manager.reload_plugins()
+                    components_reloaded.append("plugins")
+                except Exception as e:
+                    logger.error(f"Failed to reload plugins: {e}")
 
+            # Reload task manager
             if hasattr(bot_instance, "task_manager") and bot_instance.task_manager:
                 logger.info("Reloading tasks...")
-                bot_instance.task_manager.reload_tasks()
+                try:
+                    bot_instance.task_manager.config = new_config
+                    if hasattr(bot_instance.task_manager, "reload_tasks"):
+                        bot_instance.task_manager.reload_tasks()
+                    components_reloaded.append("tasks")
+                except Exception as e:
+                    logger.error(f"Failed to reload tasks: {e}")
 
+            # Reload automation engine
             if hasattr(bot_instance, "automation_engine") and bot_instance.automation_engine:
                 logger.info("Reloading automations...")
-                # Stop old automations
-                bot_instance.automation_engine.shutdown()
-                # Recreate automation engine with new config
-                # Note: This would need to be implemented in the bot class
+                try:
+                    # Update automation rules
+                    if hasattr(bot_instance.automation_engine, "_rules"):
+                        bot_instance.automation_engine._rules = new_config.automations
+                    # Restart automation engine
+                    bot_instance.automation_engine.shutdown()
+                    bot_instance.automation_engine.start()
+                    components_reloaded.append("automations")
+                except Exception as e:
+                    logger.error(f"Failed to reload automations: {e}")
 
-            logger.info("Bot configuration reloaded successfully")
+            # Reload template registry
+            if hasattr(bot_instance, "template_registry"):
+                logger.info("Reloading templates...")
+                try:
+                    from .templates import TemplateRegistry
+
+                    bot_instance.template_registry = TemplateRegistry(
+                        new_config.templates or []
+                    )
+                    # Update template_registry reference in task_manager
+                    if (
+                        hasattr(bot_instance, "task_manager")
+                        and bot_instance.task_manager
+                    ):
+                        bot_instance.task_manager.template_registry = (
+                            bot_instance.template_registry
+                        )
+                    components_reloaded.append("templates")
+                except Exception as e:
+                    logger.error(f"Failed to reload templates: {e}")
+
+            # Reload AI agent configuration (if AI config changed)
+            if hasattr(bot_instance, "ai_agent") and bot_instance.ai_agent:
+                ai_config = getattr(new_config, "ai", None)
+                old_ai_config = getattr(old_config, "ai", None) if old_config else None
+
+                if ai_config and ai_config != old_ai_config:
+                    logger.info("AI configuration changed, updating agent...")
+                    try:
+                        # Update AI agent config
+                        bot_instance.ai_agent.config = ai_config
+                        components_reloaded.append("ai_agent")
+                    except Exception as e:
+                        logger.error(f"Failed to update AI agent: {e}")
+
+            # Reload event server configuration
+            if hasattr(bot_instance, "event_server") and bot_instance.event_server:
+                event_config = getattr(new_config, "event_server", None)
+                if event_config:
+                    logger.info("Updating event server configuration...")
+                    try:
+                        # Event server may need restart for port changes
+                        # For now, just update config reference
+                        bot_instance.event_server.config = event_config
+                        components_reloaded.append("event_server")
+                    except Exception as e:
+                        logger.error(f"Failed to update event server: {e}")
+
+            logger.info(
+                "Bot configuration reloaded successfully. Components: %s",
+                ", ".join(components_reloaded) if components_reloaded else "none",
+            )
 
         except Exception as e:
             logger.error(f"Failed to apply new configuration to bot: {e}", exc_info=True)
+            # Attempt to rollback to old config
+            if old_config:
+                logger.info("Attempting to rollback to previous configuration...")
+                try:
+                    bot_instance.config = old_config
+                    logger.info("Rollback successful")
+                except Exception as rollback_error:
+                    logger.error(f"Rollback failed: {rollback_error}")
 
     return ConfigWatcher(config_path, reload_callback, reload_delay)
+
+
+def _validate_config_changes(
+    old_config: BotConfig | None, new_config: BotConfig
+) -> list[str]:
+    """Validate configuration changes and return warnings.
+
+    Args:
+        old_config: Previous configuration (None if first load)
+        new_config: New configuration
+
+    Returns:
+        List of warning messages about potentially breaking changes
+    """
+    warnings: list[str] = []
+
+    if old_config is None:
+        return warnings
+
+    # Check for removed webhooks
+    old_webhooks = {w.name for w in (old_config.webhooks or [])}
+    new_webhooks = {w.name for w in (new_config.webhooks or [])}
+    removed_webhooks = old_webhooks - new_webhooks
+    if removed_webhooks:
+        warnings.append(
+            f"Webhooks removed: {', '.join(removed_webhooks)} - "
+            "tasks using these webhooks may fail"
+        )
+
+    # Check if all webhooks were removed
+    if old_webhooks and not new_webhooks:
+        warnings.append(
+            "All webhooks removed - message sending will be unavailable"
+        )
+
+    # Check scheduler status change
+    old_scheduler = getattr(old_config, "scheduler", None)
+    new_scheduler = getattr(new_config, "scheduler", None)
+    if old_scheduler and new_scheduler:
+        if old_scheduler.enabled and not new_scheduler.enabled:
+            warnings.append(
+                "Scheduler disabled - scheduled tasks will stop running"
+            )
+
+    # Check AI status change
+    old_ai = getattr(old_config, "ai", None)
+    new_ai = getattr(new_config, "ai", None)
+    if old_ai and new_ai:
+        if old_ai.enabled and not new_ai.enabled:
+            warnings.append(
+                "AI disabled - AI-powered tasks will fail"
+            )
+        elif old_ai.model != new_ai.model:
+            warnings.append(
+                f"AI model changed from {old_ai.model} to {new_ai.model}"
+            )
+
+    return warnings

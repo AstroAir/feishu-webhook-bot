@@ -190,6 +190,16 @@ cython_debug/
 
 # Ruff stuff:
 .ruff_cache/
+.coverage/
+
+# Claude AI workspace
+.claude/
+
+# Generated documentation
+llmdoc/
+
+# Test artifacts
+MagicMock/
 
 # PyPI configuration file
 .pypirc

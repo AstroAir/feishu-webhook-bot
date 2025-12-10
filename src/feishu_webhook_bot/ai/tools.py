@@ -17,6 +17,38 @@ from ..core.logger import get_logger
 logger = get_logger("ai.tools")
 
 
+def ai_tool(
+    name: str | None = None,
+    description: str | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator to mark a function as an AI tool for bulk registration.
+
+    This decorator marks a function so it can be easily discovered and registered
+    with an AIAgent using the register_tools_from_module method.
+
+    Args:
+        name: Optional tool name (defaults to function name)
+        description: Optional tool description (defaults to function docstring)
+
+    Returns:
+        Decorator function
+
+    Example:
+        @ai_tool(name="calculator", description="Perform calculations")
+        def calculate_expression(expression: str) -> str:
+            return str(eval(expression))
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        func._ai_tool_metadata = {
+            "name": name,
+            "description": description,
+        }
+        return func
+
+    return decorator
+
+
 # Search result cache
 class SearchCache:
     """Simple in-memory cache for search results."""
@@ -255,6 +287,42 @@ class ToolRegistry:
                 set(m.get("category", "general") for m in self._tool_metadata.values())
             ),
         }
+
+    def tool(
+        self,
+        name: str | None = None,
+        description: str | None = None,
+        category: str = "custom",
+        requires_permission: bool = False,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Decorator for registering custom tools with the registry.
+
+        This decorator allows easy registration of tool functions by using it as
+        a function decorator. The decorated function is automatically registered
+        with this registry.
+
+        Args:
+            name: Tool name (defaults to function name)
+            description: Tool description (defaults to function docstring)
+            category: Tool category (defaults to "custom")
+            requires_permission: Whether this tool requires special permission
+
+        Returns:
+            Decorator function
+
+        Example:
+            @registry.tool(name="my_tool", description="Does something useful")
+            async def my_tool(query: str) -> str:
+                return f"Result for {query}"
+        """
+
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            tool_name = name or func.__name__
+            tool_desc = description or func.__doc__ or "No description"
+            self.register(tool_name, func, tool_desc, category, requires_permission)
+            return func
+
+        return decorator
 
 
 # Built-in tools

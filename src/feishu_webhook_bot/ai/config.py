@@ -117,6 +117,40 @@ class StreamingConfig(BaseModel):
     )
 
 
+class ConversationPersistenceConfig(BaseModel):
+    """Configuration for conversation persistence.
+
+    Attributes:
+        enabled: Whether persistence is enabled
+        database_url: SQLAlchemy database URL
+        max_history_days: Days to keep conversation history
+        auto_cleanup: Whether to automatically cleanup old conversations
+        cleanup_interval_hours: Hours between cleanup runs
+    """
+
+    enabled: bool = Field(default=False, description="Enable conversation persistence")
+    database_url: str = Field(
+        default="sqlite:///data/conversations.db",
+        description="SQLAlchemy database URL",
+    )
+    max_history_days: int = Field(
+        default=30,
+        ge=1,
+        le=365,
+        description="Days to keep conversation history",
+    )
+    auto_cleanup: bool = Field(
+        default=True,
+        description="Automatically cleanup old conversations",
+    )
+    cleanup_interval_hours: int = Field(
+        default=24,
+        ge=1,
+        le=168,
+        description="Hours between cleanup runs",
+    )
+
+
 class AIConfig(BaseModel):
     """Configuration for AI capabilities.
 
@@ -233,4 +267,16 @@ class AIConfig(BaseModel):
     streaming: StreamingConfig = Field(
         default_factory=StreamingConfig,
         description="Streaming configuration",
+    )
+    conversation_persistence: ConversationPersistenceConfig | None = Field(
+        default=None,
+        description="Conversation persistence configuration",
+    )
+    available_models: list[str] = Field(
+        default_factory=lambda: [
+            "openai:gpt-4o",
+            "openai:gpt-4o-mini",
+            "anthropic:claude-3-5-sonnet-20241022",
+        ],
+        description="List of models available for user switching via /model command",
     )

@@ -16,6 +16,7 @@ from watchdog.observers import Observer
 from ..core.client import FeishuWebhookClient
 from ..core.config import BotConfig
 from ..core.logger import get_logger
+from ..core.provider import BaseProvider
 from .base import BasePlugin
 
 logger = get_logger("plugin_manager")
@@ -104,19 +105,22 @@ class PluginManager:
     def __init__(
         self,
         config: BotConfig,
-        client: FeishuWebhookClient,
+        client: FeishuWebhookClient | BaseProvider | None = None,
         scheduler: Any = None,
+        providers: dict[str, BaseProvider] | None = None,
     ):
         """Initialize the plugin manager.
 
         Args:
             config: Bot configuration
-            client: Feishu webhook client
+            client: Default webhook client or provider (backward compatible)
             scheduler: Task scheduler instance (optional)
+            providers: Dict of all available providers (new multi-provider support)
         """
         self.config = config
         self.client = client
         self.scheduler = scheduler
+        self.providers: dict[str, BaseProvider] = providers or {}
         self.plugins: dict[str, BasePlugin] = {}
         self._observer: Observer | None = None
 
@@ -189,8 +193,8 @@ class PluginManager:
                 logger.error(f"No plugin class found in: {file_path}")
                 return None
 
-            # Instantiate plugin
-            plugin = plugin_class(self.config, self.client)
+            # Instantiate plugin with both client and providers for compatibility
+            plugin = plugin_class(self.config, self.client, self.providers)
             logger.info(f"Loaded plugin: {plugin.metadata().name} from {file_path.name}")
             return plugin
 

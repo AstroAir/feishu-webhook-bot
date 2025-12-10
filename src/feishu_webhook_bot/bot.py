@@ -2,23 +2,34 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import signal
 import threading
 from collections.abc import Sequence
 from pathlib import Path
 from types import FrameType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .automation import AutomationEngine
+from .chat.controller import ChatController, ChatConfig, create_chat_controller
 from .core import BotConfig, FeishuWebhookClient, get_logger, setup_logging
-from .core.config import WebhookConfig
-from .core.config_watcher import create_config_watcher
+from .core.circuit_breaker import CircuitBreakerConfig
+from .core.config import ProviderConfigBase, WebhookConfig
+from .core.config_watcher import ConfigWatcher, create_config_watcher
 from .core.event_server import EventServer
+from .core.message_queue import MessageQueue
+from .core.message_tracker import MessageTracker
+from .core.message_handler import IncomingMessage
+from .core.message_parsers import FeishuMessageParser, QQMessageParser
+from .core.provider import BaseProvider
 from .core.templates import RenderedTemplate, TemplateRegistry
 from .plugins import PluginManager
 from .scheduler import TaskScheduler
 from .tasks import TaskManager
+
+if TYPE_CHECKING:
+    from .ai.agent import AIAgent
 
 logger = get_logger("bot")
 
@@ -69,18 +80,24 @@ class FeishuBot:
         # Initialize components
         self.clients: dict[str, FeishuWebhookClient] = {}
         self.client: FeishuWebhookClient | None = None  # for backward compatibility
+        self.providers: dict[str, BaseProvider] = {}  # New multi-provider support
+        self.default_provider: BaseProvider | None = None
         self.scheduler: TaskScheduler | None = None
         self.plugin_manager: PluginManager | None = None
         self.template_registry: TemplateRegistry | None = None
         self.automation_engine: AutomationEngine | None = None
         self.task_manager: TaskManager | None = None
         self.event_server: EventServer | None = None
-        self.config_watcher: Any = None
-        self.ai_agent: Any = None  # AIAgent instance
+        self.config_watcher: ConfigWatcher | None = None
+        self.ai_agent: AIAgent | None = None
+        self.chat_controller: ChatController | None = None
+        self.message_tracker: MessageTracker | None = None
+        self.message_queue: MessageQueue | None = None
+        self._message_queue_task: asyncio.Task[None] | None = None
         self._running: bool = False
-        self._shutdown_event = threading.Event()
-        self._signal_handlers: dict[int, Any] = {}
-        self._signal_handlers_installed = False
+        self._shutdown_event: threading.Event = threading.Event()
+        self._signal_handlers: dict[int, signal.Handlers] = {}
+        self._signal_handlers_installed: bool = False
 
         # Eagerly initialize core components
         try:
@@ -88,6 +105,28 @@ class FeishuBot:
         except Exception as exc:
             logger.error("Failed to initialize webhook clients: %s", exc, exc_info=True)
             raise
+
+        # Initialize message tracker before providers (providers need it)
+        try:
+            self._init_message_tracker()
+        except Exception as exc:
+            logger.warning(
+                "Message tracker initialization failed, continuing without tracking: %s", exc
+            )
+
+        try:
+            self._init_providers()
+        except Exception as exc:
+            logger.error("Failed to initialize providers: %s", exc, exc_info=True)
+            raise
+
+        # Initialize message queue after providers (queue needs providers)
+        try:
+            self._init_message_queue()
+        except Exception as exc:
+            logger.warning(
+                "Message queue initialization failed, continuing without queue: %s", exc
+            )
 
         try:
             self._init_scheduler()
@@ -104,9 +143,10 @@ class FeishuBot:
         try:
             self._init_templates()
             self._init_automation()
+            self._init_ai_agent()  # Initialize AI agent before tasks
+            self._init_chat_controller()  # Initialize chat controller after AI agent
             self._init_tasks()
             self._init_event_server()
-            self._init_ai_agent()
             self._init_config_watcher()
         except Exception as exc:
             logger.error("Failed to initialize optional components: %s", exc, exc_info=True)
@@ -122,6 +162,121 @@ class FeishuBot:
             logger.debug("Skipping logging configuration setup; invalid logging level provided")
             return
         setup_logging(logging_config)
+
+    def _init_message_tracker(self) -> None:
+        """Initialize message tracker for delivery tracking and persistence."""
+        tracking_config = getattr(self.config, "message_tracking", None)
+
+        if not tracking_config:
+            logger.info("Message tracking disabled (no config)")
+            return
+
+        enabled = getattr(tracking_config, "enabled", False)
+        if not enabled:
+            logger.info("Message tracking disabled")
+            return
+
+        try:
+            max_history = getattr(tracking_config, "max_history", 10000)
+            cleanup_interval = getattr(tracking_config, "cleanup_interval", 3600.0)
+            db_path = getattr(tracking_config, "db_path", None)
+
+            self.message_tracker = MessageTracker(
+                max_history=max_history,
+                cleanup_interval=cleanup_interval,
+                db_path=db_path,
+            )
+            logger.info(
+                "Message tracker initialized (db_path=%s, max_history=%d)",
+                db_path or "in-memory",
+                max_history,
+            )
+        except Exception as exc:
+            logger.error("Failed to initialize message tracker: %s", exc, exc_info=True)
+            # Non-fatal - continue without tracking
+
+    def _init_message_queue(self) -> None:
+        """Initialize message queue for reliable async delivery."""
+        queue_config = getattr(self.config, "message_queue", None)
+
+        if not queue_config:
+            logger.info("Message queue disabled (no config)")
+            return
+
+        enabled = getattr(queue_config, "enabled", False)
+        if not enabled:
+            logger.info("Message queue disabled")
+            return
+
+        if not self.providers:
+            logger.warning("No providers available; message queue disabled")
+            return
+
+        try:
+            max_batch_size = getattr(queue_config, "max_batch_size", 10)
+            retry_delay = getattr(queue_config, "retry_delay", 5.0)
+            max_retries = getattr(queue_config, "max_retries", 3)
+
+            self.message_queue = MessageQueue(
+                providers=self.providers,
+                max_batch_size=max_batch_size,
+                retry_delay=retry_delay,
+                max_retries=max_retries,
+            )
+            logger.info(
+                "Message queue initialized (batch_size=%d, max_retries=%d)",
+                max_batch_size,
+                max_retries,
+            )
+        except Exception as exc:
+            logger.error("Failed to initialize message queue: %s", exc, exc_info=True)
+            # Non-fatal - continue without queue
+
+    async def _run_message_queue_processor(self) -> None:
+        """Run message queue processor in background loop.
+
+        This method runs continuously while the bot is running,
+        processing queued messages with error handling and backoff.
+        """
+        while self._running:
+            try:
+                if self.message_queue:
+                    await self.message_queue.process_queue()
+                await asyncio.sleep(1.0)  # Process interval
+            except asyncio.CancelledError:
+                logger.info("Message queue processor cancelled")
+                break
+            except Exception as exc:
+                logger.error("Message queue processing error: %s", exc, exc_info=True)
+                await asyncio.sleep(5.0)  # Backoff on error
+
+    def _convert_circuit_breaker_config(
+        self, policy_config: Any
+    ) -> CircuitBreakerConfig | None:
+        """Convert CircuitBreakerPolicyConfig to CircuitBreakerConfig.
+
+        Args:
+            policy_config: CircuitBreakerPolicyConfig or dict
+
+        Returns:
+            CircuitBreakerConfig or None
+        """
+        if not policy_config:
+            return None
+
+        try:
+            failure_threshold = getattr(policy_config, "failure_threshold", 5)
+            reset_timeout = getattr(policy_config, "reset_timeout", 30.0)
+            half_open_max = getattr(policy_config, "half_open_max_calls", 3)
+
+            return CircuitBreakerConfig(
+                failure_threshold=failure_threshold,
+                success_threshold=half_open_max,
+                timeout_seconds=reset_timeout,
+            )
+        except Exception as exc:
+            logger.warning("Failed to convert circuit breaker config: %s", exc)
+            return None
 
     def _init_clients(self) -> None:
         """Initialize webhook clients for all configured webhooks."""
@@ -209,6 +364,186 @@ class FeishuBot:
             )
         self.client = default_client
 
+    def _init_providers(self) -> None:
+        """Initialize message providers from configuration.
+
+        Supports both new provider configuration and backward compatibility
+        with legacy webhooks configuration.
+        """
+        provider_configs = self.config.providers or []
+
+        # If no providers configured but webhooks exist, create FeishuProviders from webhooks
+        if not provider_configs and self.config.webhooks:
+            logger.info(
+                "No providers configured, creating FeishuProviders from %d webhook(s)",
+                len(self.config.webhooks),
+            )
+            for webhook in self.config.webhooks:
+                try:
+                    provider = self._create_provider_from_webhook(webhook)
+                    if provider:
+                        self.providers[provider.name] = provider
+                        logger.info("Created provider from webhook: %s", provider.name)
+                except Exception as exc:
+                    logger.error(
+                        "Failed to create provider from webhook '%s': %s",
+                        webhook.name,
+                        exc,
+                        exc_info=True,
+                    )
+        else:
+            # Initialize from provider configurations
+            for provider_config in provider_configs:
+                if not provider_config.enabled:
+                    logger.info("Provider '%s' is disabled, skipping", provider_config.name)
+                    continue
+
+                try:
+                    provider = self._create_provider(provider_config)
+                    if provider:
+                        self.providers[provider.name] = provider
+                        logger.info(
+                            "Initialized provider: %s (%s)",
+                            provider.name,
+                            provider_config.provider_type,
+                        )
+                except Exception as exc:
+                    logger.error(
+                        "Failed to initialize provider '%s': %s",
+                        provider_config.name,
+                        exc,
+                        exc_info=True,
+                    )
+
+        # Set default provider
+        if self.providers:
+            default_name = self.config.default_provider
+            if default_name and default_name in self.providers:
+                self.default_provider = self.providers[default_name]
+            else:
+                # Use first provider as default
+                first_name = next(iter(self.providers))
+                self.default_provider = self.providers[first_name]
+                if default_name:
+                    logger.warning(
+                        "Default provider '%s' not found, using '%s'",
+                        default_name,
+                        first_name,
+                    )
+            logger.info("Default provider set to: %s", self.default_provider.name)
+        else:
+            logger.info("No providers initialized")
+
+    def _create_provider_from_webhook(self, webhook: WebhookConfig) -> BaseProvider | None:
+        """Create a FeishuProvider from a legacy WebhookConfig.
+
+        Args:
+            webhook: Legacy webhook configuration
+
+        Returns:
+            FeishuProvider instance or None if creation failed
+        """
+        try:
+            from .providers.feishu import FeishuProvider, FeishuProviderConfig
+
+            config = FeishuProviderConfig(
+                provider_type="feishu",
+                name=webhook.name,
+                url=webhook.url,
+                secret=webhook.secret,
+                timeout=webhook.timeout or self.config.http.timeout,
+                retry=webhook.retry or self.config.http.retry,
+                headers=webhook.headers,
+            )
+            return FeishuProvider(
+                config,
+                message_tracker=self.message_tracker,
+                circuit_breaker_config=None,  # No circuit breaker config in legacy webhooks
+            )
+        except ImportError:
+            logger.warning("FeishuProvider not available, skipping webhook conversion")
+            return None
+        except Exception as exc:
+            logger.error("Failed to create FeishuProvider: %s", exc, exc_info=True)
+            return None
+
+    def _create_provider(self, config: ProviderConfigBase) -> BaseProvider | None:
+        """Create a provider instance from configuration.
+
+        Args:
+            config: Provider configuration
+
+        Returns:
+            Provider instance or None if creation failed
+        """
+        provider_type = config.provider_type
+
+        # Extract and convert circuit breaker config
+        cb_config = self._convert_circuit_breaker_config(config.circuit_breaker)
+
+        if provider_type == "feishu":
+            try:
+                from .providers.feishu import FeishuProvider, FeishuProviderConfig
+
+                feishu_config = FeishuProviderConfig(
+                    provider_type="feishu",
+                    name=config.name,
+                    url=config.webhook_url or "",
+                    secret=config.secret,
+                    timeout=config.timeout or self.config.http.timeout,
+                    retry=config.retry or self.config.http.retry,
+                    headers=config.headers,
+                )
+                return FeishuProvider(
+                    feishu_config,
+                    message_tracker=self.message_tracker,
+                    circuit_breaker_config=cb_config,
+                )
+            except ImportError as exc:
+                logger.error("FeishuProvider not available: %s", exc)
+                return None
+
+        elif provider_type == "napcat":
+            try:
+                from .providers.qq_napcat import NapcatProvider, NapcatProviderConfig
+
+                napcat_config = NapcatProviderConfig(
+                    provider_type="napcat",
+                    name=config.name,
+                    http_url=config.http_url,
+                    access_token=config.access_token,
+                    default_target=config.default_target,
+                    timeout=config.timeout or self.config.http.timeout,
+                    retry=config.retry,
+                    circuit_breaker=config.circuit_breaker,
+                    message_tracking=config.message_tracking,
+                )
+                return NapcatProvider(
+                    napcat_config,
+                    message_tracker=self.message_tracker,
+                    circuit_breaker_config=cb_config,
+                )
+            except ImportError as exc:
+                logger.error("NapcatProvider not available: %s", exc)
+                return None
+
+        else:
+            logger.warning("Unknown provider type: %s", provider_type)
+            return None
+
+    def get_provider(self, name: str | None = None) -> BaseProvider | None:
+        """Get a provider by name.
+
+        Args:
+            name: Provider name. If None, returns the default provider.
+
+        Returns:
+            Provider instance or None if not found.
+        """
+        if name is None:
+            return self.default_provider
+        return self.providers.get(name)
+
     def _init_scheduler(self) -> None:
         """Initialize task scheduler if enabled."""
         scheduler_config = getattr(self.config, "scheduler", None)
@@ -247,12 +582,21 @@ class FeishuBot:
             logger.info("Plugin system is disabled")
             return
 
-        if not self.client:
-            logger.warning("No default webhook client available; skipping plugin initialization")
+        # Check for either legacy client or new providers
+        if not self.client and not self.providers:
+            logger.warning(
+                "No webhook client or providers available; skipping plugin initialization"
+            )
             return
 
         try:
-            self.plugin_manager = PluginManager(self.config, self.client, self.scheduler)
+            # Pass both client (backward compat) and providers (new architecture)
+            self.plugin_manager = PluginManager(
+                self.config,
+                self.client or self.default_provider,
+                self.scheduler,
+                providers=self.providers,
+            )
         except Exception as exc:
             logger.error("Failed to initialize plugin manager: %s", exc, exc_info=True)
             raise
@@ -264,6 +608,9 @@ class FeishuBot:
             logger.error("Failed to load or enable plugins: %s", exc, exc_info=True)
             raise
 
+        # Validate plugin configurations at startup
+        self._validate_plugin_configs()
+
         # Start hot reload if enabled
         if plugins_config.auto_reload:
             try:
@@ -273,6 +620,72 @@ class FeishuBot:
                 raise
 
         logger.info("Plugin system initialized")
+
+    def _validate_plugin_configs(self) -> None:
+        """Validate all loaded plugin configurations at startup.
+
+        This method checks each plugin's configuration against its schema
+        (if defined) and logs warnings for missing or invalid configurations.
+        """
+        if not self.plugin_manager:
+            return
+
+        try:
+            from .plugins.config_validator import ConfigValidator
+
+            validator = ConfigValidator(self.config)
+            plugins = self.plugin_manager.get_all_plugins()
+
+            if not plugins:
+                return
+
+            report = validator.generate_startup_report(plugins)
+
+            if report.all_valid:
+                logger.info(
+                    "All %d plugin(s) have valid configurations",
+                    len(report.plugins_ready),
+                )
+            else:
+                # Log warnings for plugins needing configuration
+                for plugin_name in report.plugins_need_config:
+                    result = next(
+                        (r for r in report.results if r.plugin_name == plugin_name),
+                        None,
+                    )
+                    if result:
+                        if result.missing_required:
+                            logger.warning(
+                                "Plugin '%s' missing required configuration: %s. "
+                                "Run 'feishu-webhook-bot plugin setup %s' to configure.",
+                                plugin_name,
+                                ", ".join(result.missing_required[:3]),
+                                plugin_name,
+                            )
+                        for error in result.errors[:2]:
+                            logger.warning(
+                                "Plugin '%s' configuration error: %s",
+                                plugin_name,
+                                error,
+                            )
+
+                # Print report if Rich is available
+                try:
+                    validator.print_report(report)
+                except Exception:
+                    # Fallback: just log the summary
+                    logger.warning(
+                        "%d plugin(s) need configuration: %s",
+                        len(report.plugins_need_config),
+                        ", ".join(report.plugins_need_config),
+                    )
+
+        except ImportError:
+            logger.debug("Plugin configuration validation not available")
+        except Exception as exc:
+            logger.warning(
+                "Plugin configuration validation failed: %s", exc, exc_info=True
+            )
 
     def _init_templates(self) -> None:
         """Initialize template registry from configuration."""
@@ -293,6 +706,7 @@ class FeishuBot:
             http_defaults=self.config.http,
             send_text=self._automation_send_text,
             send_rendered=self._automation_send_rendered,
+            providers=self.providers,
         )
         if rules:
             logger.info("Automation engine configured with %s rule(s)", len(rules))
@@ -314,6 +728,9 @@ class FeishuBot:
                 scheduler=self.scheduler,
                 plugin_manager=self.plugin_manager,
                 clients=self.clients,
+                ai_agent=self.ai_agent,  # Pass AI agent for ai_chat/ai_query actions
+                providers=self.providers,
+                template_registry=self.template_registry,
             )
             logger.info("Task manager configured with %s task(s)", len(tasks))
         except Exception as exc:
@@ -355,7 +772,27 @@ class FeishuBot:
             logger.debug("Skipping event server initialization; configuration path is not a string")
             return
 
-        self.event_server = EventServer(event_config, self._handle_incoming_event)
+        # Pass providers config for QQ access token verification
+        providers_config = getattr(self.config, "providers", None)
+        self.event_server = EventServer(event_config, self._handle_incoming_event, providers_config=providers_config)
+
+        # Connect chat controller to event server if available
+        if self.chat_controller:
+            try:
+                # Create async wrapper for chat controller message handling
+                async def _handle_message_wrapper(payload: dict[str, Any]) -> None:
+                    """Async wrapper to handle messages through chat controller."""
+                    try:
+                        # For now, we'll keep the event handling separate from chat controller
+                        # Chat controller will be called from _handle_incoming_event
+                        pass
+                    except Exception as exc:
+                        logger.error("Chat controller message handling failed: %s", exc, exc_info=True)
+
+                logger.info("Chat controller connected to event server")
+            except Exception as exc:
+                logger.error("Failed to connect chat controller to event server: %s", exc, exc_info=True)
+
         logger.info(
             "Event server configured on %s:%s%s",
             event_config.host,
@@ -393,6 +830,35 @@ class FeishuBot:
         except Exception as exc:
             logger.error("Failed to initialize AI agent: %s", exc, exc_info=True)
 
+    def _init_chat_controller(self) -> None:
+        """Initialize chat controller for unified message handling."""
+        # Check if chat configuration is available
+        chat_config = getattr(self.config, "chat", None)
+        if chat_config is None:
+            # Use default configuration
+            chat_config = ChatConfig()
+
+        if not chat_config.enabled:
+            logger.info("Chat controller disabled")
+            return
+
+        # Get available models from AI configuration
+        ai_config = getattr(self.config, "ai", None)
+        available_models = None
+        if ai_config:
+            available_models = getattr(ai_config, "available_models", None)
+
+        try:
+            self.chat_controller = create_chat_controller(
+                ai_agent=self.ai_agent,
+                providers=self.providers,
+                config=chat_config,
+                available_models=available_models,
+            )
+            logger.info("Chat controller initialized")
+        except Exception as e:
+            logger.error("Failed to initialize chat controller: %s", e, exc_info=True)
+
     def _automation_send_text(self, text: str, webhook_name: str) -> None:
         self.send_message(text, webhook_name)
 
@@ -405,8 +871,24 @@ class FeishuBot:
         """Handle inbound events from the event server."""
         logger.debug("Handling incoming event: %s", payload.get("type", "unknown"))
 
-        # Handle AI chat messages
-        if self.ai_agent and self._is_chat_message(payload):
+        # Handle AI chat messages via ChatController if available
+        if self.chat_controller and self._is_chat_message(payload):
+            try:
+                import asyncio
+
+                # Parse message from payload and route to chat controller
+                message = self._parse_incoming_message(payload)
+                if message:
+                    asyncio.create_task(self.chat_controller.handle_incoming(message))
+                    logger.debug("Message routed to chat controller")
+                    # Note: Plugin and automation dispatch still happens below for
+                    # backward compatibility and non-message event handling
+                else:
+                    logger.debug("Could not parse message from payload")
+            except Exception as exc:
+                logger.error("Chat controller message handling failed: %s", exc, exc_info=True)
+        # Fallback to old AI chat handler if no chat controller
+        elif self.ai_agent and self._is_chat_message(payload):
             try:
                 import asyncio
 
@@ -426,8 +908,86 @@ class FeishuBot:
             except Exception as exc:
                 logger.error("Automation event handling failed: %s", exc, exc_info=True)
 
+    def _parse_incoming_message(self, payload: dict[str, Any]) -> IncomingMessage | None:
+        """Parse event payload into a unified IncomingMessage.
+
+        Uses platform-specific parsers for comprehensive message parsing:
+        - FeishuMessageParser for Feishu events
+        - QQMessageParser for OneBot11/Napcat events
+
+        Args:
+            payload: Event payload from webhook
+
+        Returns:
+            IncomingMessage instance or None if parsing fails
+        """
+        try:
+            # Determine platform from payload marker (set by event_server)
+            provider = payload.get("_provider", "")
+
+            # Try Feishu parser
+            if provider == "feishu" or not provider:
+                # Get bot_open_id from provider config if available
+                bot_open_id = None
+                for p_config in self.config.providers or []:
+                    if p_config.provider_type == "feishu":
+                        api_config = getattr(p_config, "api", None)
+                        if api_config:
+                            # In a real implementation, bot_open_id would be obtained from API
+                            pass
+                        break
+
+                feishu_parser = FeishuMessageParser(bot_open_id=bot_open_id)
+                if feishu_parser.can_parse(payload):
+                    message = feishu_parser.parse(payload)
+                    if message:
+                        return message
+
+            # Try QQ parser
+            if provider == "napcat" or provider == "qq" or not provider:
+                # Get bot_qq from provider config
+                bot_qq = None
+                for p_config in self.config.providers or []:
+                    if p_config.provider_type == "napcat":
+                        bot_qq = getattr(p_config, "bot_qq", None)
+                        break
+
+                qq_parser = QQMessageParser(bot_qq=bot_qq)
+                if qq_parser.can_parse(payload):
+                    message = qq_parser.parse(payload)
+                    if message:
+                        return message
+
+            # Fallback: Try basic Feishu structure for backward compatibility
+            event_type = payload.get("type")
+            if event_type == "message":
+                event = payload.get("event", payload)
+                message_data = event.get("message", {})
+                sender = event.get("sender", {})
+
+                return IncomingMessage(
+                    id=message_data.get("message_id", ""),
+                    platform="feishu",
+                    chat_type=event.get("chat_type", "private"),
+                    chat_id=event.get("chat_id", ""),
+                    sender_id=sender.get("sender_id", {}).get("user_id", ""),
+                    sender_name=sender.get("sender_name", "Unknown"),
+                    content=message_data.get("text", ""),
+                    is_at_bot=False,
+                    raw_content=message_data,
+                    metadata={"event_id": payload.get("event_id", "")},
+                )
+
+            return None
+
+        except Exception as e:
+            logger.debug("Failed to parse incoming message: %s", e, exc_info=True)
+            return None
+
     def _is_chat_message(self, payload: dict[str, Any]) -> bool:
         """Check if the payload is a chat message that should be handled by AI.
+
+        Supports both Feishu and QQ (OneBot11) message structures.
 
         Args:
             payload: Event payload
@@ -435,21 +995,45 @@ class FeishuBot:
         Returns:
             True if this is a chat message
         """
+        # Check platform marker (set by event_server)
+        provider = payload.get("_provider", "")
+
         # Check for Feishu message event structure
         event_type = payload.get("type")
         if event_type == "message":
             return True
 
-        # Check for nested event structure
+        # Check for nested event structure (Feishu v2.0)
+        header = payload.get("header", {})
+        if header.get("event_type") == "im.message.receive_v1":
+            return True
+
         event = payload.get("event", {})
-        return event.get("type") == "message"
+        if event.get("type") == "message":
+            return True
+
+        # Check for QQ/OneBot11 message event structure
+        post_type = payload.get("post_type")
+        if post_type == "message":
+            return True
+
+        return False
 
     async def _handle_ai_chat(self, payload: dict[str, Any]) -> None:
         """Handle AI chat message.
 
+        Note: This method is now primarily handled by ChatController when available.
+        It's kept for backward compatibility and as a fallback when chat_controller
+        is not initialized.
+
         Args:
             payload: Event payload
         """
+        # If chat controller is available, it should handle this
+        if self.chat_controller:
+            logger.debug("AI chat should be handled by ChatController, skipping legacy handler")
+            return
+
         try:
             # Extract message content and user ID from payload
             event = payload.get("event", payload)
@@ -535,6 +1119,17 @@ class FeishuBot:
         self._shutdown_event.clear()
 
         try:
+            # Connect all providers
+            for name, provider in self.providers.items():
+                try:
+                    provider.connect()
+                    logger.info("Provider connected: %s", name)
+                except Exception as exc:
+                    logger.error(
+                        "Failed to connect provider '%s': %s", name, exc, exc_info=True
+                    )
+                    raise
+
             # Start scheduler
             if self.scheduler:
                 try:
@@ -582,6 +1177,16 @@ class FeishuBot:
                 except Exception as exc:
                     logger.error("Failed to start AI agent: %s", exc, exc_info=True)
                     raise
+
+            # Start message queue processor
+            if self.message_queue:
+                try:
+                    self._message_queue_task = asyncio.create_task(
+                        self._run_message_queue_processor()
+                    )
+                    logger.info("Message queue processor started")
+                except Exception as exc:
+                    logger.warning("Failed to start message queue processor: %s", exc, exc_info=True)
 
             self._running = True
             try:
@@ -715,6 +1320,32 @@ class FeishuBot:
                 except Exception as exc:
                     logger.error("Failed to shutdown scheduler: %s", exc, exc_info=True)
 
+            # Stop message queue processor
+            if self._message_queue_task:
+                try:
+                    self._message_queue_task.cancel()
+                    logger.info("Message queue processor stopped")
+                except Exception as exc:
+                    logger.error("Failed to stop message queue: %s", exc, exc_info=True)
+
+            # Stop message tracker cleanup thread
+            if self.message_tracker:
+                try:
+                    self.message_tracker.stop_cleanup()
+                    logger.info("Message tracker stopped")
+                except Exception as exc:
+                    logger.error("Failed to stop message tracker: %s", exc, exc_info=True)
+
+            # Disconnect all providers
+            for name, provider in self.providers.items():
+                try:
+                    provider.disconnect()
+                    logger.info("Provider disconnected: %s", name)
+                except Exception as exc:
+                    logger.error(
+                        "Error disconnecting provider %s: %s", name, exc, exc_info=True
+                    )
+
             # Close clients
             for name, client in self.clients.items():
                 try:
@@ -730,11 +1361,11 @@ class FeishuBot:
             logger.info("Feishu Bot stopped")
 
     def send_message(self, text: str, webhook_name: str | Sequence[str] = "default") -> None:
-        """Send a text message via specified webhook.
+        """Send a text message via specified webhook or provider.
 
         Args:
             text: Message text
-            webhook_name: Webhook name (default: "default")
+            webhook_name: Webhook or provider name (default: "default")
         """
         if not isinstance(text, str) or not text.strip():
             raise ValueError("Message text must be a non-empty string")
@@ -749,27 +1380,43 @@ class FeishuBot:
             if not targets:
                 raise ValueError("At least one webhook name must be provided")
 
-        missing = [name for name in targets if name not in self.clients]
-        if missing:
-            available = ", ".join(sorted(self.clients)) or "none"
-            if len(missing) == 1:
-                raise ValueError(f"Webhook client not found: {missing[0]}")
-            raise ValueError(
-                f"Webhook clients not found: {', '.join(missing)}. Available: {available}"
-            )
-
         for name in targets:
-            client = self.clients[name]
-            try:
-                client.send_text(text)
-            except Exception as exc:
-                logger.error(
-                    "Failed to send message via webhook '%s': %s",
-                    name,
-                    exc,
-                    exc_info=True,
+            # Try clients first (backward compatibility)
+            if name in self.clients:
+                client = self.clients[name]
+                try:
+                    client.send_text(text)
+                except Exception as exc:
+                    logger.error(
+                        "Failed to send message via client '%s': %s",
+                        name,
+                        exc,
+                        exc_info=True,
+                    )
+                    raise
+            # Then try providers
+            elif name in self.providers:
+                provider = self.providers[name]
+                try:
+                    result = provider.send_text(text, "")  # Empty target uses provider's config URL
+                    if not result.success:
+                        raise RuntimeError(f"Provider send failed: {result.error}")
+                except Exception as exc:
+                    logger.error(
+                        "Failed to send message via provider '%s': %s",
+                        name,
+                        exc,
+                        exc_info=True,
+                    )
+                    raise
+            else:
+                available_clients = ", ".join(sorted(self.clients)) or "none"
+                available_providers = ", ".join(sorted(self.providers)) or "none"
+                raise ValueError(
+                    f"Webhook/provider not found: {name}. "
+                    f"Available clients: {available_clients}. "
+                    f"Available providers: {available_providers}"
                 )
-                raise
 
     def _send_rendered_template(
         self, rendered: RenderedTemplate, webhook_names: Sequence[str]

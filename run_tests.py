@@ -12,14 +12,14 @@ def run_tests() -> int:
 
     # Test files to run
     test_files = [
-        "tests/test_task_executor.py",
-        "tests/test_task_manager.py",
-        "tests/test_task_templates.py",
-        "tests/test_plugin_config.py",
-        "tests/test_environment_config.py",
-        "tests/test_validation.py",
-        "tests/test_config_watcher.py",
-        "tests/test_integration.py",
+        "tests/tasks/test_executor.py",
+        "tests/tasks/test_manager.py",
+        "tests/tasks/test_templates.py",
+        "tests/plugins/test_config.py",
+        "tests/core/test_environment_config.py",
+        "tests/core/test_validation.py",
+        "tests/core/test_config_watcher.py",
+        "tests/integration/test_integration.py",
     ]
 
     # Run tests with coverage

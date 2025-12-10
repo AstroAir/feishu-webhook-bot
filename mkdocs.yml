@@ -20,21 +20,50 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting started: getting-started.md
-  - Guides:
-      - Plugin Development: plugin-guide.md
-      - Automation & Workflows: automation-guide.md
-      - YAML Configuration: yaml-configuration-guide.md
-      - Enhanced YAML Features: enhanced-yaml-features.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - First Steps: getting-started/first-steps.md
+  - User Guides:
+      - Message Types: guides/message-types.md
+      - Templates: guides/templates-guide.md
+      - Event Handling: guides/event-handling.md
+      - Chat Controller: guides/chat-controller-guide.md
+      - Plugin Development: guides/plugin-guide.md
+      - Automation & Workflows: guides/automation-guide.md
+      - Task System: guides/tasks-guide.md
+      - Scheduler: guides/scheduler-guide.md
+      - Multi-Provider: guides/providers-guide.md
+      - Web UI: guides/webui-guide.md
+      - Configuration:
+          - YAML Configuration: guides/yaml-configuration-guide.md
+          - Enhanced YAML Features: guides/enhanced-yaml-features.md
+          - Configuration Reference: guides/configuration-reference.md
   - AI Features:
-      - AI Enhancements: AI_ENHANCEMENTS.md
-      - Multi-Provider Guide: AI_MULTI_PROVIDER_GUIDE.md
-      - MCP Integration: MCP_INTEGRATION.md
+      - AI Enhancements: ai/enhancements.md
+      - Multi-Provider AI: ai/multi-provider.md
+      - MCP Integration: ai/mcp-integration.md
+      - AI Tools: ai/tools.md
+      - AI Commands: ai/commands.md
+      - Conversation Store: ai/conversation-store.md
   - Security:
-      - Authentication: authentication.md
+      - Authentication: security/authentication.md
+      - Security Best Practices: security/security-best-practices.md
+  - Deployment:
+      - Deployment Guide: deployment/deployment.md
+      - Docker: deployment/docker.md
   - Reference:
-      - API: api.md
-  - Contributing: contributing.md
+      - API Reference: reference/api.md
+      - Core Components: reference/core-reference.md
+      - CLI Reference: reference/cli-reference.md
+      - Error Codes: reference/error-codes.md
+  - Resources:
+      - Examples: resources/examples.md
+      - FAQ: resources/faq.md
+      - Troubleshooting: resources/troubleshooting.md
+      - Migration Guide: resources/migration.md
+      - Changelog: resources/changelog.md
+      - Contributing: resources/contributing.md
 
 plugins:
   - search

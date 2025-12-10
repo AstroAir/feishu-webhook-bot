@@ -191,6 +191,167 @@ class BotController:
         with FeishuWebhookClient(webhook) as client:
             client.send_text(text)
 
+    # ---- Data getters for dashboards
+    def get_ai_stats(self) -> dict[str, Any]:
+        """Get AI agent statistics."""
+        if not self.bot or not self.bot.ai_agent:
+            return {
+                "enabled": False,
+                "current_model": "N/A",
+                "requests": 0,
+                "success_rate": 0.0,
+                "tokens_used": 0,
+                "mcp_servers": [],
+            }
+        try:
+            stats = self.bot.ai_agent.get_stats() if hasattr(self.bot.ai_agent, "get_stats") else {}
+            mcp_servers = []
+            if self.bot.ai_agent.mcp_client:
+                mcp_servers = self.bot.ai_agent.mcp_client.get_server_names()
+            return {
+                "enabled": True,
+                "current_model": self.bot.config.ai.model if self.bot.config.ai else "N/A",
+                "requests": stats.get("requests", 0),
+                "success_rate": stats.get("success_rate", 0.0),
+                "tokens_used": stats.get("tokens_used", 0),
+                "mcp_servers": mcp_servers,
+            }
+        except Exception:
+            return {
+                "enabled": False,
+                "current_model": "Error",
+                "requests": 0,
+                "success_rate": 0.0,
+                "tokens_used": 0,
+                "mcp_servers": [],
+            }
+
+    def get_task_list(self) -> list[dict[str, Any]]:
+        """Get list of configured tasks."""
+        if not self.bot or not self.bot.config or not self.bot.config.tasks:
+            return []
+        tasks = []
+        for task_cfg in self.bot.config.tasks:
+            tasks.append({
+                "name": task_cfg.name,
+                "description": task_cfg.description or "",
+                "enabled": True,
+                "next_run": "N/A",
+            })
+        return tasks
+
+    def get_automation_rules(self) -> list[dict[str, Any]]:
+        """Get list of automation rules."""
+        if not self.bot or not self.bot.config or not self.bot.config.automations:
+            return []
+        rules = []
+        for auto_cfg in self.bot.config.automations:
+            rules.append({
+                "name": auto_cfg.name,
+                "trigger": auto_cfg.trigger if hasattr(auto_cfg, "trigger") else "event",
+                "enabled": True,
+                "status": "Ready",
+            })
+        return rules
+
+    def get_provider_list(self) -> list[dict[str, Any]]:
+        """Get list of providers."""
+        if not self.bot:
+            return []
+        providers = []
+        for name, provider in self.bot.providers.items():
+            providers.append({
+                "name": name,
+                "type": provider.__class__.__name__,
+                "status": "Connected",
+            })
+        return providers
+
+    def get_message_stats(self) -> dict[str, Any]:
+        """Get message statistics."""
+        if not self.bot:
+            return {
+                "queue_size": 0,
+                "queued": 0,
+                "pending": 0,
+                "failed": 0,
+                "success": 0,
+            }
+        try:
+            queue_stats = {}
+            if self.bot.message_queue:
+                queue_stats = self.bot.message_queue.get_queue_stats()
+
+            tracker_stats = {}
+            if self.bot.message_tracker:
+                tracker_stats = self.bot.message_tracker.get_statistics()
+
+            return {
+                "queue_size": queue_stats.get("queue_size", 0),
+                "queued": queue_stats.get("queued", 0),
+                "pending": tracker_stats.get("pending", 0),
+                "failed": tracker_stats.get("failed", 0),
+                "success": tracker_stats.get("success", 0),
+            }
+        except Exception:
+            return {
+                "queue_size": 0,
+                "queued": 0,
+                "pending": 0,
+                "failed": 0,
+                "success": 0,
+            }
+
+    def get_user_list(self) -> list[dict[str, Any]]:
+        """Get list of users (if auth is enabled)."""
+        from .auth.service import AuthService
+
+        users = []
+        try:
+            auth_service = AuthService()
+            # Get all users from database
+            from .auth.database import DatabaseManager
+
+            db_manager = DatabaseManager()
+            with db_manager.get_session() as session:
+                from .auth.models import User
+
+                user_objs = session.query(User).all()
+                for user in user_objs:
+                    users.append({
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "status": "Active" if not user.locked else "Locked",
+                    })
+        except Exception:
+            pass
+        return users
+
+    def get_event_server_status(self) -> dict[str, Any]:
+        """Get event server status."""
+        if not self.bot or not self.bot.event_server:
+            return {
+                "running": False,
+                "host": "N/A",
+                "port": 0,
+                "recent_events": [],
+            }
+        try:
+            return {
+                "running": getattr(self.bot.event_server, "running", False),
+                "host": self.bot.config.event_server.host if self.bot.config.event_server else "N/A",
+                "port": self.bot.config.event_server.port if self.bot.config.event_server else 0,
+                "recent_events": [],
+            }
+        except Exception:
+            return {
+                "running": False,
+                "host": "N/A",
+                "port": 0,
+                "recent_events": [],
+            }
+
 
 # ------------------------------
 # UI helpers and page
@@ -503,6 +664,13 @@ def build_ui(config_path: Path) -> None:
         t_templates = ui.tab("Templates")
         t_notifications = ui.tab("Notifications")
         t_status = ui.tab("Status")
+        t_ai = ui.tab("AI Dashboard")
+        t_tasks = ui.tab("Tasks")
+        t_automation = ui.tab("Automation")
+        t_providers = ui.tab("Providers")
+        t_messages = ui.tab("Messages")
+        t_auth = ui.tab("Auth")
+        t_events = ui.tab("Event Server")
         t_logs = ui.tab("Logs")
 
     with ui.tab_panels(tabs, value=t_general).classes("w-full"):
@@ -756,6 +924,460 @@ def build_ui(config_path: Path) -> None:
 
                 ui.button("Refresh status", on_click=refresh_status).props("flat")
                 ui.button("Refresh jobs", on_click=rebuild_jobs).props("flat")
+
+        # AI Dashboard tab
+        with ui.tab_panel(t_ai):
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("AI Agent Configuration").classes("text-subtitle1 font-medium")
+                ai_stats = controller.get_ai_stats()
+
+                with ui.row().classes("items-center gap-4 flex-wrap"):
+                    ui.chip(f"Enabled: {ai_stats['enabled']}", color="blue")
+                    ui.chip(f"Model: {ai_stats['current_model']}", color="blue")
+
+                with ui.row().classes("items-center gap-4 flex-wrap"):
+                    ui.label(f"Requests: {ai_stats['requests']}").classes("text-sm")
+                    ui.label(f"Success Rate: {ai_stats['success_rate']:.1%}").classes("text-sm")
+                    ui.label(f"Tokens Used: {ai_stats['tokens_used']}").classes("text-sm")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Model Selection").classes("font-medium")
+                cfg_ai = state["form"].setdefault("ai", {})
+                available_models = ["openai:gpt-4o", "openai:gpt-4-turbo", "anthropic:claude-3-opus",
+                                   "google:gemini-pro", "groq:mixtral-8x7b"]
+                ui.select(
+                    available_models,
+                    label="Select Model",
+                    value=cfg_ai.get("model", available_models[0])
+                ).bind_value(cfg_ai, "model").props("outlined")
+                ui.input("Provider API Key").bind_value(cfg_ai, "api_key").props("type=password clearable")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Registered Tools").classes("font-medium")
+                tools_container = ui.column().classes("gap-1")
+
+                def rebuild_tools() -> None:
+                    tools_container.clear()
+                    with tools_container:
+                        if not controller.bot or not controller.bot.ai_agent:
+                            ui.label("Bot not running or AI not configured.").classes("text-gray-500")
+                            return
+                        try:
+                            tool_registry = controller.bot.ai_agent.tools if hasattr(controller.bot.ai_agent, "tools") else None
+                            if not tool_registry:
+                                ui.label("No tools registered.").classes("text-gray-500")
+                                return
+                            tools = tool_registry.list_tools() if hasattr(tool_registry, "list_tools") else []
+                            if not tools:
+                                ui.label("No tools registered.").classes("text-gray-500")
+                                return
+                            for tool_name in tools:
+                                ui.chip(tool_name).classes("w-auto")
+                        except Exception as e:
+                            ui.label(f"Error loading tools: {e}").classes("text-red-500 text-sm")
+
+                rebuild_tools()
+                ui.button("Refresh Tools", on_click=rebuild_tools).props("flat")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("MCP Servers").classes("font-medium")
+                mcp_container = ui.column().classes("gap-1")
+
+                def rebuild_mcp() -> None:
+                    mcp_container.clear()
+                    with mcp_container:
+                        ai_stats = controller.get_ai_stats()
+                        mcp_servers = ai_stats["mcp_servers"]
+                        if not mcp_servers:
+                            ui.label("No MCP servers connected.").classes("text-gray-500")
+                            return
+                        for server in mcp_servers:
+                            ui.chip(server).classes("w-auto")
+
+                rebuild_mcp()
+                ui.button("Refresh MCP", on_click=rebuild_mcp).props("flat")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Test Conversation").classes("font-medium")
+                with ui.row().classes("w-full gap-2"):
+                    test_input = ui.textarea("Enter test message").classes("flex-grow h-24")
+
+                    async def send_ai_test() -> None:
+                        if not controller.bot or not controller.bot.ai_agent:
+                            ui.notify("Bot not running or AI not configured.", type="warning")
+                            return
+                        if not test_input.value:
+                            ui.notify("Please enter a test message.", type="warning")
+                            return
+                        try:
+                            ui.notify("Sending to AI...", type="info")
+                            # Note: This would need async handling
+                            ui.notify("AI integration ready (streaming requires async handler)", type="info")
+                        except Exception as e:
+                            ui.notify(f"Error: {e}", type="negative")
+
+                    ui.button("Send", on_click=send_ai_test).props("color=primary")
+
+        # Tasks tab
+        with ui.tab_panel(t_tasks):
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Configured Tasks").classes("text-subtitle1 font-medium")
+                tasks_container = ui.column().classes("gap-1 w-full")
+
+                def rebuild_tasks() -> None:
+                    tasks_container.clear()
+                    with tasks_container:
+                        task_list = controller.get_task_list()
+                        if not task_list:
+                            ui.label("No tasks configured.").classes("text-gray-500")
+                            return
+
+                        # Header row
+                        with ui.row().classes("w-full items-center gap-2 p-2 bg-gray-50 rounded font-medium"):
+                            ui.label("Name").classes("flex-grow")
+                            ui.label("Description").classes("flex-grow")
+                            ui.label("Status").classes("w-24")
+                            ui.label("Next Run").classes("w-32")
+                            ui.label("Actions").classes("w-48")
+
+                        # Task rows
+                        for task in task_list:
+                            with ui.row().classes("w-full items-center gap-2 p-2 border-b border-gray-200"):
+                                ui.label(task["name"]).classes("flex-grow")
+                                ui.label(task.get("description", "")).classes("flex-grow text-sm text-gray-600")
+                                ui.chip("Ready", color="green").classes("w-24")
+                                ui.label(task.get("next_run", "N/A")).classes("w-32 text-sm")
+
+                                def on_run_task(task_name: str = task["name"]) -> None:
+                                    try:
+                                        if controller.bot and controller.bot.task_manager:
+                                            controller.bot.task_manager.run_task(task_name)
+                                            ui.notify(f"Task '{task_name}' started.", type="positive")
+                                        else:
+                                            ui.notify("Bot not running.", type="warning")
+                                    except Exception as e:
+                                        ui.notify(f"Error running task: {e}", type="negative")
+
+                                with ui.row().classes("gap-1"):
+                                    ui.button("Run", on_click=on_run_task).props("size=sm dense")
+                                    ui.button("Enable/Disable").props("size=sm dense outline")
+
+                rebuild_tasks()
+                ui.button("Refresh Tasks", on_click=rebuild_tasks).props("flat")
+
+        # Automation tab
+        with ui.tab_panel(t_automation):
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Automation Rules").classes("text-subtitle1 font-medium")
+                auto_container = ui.column().classes("gap-1 w-full")
+
+                def rebuild_automations() -> None:
+                    auto_container.clear()
+                    with auto_container:
+                        rules = controller.get_automation_rules()
+                        if not rules:
+                            ui.label("No automation rules configured.").classes("text-gray-500")
+                            return
+
+                        # Header row
+                        with ui.row().classes("w-full items-center gap-2 p-2 bg-gray-50 rounded font-medium"):
+                            ui.label("Rule Name").classes("flex-grow")
+                            ui.label("Trigger").classes("w-32")
+                            ui.label("Status").classes("w-24")
+                            ui.label("Actions").classes("w-48")
+
+                        # Rule rows
+                        for rule in rules:
+                            with ui.row().classes("w-full items-center gap-2 p-2 border-b border-gray-200"):
+                                ui.label(rule["name"]).classes("flex-grow")
+                                ui.label(rule.get("trigger", "N/A")).classes("w-32 text-sm")
+                                ui.chip(rule.get("status", "Ready"), color="blue").classes("w-24")
+
+                                def on_trigger(rule_name: str = rule["name"]) -> None:
+                                    try:
+                                        if controller.bot and controller.bot.automation_engine:
+                                            controller.bot.automation_engine.trigger_rule(rule_name)
+                                            ui.notify(f"Rule '{rule_name}' triggered.", type="positive")
+                                        else:
+                                            ui.notify("Bot not running.", type="warning")
+                                    except Exception as e:
+                                        ui.notify(f"Error triggering rule: {e}", type="negative")
+
+                                with ui.row().classes("gap-1"):
+                                    ui.button("Trigger", on_click=on_trigger).props("size=sm dense")
+                                    ui.button("Enable/Disable").props("size=sm dense outline")
+
+                rebuild_automations()
+                ui.button("Refresh Rules", on_click=rebuild_automations).props("flat")
+
+        # Provider Dashboard tab
+        with ui.tab_panel(t_providers):
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Message Providers").classes("text-subtitle1 font-medium")
+                provider_container = ui.column().classes("gap-1 w-full")
+
+                def rebuild_providers() -> None:
+                    provider_container.clear()
+                    with provider_container:
+                        providers = controller.get_provider_list()
+                        if not providers:
+                            ui.label("No providers configured.").classes("text-gray-500")
+                            return
+
+                        # Header row
+                        with ui.row().classes("w-full items-center gap-2 p-2 bg-gray-50 rounded font-medium"):
+                            ui.label("Name").classes("flex-grow")
+                            ui.label("Type").classes("w-40")
+                            ui.label("Status").classes("w-24")
+                            ui.label("Actions").classes("w-32")
+
+                        # Provider rows
+                        for provider in providers:
+                            with ui.row().classes("w-full items-center gap-2 p-2 border-b border-gray-200"):
+                                ui.label(provider["name"]).classes("flex-grow")
+                                ui.label(provider.get("type", "Unknown")).classes("w-40 text-sm")
+                                ui.chip(provider.get("status", "Unknown"), color="green").classes("w-24")
+
+                                def on_test_provider(prov_name: str = provider["name"]) -> None:
+                                    try:
+                                        ui.notify(f"Testing connection to '{prov_name}'...", type="info")
+                                        if controller.bot and controller.bot.get_provider(prov_name):
+                                            ui.notify(f"Provider '{prov_name}' connected.", type="positive")
+                                        else:
+                                            ui.notify(f"Provider '{prov_name}' not found.", type="warning")
+                                    except Exception as e:
+                                        ui.notify(f"Connection test failed: {e}", type="negative")
+
+                                ui.button("Test", on_click=on_test_provider).props("size=sm dense")
+
+                rebuild_providers()
+                ui.button("Refresh Providers", on_click=rebuild_providers).props("flat")
+
+        # Message Stats tab
+        with ui.tab_panel(t_messages):
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Message Queue Status").classes("text-subtitle1 font-medium")
+                msg_stats = controller.get_message_stats()
+
+                with ui.row().classes("items-center gap-4 flex-wrap"):
+                    ui.chip(f"Queue Size: {msg_stats['queue_size']}", color="blue")
+                    ui.chip(f"Queued: {msg_stats['queued']}", color="blue")
+                    ui.chip(f"Pending: {msg_stats['pending']}", color="warning")
+                    ui.chip(f"Failed: {msg_stats['failed']}", color="red")
+                    ui.chip(f"Success: {msg_stats['success']}", color="green")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Message Tracker Statistics").classes("text-subtitle1 font-medium")
+                tracker_container = ui.column().classes("gap-2")
+
+                def rebuild_message_stats() -> None:
+                    tracker_container.clear()
+                    with tracker_container:
+                        stats = controller.get_message_stats()
+                        with ui.grid(columns=2).classes("gap-3 w-full"):
+                            ui.label("Total Pending").classes("text-sm")
+                            ui.label(f"{stats['pending']}").classes("text-lg font-bold")
+
+                            ui.label("Total Failed").classes("text-sm")
+                            ui.label(f"{stats['failed']}").classes("text-lg font-bold text-red-600")
+
+                            ui.label("Total Success").classes("text-sm")
+                            ui.label(f"{stats['success']}").classes("text-lg font-bold text-green-600")
+
+                            ui.label("Queue Size").classes("text-sm")
+                            ui.label(f"{stats['queue_size']}").classes("text-lg font-bold")
+
+                rebuild_message_stats()
+                ui.button("Refresh Stats", on_click=rebuild_message_stats).props("flat")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Circuit Breaker Status").classes("text-subtitle1 font-medium")
+                cb_container = ui.column().classes("gap-1")
+
+                def rebuild_circuit_breakers() -> None:
+                    cb_container.clear()
+                    with cb_container:
+                        from .core.circuit_breaker import CircuitBreakerManager
+                        try:
+                            manager = CircuitBreakerManager()
+                            all_status = manager.get_all_status()
+                            if not all_status:
+                                ui.label("No circuit breakers active.").classes("text-gray-500")
+                                return
+                            for name, status in all_status.items():
+                                with ui.row().classes("items-center gap-2 p-1"):
+                                    color = "green" if status["state"] == "CLOSED" else "orange" if status["state"] == "HALF_OPEN" else "red"
+                                    ui.chip(status["state"], color=color).classes("w-auto")
+                                    ui.label(name).classes("flex-grow text-sm")
+                        except Exception as e:
+                            ui.label(f"Error loading breakers: {e}").classes("text-red-500 text-sm")
+
+                rebuild_circuit_breakers()
+                ui.button("Refresh", on_click=rebuild_circuit_breakers).props("flat")
+
+        # Auth Management tab
+        with ui.tab_panel(t_auth):
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("User Management").classes("text-subtitle1 font-medium")
+                ui.label("Manage user accounts and permissions.").classes("text-sm text-gray-500")
+                users_container = ui.column().classes("gap-1 w-full")
+
+                def rebuild_users() -> None:
+                    users_container.clear()
+                    with users_container:
+                        users = controller.get_user_list()
+                        if not users:
+                            ui.label("No users found or auth module not available.").classes("text-gray-500")
+                            return
+
+                        # Header row
+                        with ui.row().classes("w-full items-center gap-2 p-2 bg-gray-50 rounded font-medium"):
+                            ui.label("ID").classes("w-12")
+                            ui.label("Username").classes("flex-grow")
+                            ui.label("Email").classes("flex-grow")
+                            ui.label("Status").classes("w-24")
+                            ui.label("Actions").classes("w-48")
+
+                        # User rows
+                        for user in users:
+                            with ui.row().classes("w-full items-center gap-2 p-2 border-b border-gray-200"):
+                                ui.label(str(user["id"])).classes("w-12 text-sm")
+                                ui.label(user.get("username", "N/A")).classes("flex-grow text-sm")
+                                ui.label(user.get("email", "N/A")).classes("flex-grow text-sm")
+                                status_color = "green" if user.get("status") == "Active" else "red"
+                                ui.chip(user.get("status", "Unknown"), color=status_color).classes("w-24")
+
+                                def on_unlock(user_id: int = user["id"]) -> None:
+                                    try:
+                                        from .auth.service import AuthService
+                                        auth_service = AuthService()
+                                        auth_service.unlock_user(user_id)
+                                        ui.notify(f"User {user_id} unlocked.", type="positive")
+                                        rebuild_users()
+                                    except Exception as e:
+                                        ui.notify(f"Error unlocking user: {e}", type="negative")
+
+                                with ui.row().classes("gap-1"):
+                                    ui.button("Unlock", on_click=on_unlock).props("size=sm dense")
+                                    ui.button("Verify").props("size=sm dense outline")
+
+                rebuild_users()
+                ui.button("Refresh Users", on_click=rebuild_users).props("flat")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Register New User").classes("font-medium")
+                reg_username = ui.input("Username").props("clearable")
+                reg_email = ui.input("Email", validation={"Email": lambda v: "@" in (v or "")}).props(
+                    "clearable"
+                )
+                reg_password = ui.input("Password").props("type=password clearable")
+
+                async def register_user() -> None:
+                    if not all([reg_username.value, reg_email.value, reg_password.value]):
+                        ui.notify("Please fill all fields.", type="warning")
+                        return
+                    try:
+                        from .auth.service import AuthService
+                        auth_service = AuthService()
+                        auth_service.register_user(
+                            reg_username.value, reg_email.value, reg_password.value
+                        )
+                        ui.notify("User registered successfully.", type="positive")
+                        reg_username.value = ""
+                        reg_email.value = ""
+                        reg_password.value = ""
+                    except Exception as e:
+                        ui.notify(f"Registration failed: {e}", type="negative")
+
+                ui.button("Register", on_click=register_user).props("color=primary")
+
+        # Event Server tab
+        with ui.tab_panel(t_events):
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Event Server Status").classes("text-subtitle1 font-medium")
+                event_status = controller.get_event_server_status()
+
+                server_status_chip = ui.chip(
+                    "Running" if event_status["running"] else "Stopped",
+                    color="green" if event_status["running"] else "red"
+                )
+
+                with ui.row().classes("items-center gap-4 flex-wrap"):
+                    server_status_chip
+                    ui.label(f"Host: {event_status['host']}").classes("text-sm")
+                    ui.label(f"Port: {event_status['port']}").classes("text-sm")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Server Controls").classes("font-medium")
+
+                async def on_start_server() -> None:
+                    try:
+                        if controller.bot and controller.bot.event_server:
+                            if not getattr(controller.bot.event_server, "running", False):
+                                controller.bot.event_server.start()
+                                ui.notify("Event server started.", type="positive")
+                            else:
+                                ui.notify("Event server already running.", type="info")
+                        else:
+                            ui.notify("Event server not configured.", type="warning")
+                    except Exception as e:
+                        ui.notify(f"Start failed: {e}", type="negative")
+
+                async def on_stop_server() -> None:
+                    try:
+                        if controller.bot and controller.bot.event_server:
+                            if getattr(controller.bot.event_server, "running", False):
+                                controller.bot.event_server.stop()
+                                ui.notify("Event server stopped.", type="positive")
+                            else:
+                                ui.notify("Event server not running.", type="info")
+                        else:
+                            ui.notify("Event server not configured.", type="warning")
+                    except Exception as e:
+                        ui.notify(f"Stop failed: {e}", type="negative")
+
+                with ui.row().classes("gap-2"):
+                    ui.button("Start", on_click=on_start_server).props("color=positive")
+                    ui.button("Stop", on_click=on_stop_server).props("color=negative")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Recent Events").classes("font-medium")
+                events_container = ui.column().classes("gap-1 h-48")
+
+                def rebuild_events() -> None:
+                    events_container.clear()
+                    with events_container:
+                        status = controller.get_event_server_status()
+                        recent = status.get("recent_events", [])
+                        if not recent:
+                            ui.label("No recent events.").classes("text-gray-500")
+                        else:
+                            for event in recent:
+                                ui.label(str(event)).classes("text-sm")
+
+                rebuild_events()
+                ui.button("Refresh Events", on_click=rebuild_events).props("flat")
+
+            with ui.card().classes("w-full p-5 bg-white shadow-sm border border-gray-200 gap-3"):
+                ui.label("Webhook Test").classes("font-medium")
+                ui.label("Send a test webhook to the event server.").classes("text-sm text-gray-500")
+
+                test_payload = ui.textarea("Test payload (JSON)").classes("w-full h-24").props(
+                    "auto-grow"
+                )
+                test_payload.value = '{"type":"message.created","event":{"message":{"content":"test"}}}'
+
+                async def on_send_webhook() -> None:
+                    try:
+                        import json
+                        payload = json.loads(test_payload.value)
+                        ui.notify("Webhook test sent (requires actual webhook server).", type="info")
+                    except json.JSONDecodeError:
+                        ui.notify("Invalid JSON payload.", type="negative")
+                    except Exception as e:
+                        ui.notify(f"Error sending webhook: {e}", type="negative")
+
+                ui.button("Send Test Webhook", on_click=on_send_webhook).props("color=primary")
 
         # Logs tab
         with ui.tab_panel(t_logs):

@@ -91,22 +91,22 @@ Edit `config.yaml` and add your Feishu webhook URL:
 
 ```yaml
 webhooks:
-  - name: default
-    url: "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL"
-    secret: null  # Optional: add your webhook secret for security
+    - name: default
+      url: "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL"
+      secret: null # Optional: add your webhook secret for security
 
 scheduler:
-  enabled: true
-  timezone: "Asia/Shanghai"
+    enabled: true
+    timezone: "Asia/Shanghai"
 
 plugins:
-  enabled: true
-  plugin_dir: "plugins"
-  auto_reload: true
+    enabled: true
+    plugin_dir: "plugins"
+    auto_reload: true
 
 logging:
-  level: "INFO"
-  log_file: "logs/bot.log"
+    level: "INFO"
+    log_file: "logs/bot.log"
 ```
 
 ### 3. Create Plugin Directory
@@ -252,14 +252,14 @@ The framework includes built-in AI capabilities powered by [pydantic-ai](https:/
 
 ```yaml
 ai:
-  enabled: true
-  model: "openai:gpt-4o"  # or anthropic:claude-3-5-sonnet-20241022, etc.
-  api_key: ${OPENAI_API_KEY}
-  system_prompt: "You are a helpful AI assistant integrated with Feishu."
-  max_conversation_turns: 10
-  temperature: 0.7
-  tools_enabled: true
-  web_search_enabled: true
+    enabled: true
+    model: "openai:gpt-4o" # or anthropic:claude-3-5-sonnet-20241022, etc.
+    api_key: ${OPENAI_API_KEY}
+    system_prompt: "You are a helpful AI assistant integrated with Feishu."
+    max_conversation_turns: 10
+    temperature: 0.7
+    tools_enabled: true
+    web_search_enabled: true
 ```
 
 2. **Set your API key:**
@@ -272,11 +272,11 @@ export OPENAI_API_KEY="your-api-key-here"
 
 ```yaml
 event_server:
-  enabled: true
-  auto_start: true
-  host: "0.0.0.0"
-  port: 8080
-  path: "/webhook"
+    enabled: true
+    auto_start: true
+    host: "0.0.0.0"
+    port: 8080
+    path: "/webhook"
 ```
 
 4. **Start your bot:**
@@ -291,6 +291,7 @@ bot.start()
 ### AI Capabilities
 
 #### Core Features
+
 - **Multi-turn Conversations**: Maintains context across multiple messages per user
 - **Web Search**: Automatically searches the web for current information using DuckDuckGo
 - **Tool Calling**: Built-in tools for calculations, time queries, and more
@@ -298,6 +299,7 @@ bot.start()
 - **Custom Tools**: Register your own tools for the AI to use
 
 #### Advanced Features
+
 - **Streaming Responses**: Real-time streaming of AI responses for better user experience
 - **Structured Output**: Validate AI responses using Pydantic models with automatic retry
 - **Output Validators**: Custom validation logic with automatic retry on validation errors
@@ -380,6 +382,7 @@ await agent.stop()
 The framework supports [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) for standardized tool and resource access. MCP servers are automatically registered as toolsets with the AI agent.
 
 **Supported Transport Types:**
+
 - **stdio**: Run MCP server as subprocess (recommended)
 - **streamable-http**: Modern HTTP streaming transport
 - **sse**: HTTP Server-Sent Events (deprecated)
@@ -439,6 +442,7 @@ config = AIConfig(
 ```
 
 **Prerequisites:**
+
 - Install pydantic-ai with MCP support: `pip install 'pydantic-ai-slim[mcp]'`
 - Have MCP servers available (e.g., `mcp-run-python`, `@modelcontextprotocol/server-filesystem`)
 
@@ -450,30 +454,30 @@ The framework supports declarative automation workflows that can be triggered by
 
 ```yaml
 automations:
-  - name: "daily-summary"
-    description: "Send a summary every weekday at 9:30"
-    enabled: true
-    trigger:
-      type: "schedule"
-      schedule:
-        mode: "cron"
-        arguments:
-          day_of_week: "mon-fri"
-          hour: "9"
-          minute: "30"
-    default_webhooks: ["default"]
-    actions:
-      - type: "http_request"
-        request:
-          method: "GET"
-          url: "https://api.example.com/summary"
-          save_as: "summary"
-      - type: "send_template"
-        template: "daily_summary"
-        context:
-          date: "${event_date}"
-          data: "${summary.data}"
-        webhooks: ["default"]
+    - name: "daily-summary"
+      description: "Send a summary every weekday at 9:30"
+      enabled: true
+      trigger:
+          type: "schedule"
+          schedule:
+              mode: "cron"
+              arguments:
+                  day_of_week: "mon-fri"
+                  hour: "9"
+                  minute: "30"
+      default_webhooks: ["default"]
+      actions:
+          - type: "http_request"
+            request:
+                method: "GET"
+                url: "https://api.example.com/summary"
+                save_as: "summary"
+          - type: "send_template"
+            template: "daily_summary"
+            context:
+                date: "${event_date}"
+                data: "${summary.data}"
+            webhooks: ["default"]
 ```
 
 ### Message Templates
@@ -482,23 +486,23 @@ Define reusable templates with variable substitution:
 
 ```yaml
 templates:
-  - name: "daily_summary"
-    description: "Daily summary card"
-    type: "card"
-    engine: "string"  # or "format"
-    content: |
-      {
-        "header": {
-          "template": "blue",
-          "title": {"tag": "plain_text", "content": "Daily Summary"}
-        },
-        "elements": [
+    - name: "daily_summary"
+      description: "Daily summary card"
+      type: "card"
+      engine: "string" # or "format"
+      content: |
           {
-            "tag": "markdown",
-            "content": "**Date:** ${date}\n**Status:** ${status}"
+            "header": {
+              "template": "blue",
+              "title": {"tag": "plain_text", "content": "Daily Summary"}
+            },
+            "elements": [
+              {
+                "tag": "markdown",
+                "content": "**Date:** ${date}\n**Status:** ${status}"
+              }
+            ]
           }
-        ]
-      }
 ```
 
 ### Event Server
@@ -507,31 +511,31 @@ Enable the event server to receive Feishu webhook events:
 
 ```yaml
 event_server:
-  enabled: true
-  host: "0.0.0.0"
-  port: 8000
-  path: "/feishu/events"
-  verification_token: "${FEISHU_EVENT_TOKEN}"
-  signature_secret: "${FEISHU_EVENT_SECRET}"
+    enabled: true
+    host: "0.0.0.0"
+    port: 8000
+    path: "/feishu/events"
+    verification_token: "${FEISHU_EVENT_TOKEN}"
+    signature_secret: "${FEISHU_EVENT_SECRET}"
 ```
 
 Then configure automations to react to events:
 
 ```yaml
 automations:
-  - name: "react-to-message"
-    trigger:
-      type: "event"
-      event:
-        event_type: "im.message.receive_v1"
-        conditions:
-          - path: "event.message.content"
-            operator: "contains"
-            value: "alert"
-    actions:
-      - type: "send_text"
-        text: "Alert received!"
-        webhooks: ["default"]
+    - name: "react-to-message"
+      trigger:
+          type: "event"
+          event:
+              event_type: "im.message.receive_v1"
+              conditions:
+                  - path: "event.message.content"
+                    operator: "contains"
+                    value: "alert"
+      actions:
+          - type: "send_text"
+            text: "Alert received!"
+            webhooks: ["default"]
 ```
 
 ## 🔐 Authentication System
@@ -544,12 +548,12 @@ Enable authentication in your `config.yaml`:
 
 ```yaml
 auth:
-  enabled: true
-  database_url: "sqlite:///./auth.db"
-  jwt_secret_key: "your-super-secret-key-change-in-production"
-  access_token_expire_minutes: 30
-  max_failed_attempts: 5
-  lockout_duration_minutes: 30
+    enabled: true
+    database_url: "sqlite:///./auth.db"
+    jwt_secret_key: "your-super-secret-key-change-in-production"
+    access_token_expire_minutes: 30
+    max_failed_attempts: 5
+    lockout_duration_minutes: 30
 ```
 
 ### Features
@@ -617,7 +621,7 @@ class MyPlugin(BasePlugin):
             description="My custom plugin",
             author="Your Name"
         )
-    
+
     def on_enable(self) -> None:
         # Schedule a task to run every 5 minutes
         self.register_job(
@@ -625,7 +629,7 @@ class MyPlugin(BasePlugin):
             trigger='interval',
             minutes=5
         )
-        
+
         # Or use cron syntax (daily at 9 AM)
         self.register_job(
             self.daily_task,
@@ -633,7 +637,7 @@ class MyPlugin(BasePlugin):
             hour='9',
             minute='0'
         )
-    
+
     def my_task(self) -> None:
         """Task that runs every 5 minutes."""
         card = (
@@ -643,7 +647,7 @@ class MyPlugin(BasePlugin):
             .build()
         )
         self.client.send_card(card)
-    
+
     def daily_task(self) -> None:
         """Task that runs daily at 9 AM."""
         self.client.send_text("Good morning! Daily task executed.")
@@ -682,72 +686,72 @@ Then in `config.yaml`:
 
 ```yaml
 webhooks:
-  - name: "default"
-    url: "${FEISHU_WEBHOOK_URL}"
-    secret: "${FEISHU_WEBHOOK_SECRET}"
+    - name: "default"
+      url: "${FEISHU_WEBHOOK_URL}"
+      secret: "${FEISHU_WEBHOOK_SECRET}"
 ```
 
 ### Webhooks
 
 ```yaml
 webhooks:
-  - name: "default"
-    url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
-    secret: "your-signing-secret"  # Optional: for webhook signing
-    timeout: 10.0  # Optional: request timeout in seconds
-    headers:  # Optional: extra HTTP headers
-      X-Custom-Header: "value"
-    retry:  # Optional: retry policy
-      max_attempts: 3
-      backoff_seconds: 1.0
-      backoff_multiplier: 2.0
-      max_backoff_seconds: 30.0
+    - name: "default"
+      url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+      secret: "your-signing-secret" # Optional: for webhook signing
+      timeout: 10.0 # Optional: request timeout in seconds
+      headers: # Optional: extra HTTP headers
+          X-Custom-Header: "value"
+      retry: # Optional: retry policy
+          max_attempts: 3
+          backoff_seconds: 1.0
+          backoff_multiplier: 2.0
+          max_backoff_seconds: 30.0
 
-  - name: "alerts"
-    url: "https://open.feishu.cn/open-apis/bot/v2/hook/yyy"
+    - name: "alerts"
+      url: "https://open.feishu.cn/open-apis/bot/v2/hook/yyy"
 ```
 
 ### Scheduler
 
 ```yaml
 scheduler:
-  enabled: true
-  timezone: "Asia/Shanghai"  # Your timezone
-  job_store_type: "memory"   # or "sqlite" for persistence
-  job_store_path: "data/jobs.db"  # Required if using sqlite
+    enabled: true
+    timezone: "Asia/Shanghai" # Your timezone
+    job_store_type: "memory" # or "sqlite" for persistence
+    job_store_path: "data/jobs.db" # Required if using sqlite
 ```
 
 ### Plugins
 
 ```yaml
 plugins:
-  enabled: true
-  plugin_dir: "plugins"  # Directory to scan for plugins
-  auto_reload: true      # Enable hot-reload
-  reload_delay: 1.0      # Delay before reloading (seconds)
+    enabled: true
+    plugin_dir: "plugins" # Directory to scan for plugins
+    auto_reload: true # Enable hot-reload
+    reload_delay: 1.0 # Delay before reloading (seconds)
 ```
 
 ### Logging
 
 ```yaml
 logging:
-  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  log_file: "logs/bot.log"  # null for console only
-  max_bytes: 10485760  # Max log file size (10MB)
-  backup_count: 5      # Number of backup files to keep
+    level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_file: "logs/bot.log" # null for console only
+    max_bytes: 10485760 # Max log file size (10MB)
+    backup_count: 5 # Number of backup files to keep
 ```
 
 ### HTTP Client
 
 ```yaml
 http:
-  timeout: 10.0  # Default request timeout
-  retry:
-    max_attempts: 3
-    backoff_seconds: 1.0
-    backoff_multiplier: 2.0
-    max_backoff_seconds: 30.0
+    timeout: 10.0 # Default request timeout
+    retry:
+        max_attempts: 3
+        backoff_seconds: 1.0
+        backoff_multiplier: 2.0
+        max_backoff_seconds: 30.0
 ```
 
 ## 📚 Documentation
@@ -761,22 +765,66 @@ http:
 ```text
 feishu-webhook-bot/
 ├── src/feishu_webhook_bot/
-│   ├── core/                  # Core functionality
-│   │   ├── client.py          # Webhook client with CardBuilder
-│   │   ├── config.py          # Configuration management (Pydantic)
-│   │   ├── logger.py          # Logging utilities with Rich formatting
-│   │   ├── event_server.py    # FastAPI event server for webhooks
-│   │   └── templates.py       # Message template registry
-│   ├── scheduler/             # Task scheduling
-│   │   └── scheduler.py       # APScheduler wrapper with job decorator
-│   ├── plugins/               # Plugin system
-│   │   ├── base.py            # Base plugin class with lifecycle hooks
-│   │   └── manager.py         # Plugin manager with hot-reload
-│   ├── automation/            # Automation engine
-│   │   └── engine.py          # Declarative workflow execution
-│   ├── bot.py                 # Main bot orchestrator
-│   ├── cli.py                 # Command-line interface
-│   ├── config_ui.py           # NiceGUI web interface
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── ai/                   # AI agents, MCP integration, multi-agent orchestration
+│   │   ├── __init__.py
+│   │   ├── agent.py
+│   │   ├── config.py
+│   │   ├── conversation.py
+│   │   ├── exceptions.py
+│   │   ├── mcp_client.py
+│   │   ├── multi_agent.py
+│   │   ├── retry.py
+│   │   ├── task_integration.py
+│   │   └── tools.py
+│   ├── auth/                 # Authentication service, JWT, password hashing, guards
+│   │   ├── __init__.py
+│   │   ├── database.py
+│   │   ├── middleware.py
+│   │   ├── models.py
+│   │   ├── routes.py
+│   │   ├── security.py
+│   │   ├── service.py
+│   │   └── ui.py
+│   ├── automation/           # Automation engine
+│   │   ├── __init__.py
+│   │   └── engine.py
+│   ├── core/                 # Core functionality
+│   │   ├── __init__.py
+│   │   ├── circuit_breaker.py
+│   │   ├── client.py
+│   │   ├── config.py
+│   │   ├── config_watcher.py
+│   │   ├── event_server.py
+│   │   ├── image_uploader.py
+│   │   ├── logger.py
+│   │   ├── message_queue.py
+│   │   ├── message_tracker.py
+│   │   ├── provider.py
+│   │   ├── templates.py
+│   │   └── validation.py
+│   ├── plugins/              # Plugin system
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── feishu_calendar.py
+│   │   └── manager.py
+│   ├── providers/            # Provider abstractions for AI/backends
+│   │   ├── __init__.py
+│   │   ├── base_http.py
+│   │   ├── feishu.py
+│   │   └── qq_napcat.py
+│   ├── scheduler/            # Task scheduling
+│   │   ├── __init__.py
+│   │   └── scheduler.py
+│   ├── tasks/                # Task runner helpers and utilities
+│   │   ├── __init__.py
+│   │   ├── executor.py
+│   │   ├── manager.py
+│   │   └── templates.py
+│   ├── bot.py                # Main bot orchestrator
+│   ├── cli.py                # Command-line interface
+│   ├── config_ui.py          # NiceGUI web interface
 │   └── __init__.py            # Public API exports
 ├── plugins/                   # User plugins directory
 ├── config.yaml                # Configuration file
@@ -794,6 +842,10 @@ feishu-webhook-bot/
 - **AutomationEngine**: Executes declarative workflows based on schedules or events
 - **EventServer**: FastAPI server for receiving Feishu webhook events
 - **TemplateRegistry**: Manages reusable message templates
+- **AuthService**: Handles user registration/login, JWT issuance, and password policies
+- **AIAgent / MCPClient**: Provides AI responses, tool calling, and Model Context Protocol support
+- **MessageQueue & MessageTracker**: Coordinate deliveries and deduplicate inbound events
+- **CircuitBreaker**: Adds resilience for external calls (e.g., webhooks, providers)
 
 ## 🧪 Development
 
@@ -861,84 +913,96 @@ Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:
 **Problem:** AI responses fail with authentication errors
 
 **Solutions:**
+
 1. Verify API key is set correctly:
-   ```bash
-   echo $OPENAI_API_KEY  # Linux/macOS
-   echo $env:OPENAI_API_KEY  # Windows PowerShell
-   ```
+
+    ```bash
+    echo $OPENAI_API_KEY  # Linux/macOS
+    echo $env:OPENAI_API_KEY  # Windows PowerShell
+    ```
 
 2. Check API key format in config:
-   ```yaml
-   ai:
-     api_key: ${OPENAI_API_KEY}  # Use environment variable
-     # OR
-     api_key: "sk-..."  # Direct key (not recommended)
-   ```
+
+    ```yaml
+    ai:
+      api_key: ${OPENAI_API_KEY}  # Use environment variable
+      # OR
+      api_key: "sk-..."  # Direct key (not recommended)
+    ```
 
 3. Ensure the correct provider prefix:
-   - OpenAI: `openai:gpt-4o`
-   - Anthropic: `anthropic:claude-3-5-sonnet-20241022`
-   - Google: `google:gemini-1.5-pro`
+    - OpenAI: `openai:gpt-4o`
+    - Anthropic: `anthropic:claude-3-5-sonnet-20241022`
+    - Google: `google:gemini-1.5-pro`
 
 #### MCP Server Connection Failures
 
 **Problem:** MCP servers fail to connect
 
 **Solutions:**
+
 1. Install pydantic-ai with MCP support:
-   ```bash
-   pip install 'pydantic-ai-slim[mcp]'
-   ```
+
+    ```bash
+    pip install 'pydantic-ai-slim[mcp]'
+    ```
 
 2. Verify MCP server is installed:
-   ```bash
-   # For Python servers
-   uv tool install mcp-run-python
 
-   # For Node.js servers
-   npm install -g @modelcontextprotocol/server-filesystem
-   ```
+    ```bash
+    # For Python servers
+    uv tool install mcp-run-python
+
+    # For Node.js servers
+    npm install -g @modelcontextprotocol/server-filesystem
+    ```
 
 3. Increase timeout if server is slow:
-   ```yaml
-   ai:
-     mcp:
-       timeout_seconds: 60  # Increase from default 30
-   ```
+
+    ```yaml
+    ai:
+        mcp:
+            timeout_seconds: 60 # Increase from default 30
+    ```
 
 4. Check server command and args:
-   ```yaml
-   ai:
-     mcp:
-       servers:
-         - name: "python-runner"
-           command: "uv"  # Must be in PATH
-           args: "run mcp-run-python stdio"
-   ```
+
+    ```yaml
+    ai:
+        mcp:
+            servers:
+                - name: "python-runner"
+                  command: "uv" # Must be in PATH
+                  args: "run mcp-run-python stdio"
+    ```
 
 #### Conversation Context Lost
 
 **Problem:** AI doesn't remember previous messages
 
 **Solutions:**
+
 1. Increase conversation turns:
-   ```yaml
-   ai:
-     max_conversation_turns: 20  # Default is 10
-   ```
+
+    ```yaml
+    ai:
+        max_conversation_turns: 20 # Default is 10
+    ```
 
 2. Increase conversation timeout:
-   ```yaml
-   ai:
-     conversation_timeout_minutes: 60  # Default is 30
-   ```
+
+    ```yaml
+    ai:
+        conversation_timeout_minutes: 60 # Default is 30
+    ```
 
 3. Check if multi-agent mode is enabled (doesn't preserve context):
-   ```yaml
-   ai:
-     multi_agent:
-       enabled: false  # Disable if you need conversation history
-   ```
+
+    ```yaml
+    ai:
+        multi_agent:
+            enabled: false # Disable if you need conversation history
+    ```
 
 ### Event Server Issues
 
@@ -947,24 +1011,28 @@ Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:
 **Problem:** Bot doesn't respond to Feishu messages
 
 **Solutions:**
+
 1. Verify event server is running:
-   ```yaml
-   event_server:
-     enabled: true
-     auto_start: true
-     host: "0.0.0.0"
-     port: 8080
-   ```
+
+    ```yaml
+    event_server:
+        enabled: true
+        auto_start: true
+        host: "0.0.0.0"
+        port: 8080
+    ```
 
 2. Check if port is accessible:
-   ```bash
-   curl http://localhost:8080/webhook
-   ```
+
+    ```bash
+    curl http://localhost:8080/webhook
+    ```
 
 3. Verify Feishu webhook configuration:
-   - URL should point to your server: `http://your-server:8080/webhook`
-   - Enable "Message" events in Feishu app settings
-   - Add bot to the conversation
+
+    - URL should point to your server: `http://your-server:8080/webhook`
+    - Enable "Message" events in Feishu app settings
+    - Add bot to the conversation
 
 4. Check firewall and network settings
 
@@ -973,15 +1041,18 @@ Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:
 **Problem:** Events rejected with verification errors
 
 **Solutions:**
+
 1. Verify token matches Feishu app settings:
-   ```yaml
-   verification_token: "your-token-from-feishu"
-   ```
+
+    ```yaml
+    verification_token: "your-token-from-feishu"
+    ```
 
 2. Check encryption key if using encrypted events:
-   ```yaml
-   encrypt_key: "your-encrypt-key-from-feishu"
-   ```
+
+    ```yaml
+    encrypt_key: "your-encrypt-key-from-feishu"
+    ```
 
 ### Plugin Issues
 
@@ -990,120 +1061,138 @@ Available tasks: `setup`, `lint`, `format`, `typecheck`, `test`, `build`, `docs:
 **Problem:** Custom plugin doesn't appear in bot
 
 **Solutions:**
+
 1. Check plugin directory:
-   ```yaml
-   plugins:
-     enabled: true
-     plugin_dir: "plugins"  # Verify path is correct
-   ```
+
+    ```yaml
+    plugins:
+        enabled: true
+        plugin_dir: "plugins" # Verify path is correct
+    ```
 
 2. Verify plugin file structure:
-   ```python
-   # plugins/my_plugin.py
-   from feishu_webhook_bot.plugins import BasePlugin
 
-   class MyPlugin(BasePlugin):
-       name = "my_plugin"  # Must be set
-       # ...
-   ```
+    ```python
+    # plugins/my_plugin.py
+    from feishu_webhook_bot.plugins import BasePlugin
+
+    class MyPlugin(BasePlugin):
+        name = "my_plugin"  # Must be set
+        # ...
+    ```
 
 3. Check logs for plugin errors:
-   ```bash
-   tail -f logs/bot.log | grep plugin
-   ```
+
+    ```bash
+    tail -f logs/bot.log | grep plugin
+    ```
 
 #### Hot Reload Not Working
 
 **Problem:** Plugin changes don't take effect
 
 **Solutions:**
+
 1. Enable auto-reload:
-   ```yaml
-   plugins:
-     auto_reload: true
-     reload_interval: 5  # seconds
-   ```
+
+    ```yaml
+    plugins:
+        auto_reload: true
+        reload_interval: 5 # seconds
+    ```
 
 2. Manually reload via CLI:
-   ```bash
-   feishu-webhook-bot reload-plugins
-   ```
+
+    ```bash
+    feishu-webhook-bot reload-plugins
+    ```
 
 ### Performance Issues
 
 #### High Memory Usage
 
 **Solutions:**
+
 1. Reduce conversation history:
-   ```yaml
-   ai:
-     max_conversation_turns: 5  # Reduce from default 10
-   ```
+
+    ```yaml
+    ai:
+        max_conversation_turns: 5 # Reduce from default 10
+    ```
 
 2. Enable conversation cleanup:
-   ```yaml
-   ai:
-     conversation_timeout_minutes: 15  # Reduce from default 30
-   ```
+
+    ```yaml
+    ai:
+        conversation_timeout_minutes: 15 # Reduce from default 30
+    ```
 
 3. Disable unused features:
-   ```yaml
-   ai:
-     web_search_enabled: false
-     mcp:
-       enabled: false
-   ```
+
+    ```yaml
+    ai:
+        web_search_enabled: false
+        mcp:
+            enabled: false
+    ```
 
 #### Slow AI Responses
 
 **Solutions:**
+
 1. Use faster models:
-   ```yaml
-   ai:
-     model: "openai:gpt-4o-mini"  # Faster than gpt-4o
-     # OR
-     model: "anthropic:claude-3-haiku-20240307"
-   ```
+
+    ```yaml
+    ai:
+      model: "openai:gpt-4o-mini"  # Faster than gpt-4o
+      # OR
+      model: "anthropic:claude-3-haiku-20240307"
+    ```
 
 2. Reduce max tokens:
-   ```yaml
-   ai:
-     max_tokens: 500  # Reduce from default 1000
-   ```
+
+    ```yaml
+    ai:
+        max_tokens: 500 # Reduce from default 1000
+    ```
 
 3. Disable streaming if not needed:
-   ```yaml
-   ai:
-     streaming:
-       enabled: false
-   ```
+
+    ```yaml
+    ai:
+        streaming:
+            enabled: false
+    ```
 
 ### Getting Help
 
 If you're still experiencing issues:
 
 1. **Enable debug logging:**
-   ```yaml
-   logging:
-     level: "DEBUG"
-     log_file: "logs/bot.log"
-   ```
+
+    ```yaml
+    logging:
+        level: "DEBUG"
+        log_file: "logs/bot.log"
+    ```
 
 2. **Check the logs:**
-   ```bash
-   tail -f logs/bot.log
-   ```
+
+    ```bash
+    tail -f logs/bot.log
+    ```
 
 3. **Run tests:**
-   ```bash
-   pytest tests/ -v
-   ```
+
+    ```bash
+    pytest tests/ -v
+    ```
 
 4. **Report an issue:**
-   - Include your configuration (remove sensitive data)
-   - Include relevant log excerpts
-   - Describe steps to reproduce
-   - Visit: https://github.com/AstroAir/feishu-webhook-bot/issues
+    - Include your configuration (remove sensitive data)
+    - Include relevant log excerpts
+    - Describe steps to reproduce
+    - Visit: <https://github.com/AstroAir/feishu-webhook-bot/issues>
 
 ## 🤝 Contributing
 

@@ -18,6 +18,7 @@ from ..core.config import (
     HTTPRequestConfig,
 )
 from ..core.logger import get_logger
+from ..core.provider import BaseProvider
 from ..core.templates import RenderedTemplate, TemplateRegistry
 from ..scheduler import TaskScheduler
 
@@ -25,7 +26,7 @@ logger = get_logger("automation")
 
 
 class AutomationEngine:
-    """Coordinates automation rules using the scheduler and webhook clients."""
+    """Coordinates automation rules using the scheduler and webhook clients/providers."""
 
     def __init__(
         self,
@@ -36,10 +37,12 @@ class AutomationEngine:
         http_defaults: HTTPClientConfig,
         send_text: Callable[[str, str], None],
         send_rendered: Callable[[RenderedTemplate, list[str]], None],
+        providers: Mapping[str, BaseProvider] | None = None,
     ) -> None:
         self._rules = rules
         self._scheduler = scheduler
         self._clients = clients
+        self._providers = providers or {}
         self._template_registry = template_registry
         self._http_defaults = http_defaults
         self._send_text = send_text
@@ -162,6 +165,44 @@ class AutomationEngine:
     # ------------------------------------------------------------------
     # Action execution
     # ------------------------------------------------------------------
+    def _get_client_or_provider(self, name: str) -> Any:
+        """Get a client or provider by name.
+
+        First checks providers, then falls back to legacy clients.
+
+        Args:
+            name: Client or provider name
+
+        Returns:
+            Client or provider instance, or None if not found
+        """
+        if name in self._providers:
+            return self._providers[name]
+        return self._clients.get(name)
+
+    def _validate_targets(self, targets: list[str], rule_name: str) -> list[str]:
+        """Validate that all target names exist as clients or providers.
+
+        Args:
+            targets: List of target names
+            rule_name: Rule name for error messages
+
+        Returns:
+            Validated list of targets
+
+        Raises:
+            ValueError: If any target is not found
+        """
+        missing = []
+        for name in targets:
+            if name not in self._providers and name not in self._clients:
+                missing.append(name)
+        if missing:
+            raise ValueError(
+                f"Unknown webhook/provider(s) for automation '{rule_name}': {', '.join(missing)}"
+            )
+        return targets
+
     def _execute_action(
         self,
         rule: AutomationRule,
@@ -169,11 +210,7 @@ class AutomationEngine:
         context: dict[str, Any],
     ) -> None:
         targets = action.webhooks or rule.default_webhooks or ["default"]
-        missing_targets = [name for name in targets if name not in self._clients]
-        if missing_targets:
-            raise ValueError(
-                f"Unknown webhook(s) for automation '{rule.name}': {', '.join(missing_targets)}"
-            )
+        targets = self._validate_targets(targets, rule.name)
 
         if action.type == "send_text":
             text = action.text

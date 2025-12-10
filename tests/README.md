@@ -1,29 +1,84 @@
-# Test Suite for Enhanced YAML Configuration System
+# Test Suite for Feishu Webhook Bot
 
-This directory contains comprehensive tests for the enhanced YAML configuration system of the Feishu Webhook Bot.
+This directory contains comprehensive tests for all modules of the Feishu Webhook Bot.
 
 ## Test Structure
 
-```
+```text
 tests/
-├── fixtures/              # Test configuration files
-│   ├── valid_config.yaml
-│   ├── minimal_config.yaml
-│   ├── invalid_syntax.yaml
-│   └── invalid_schema.yaml
-├── mocks/                 # Mock objects for testing
-│   ├── __init__.py
-│   ├── mock_plugin.py
-│   └── mock_scheduler.py
-├── conftest.py           # Shared fixtures
-├── test_task_executor.py      # Task execution tests
-├── test_task_manager.py       # Task management tests
-├── test_task_templates.py     # Task template tests
-├── test_plugin_config.py      # Plugin configuration tests
-├── test_environment_config.py # Environment configuration tests
-├── test_validation.py         # Configuration validation tests
-├── test_config_watcher.py     # Hot-reload tests
-└── test_integration.py        # Integration tests
+├── ai/                          # AI module tests (15 files)
+│   ├── test_agent.py            # → src/ai/agent.py
+│   ├── test_config.py           # → src/ai/config.py
+│   ├── test_conversation.py     # → src/ai/conversation.py
+│   ├── test_exceptions.py       # → src/ai/exceptions.py
+│   ├── test_mcp_client.py       # → src/ai/mcp_client.py
+│   ├── test_multi_agent.py      # → src/ai/multi_agent.py
+│   ├── test_retry.py            # → src/ai/retry.py
+│   ├── test_task_integration.py # → src/ai/task_integration.py
+│   ├── test_tools.py            # → src/ai/tools.py
+│   ├── test_ai_capabilities.py  # AI capabilities integration
+│   ├── test_ai_features.py      # AI features integration
+│   ├── test_ai_integration.py   # AI integration tests
+│   ├── test_ai_task_integration.py # AI task integration
+│   ├── test_mcp_integration.py  # MCP integration tests
+│   └── test_mcp_tool_discovery.py # MCP tool discovery
+│
+├── auth/                        # Authentication module tests (8 files)
+│   ├── test_auth.py             # General auth tests
+│   ├── test_database.py         # → src/auth/database.py
+│   ├── test_middleware.py       # → src/auth/middleware.py
+│   ├── test_models.py           # → src/auth/models.py
+│   ├── test_routes.py           # → src/auth/routes.py
+│   ├── test_security.py         # → src/auth/security.py
+│   ├── test_service.py          # → src/auth/service.py
+│   └── test_ui.py               # → src/auth/ui.py
+│
+├── automation/                  # Automation engine tests (1 file)
+│   └── test_engine.py           # → src/automation/engine.py
+│
+├── core/                        # Core module tests (19 files)
+│   ├── test_circuit_breaker.py  # → src/core/circuit_breaker.py
+│   ├── test_client.py           # → src/core/client.py
+│   ├── test_config.py           # → src/core/config.py
+│   ├── test_config_watcher.py   # → src/core/config_watcher.py
+│   ├── test_event_server.py     # → src/core/event_server.py
+│   ├── test_image_uploader.py   # → src/core/image_uploader.py
+│   ├── test_logger.py           # → src/core/logger.py
+│   ├── test_message_queue.py    # → src/core/message_queue.py
+│   ├── test_message_tracker.py  # → src/core/message_tracker.py
+│   ├── test_provider.py         # → src/core/provider.py
+│   ├── test_templates.py        # → src/core/templates.py
+│   ├── test_validation.py       # → src/core/validation.py
+│   └── *_root.py                # Additional tests from root
+│
+├── plugins/                     # Plugin system tests (7 files)
+│   ├── test_base.py             # → src/plugins/base.py
+│   ├── test_config.py           # → src/plugins/config_registry.py
+│   ├── test_config_schema.py    # → src/plugins/config_schema.py
+│   ├── test_feishu_calendar.py  # → src/plugins/feishu_calendar.py
+│   ├── test_manager.py          # → src/plugins/manager.py
+│   ├── test_plugins.py          # General plugin tests
+│   └── test_setup_wizard.py     # → src/plugins/setup_wizard.py
+│
+├── providers/                   # Provider tests (2 files)
+│   ├── test_providers.py        # → src/providers/feishu.py, qq_napcat.py
+│   └── test_multi_provider.py   # Multi-provider tests
+│
+├── scheduler/                   # Scheduler tests (1 file)
+│   └── test_scheduler.py        # → src/scheduler/scheduler.py
+│
+├── tasks/                       # Task system tests (3 files)
+│   ├── test_executor.py         # → src/tasks/executor.py
+│   ├── test_manager.py          # → src/tasks/manager.py
+│   └── test_templates.py        # → src/tasks/templates.py
+│
+├── fixtures/                    # Test configuration files
+├── mocks/                       # Mock objects for testing
+├── conftest.py                  # Shared fixtures
+├── test_bot.py                  # → src/bot.py
+├── test_cli.py                  # → src/cli.py
+├── test_environment_config.py   # Environment configuration
+└── test_integration.py          # Integration tests
 ```
 
 ## Running Tests
@@ -129,63 +184,191 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 
 ## Test Categories
 
-### 1. Task Execution Tests (`test_task_executor.py`)
+### AI Module Tests (`tests/ai/`)
+
+#### Conversation Tests (`test_conversation.py`)
+- ConversationState creation and lifecycle
+- Message management and token tracking
+- Conversation expiration
+- Analytics and export/import
+- ConversationManager operations
+- Cleanup task management
+- **Concurrent access and thread safety**
+- **Edge cases (unicode, empty values, large data)**
+- **Advanced analytics (duration, context keys)**
+
+#### Tools Tests (`test_tools.py`)
+- ai_tool decorator
+- SearchCache functionality
+- ToolRegistry operations
+- Built-in tools (calculate, format_json, convert_units, etc.)
+- **web_search with caching and retry logic**
+- **get_search_cache_stats and clear_search_cache utilities**
+- **Edge cases (unicode, case sensitivity, spaces)**
+- **Advanced ToolRegistry (permissions, categories, stats)**
+
+#### Retry Tests (`test_retry.py`)
+- CircuitBreaker state transitions (CLOSED → OPEN → HALF_OPEN)
+- Sync and async circuit breaker operations
+- Exponential backoff decorator
+- Retry logic with jitter
+- **Custom exception types**
+- **Recovery and reset behavior**
+- **Concurrent async operations**
+- **Edge cases (zero threshold, high threshold, short timeout)**
+
+#### Multi-Agent Tests (`test_multi_agent.py`)
+- AgentMessage and AgentResult models
+- SpecializedAgent and subclasses
+- AgentOrchestrator initialization
+- Sequential, concurrent, hierarchical orchestration
+- **Advanced orchestration (partial failures, long messages)**
+- **Unicode content handling**
+- **Context preservation**
+- **Custom agent registration**
+
+#### Exception Tests (`test_exceptions.py`)
+- AIError base exception
+- AIServiceUnavailableError
+- ToolExecutionError
+- ConversationNotFoundError
+- ModelResponseError
+- TokenLimitExceededError
+- RateLimitError
+- ConfigurationError
+
+### Auth Module Tests (`tests/auth/`)
+
+#### Security Tests (`test_security.py`)
+- Password hashing with bcrypt
+- Password verification
+- Password strength validation
+- JWT token creation and decoding
+- Security configuration
+
+### Core Module Tests (`tests/core/`)
+
+#### Template Tests (`test_templates.py`)
+- RenderedTemplate dataclass
+- TemplateRegistry initialization
+- Template listing and retrieval
+- Template rendering with different engines
+- Error handling
+
+#### Image Uploader Tests (`test_image_uploader.py`)
+- FeishuPermissionChecker utilities
+- FeishuImageUploader initialization
+- Token management
+- Image upload operations
+- Permission error handling
+
+### Task System Tests (Root Level)
+
+#### Task Execution Tests (`test_task_executor.py`)
 - Task conditions (time, day, environment, custom)
 - Task actions (send_message, plugin_method, http_request, python_code)
 - Error handling and retry logic
 - Timeout handling
 
-### 2. Task Manager Tests (`test_task_manager.py`)
+#### Task Manager Tests (`test_task_manager.py`)
 - Task registration and scheduling
 - Task execution (manual and scheduled)
 - Task dependencies
 - Task status management
 - Task reloading
 
-### 3. Task Template Tests (`test_task_templates.py`)
+#### Task Template Tests (`test_task_templates.py`)
 - Template retrieval
 - Template instantiation
 - Parameter validation
 - Parameter substitution
 
-### 4. Plugin Configuration Tests (`test_plugin_config.py`)
+### Plugin System Tests (Root Level)
+
+#### Plugin Base Tests (`test_plugin_base.py`)
+- PluginMetadata dataclass
+- BasePlugin abstract class
+- Provider access
+- Lifecycle hooks
+- Job registration
+- Configuration access
+- Event handling
+
+#### Plugin Manager Tests (`test_plugin_manager.py`)
+- Plugin discovery
+- Plugin loading from files
+- Lifecycle management (enable/disable)
+- Hot-reload functionality
+- Job registration with scheduler
+- Multi-provider support
+- Event dispatching
+
+#### Plugin Configuration Tests (`test_plugin_config.py`)
 - Plugin settings loading
 - Plugin priority ordering
 - Configuration access methods
 - Plugin enable/disable
 
-### 5. Environment Configuration Tests (`test_environment_config.py`)
+### Provider Tests (Root Level)
+
+#### Provider Tests (`test_providers.py`)
+- BaseProvider interface
+- SendResult factory methods
+- MessageType enum
+- ProviderConfig validation
+- ProviderRegistry singleton
+- FeishuProvider implementation
+- NapcatProvider implementation
+- HMAC signature generation
+- Retry and circuit breaker integration
+
+### Automation Tests (Root Level)
+
+#### Automation Engine Tests (`test_automation_engine.py`)
+- AutomationEngine lifecycle (start/shutdown)
+- Schedule-based triggers
+- Event-based triggers
+- Action execution
+- Context handling and merging
+- Template rendering
+- HTTP request execution
+
+### Configuration Tests (Root Level)
+
+#### Environment Configuration Tests (`test_environment_config.py`)
 - Environment loading
 - Environment variables
 - Configuration overrides
 - Active environment selection
 
-### 6. Configuration Validation Tests (`test_validation.py`)
+#### Configuration Validation Tests (`test_validation.py`)
 - YAML validation
 - JSON schema generation
 - Configuration completeness checking
 - Improvement suggestions
 
-### 7. Configuration Hot-Reload Tests (`test_config_watcher.py`)
+#### Configuration Hot-Reload Tests (`test_config_watcher.py`)
 - File watching
 - Reload triggers
 - Validation before reload
 - Debouncing
 
-### 8. Integration Tests (`test_integration.py`)
+### Integration Tests (Root Level)
+
+#### Integration Tests (`test_integration.py`)
 - End-to-end workflows
 - Component integration
 - Full bot initialization
 - Error handling integration
 
-### 9. AI Integration Tests (`test_ai_integration.py`)
+#### AI Integration Tests (`test_ai_integration.py`)
 - AI configuration
 - Conversation management
 - AI agent functionality
 - Tool registry
 - Bot integration with AI
 
-### 10. Advanced AI Tests (`test_advanced_ai.py`)
+#### Advanced AI Tests (`test_advanced_ai.py`)
 - Streaming configuration
 - MCP configuration
 - Multi-agent configuration
@@ -193,7 +376,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - Agent orchestration
 - Specialized agents
 
-### 11. MCP Integration Tests (`test_mcp_integration.py`) **NEW**
+#### MCP Integration Tests (`test_mcp_integration.py`)
 - MCP configuration (stdio, HTTP, SSE transports)
 - MCP client initialization and lifecycle
 - MCP transport types
@@ -358,10 +541,24 @@ pytest tests/ -v
 
 ## Test Metrics
 
-- **Total Test Files:** 8
-- **Total Test Classes:** 43+
-- **Total Test Methods:** 150+
-- **Expected Coverage:** 80%+
+- **Total Test Files:** 50+
+- **Total Test Classes:** 100+
+- **Total Test Methods:** 500+
+- **Expected Coverage:** 85%+
+
+### AI Module Test Coverage
+
+| Module | Test File | Test Classes | Key Areas |
+|--------|-----------|--------------|-----------|
+| `conversation.py` | `test_conversation.py` | 8 | State, Manager, Concurrency, Analytics |
+| `tools.py` | `test_tools.py` | 10 | Decorator, Cache, Registry, Web Search |
+| `retry.py` | `test_retry.py` | 6 | CircuitBreaker, Retry Decorator, Edge Cases |
+| `multi_agent.py` | `test_multi_agent.py` | 8 | Models, Agents, Orchestrator, Modes |
+| `exceptions.py` | `test_exceptions.py` | 8 | All exception types |
+| `config.py` | `test_config.py` | 5 | All config classes |
+| `task_integration.py` | `test_task_integration.py` | 6 | Executor, Prompts, Config |
+| `agent.py` | `test_agent.py` | 5 | Agent, Dependencies, Metrics |
+| `mcp_client.py` | `test_mcp_client.py` | 4 | Client, Transport, Discovery |
 
 ## Contributing
 
