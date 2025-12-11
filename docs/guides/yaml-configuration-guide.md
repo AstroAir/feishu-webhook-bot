@@ -1,6 +1,6 @@
 # YAML Configuration Guide
 
-This guide covers the enhanced YAML configuration system for the Feishu Webhook Bot, including automated tasks, plugin configuration, environment management, and more.
+This guide covers the advanced YAML configuration system for the Feishu Webhook Bot, including automated tasks, plugin configuration, environment management, and more.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ This guide covers the enhanced YAML configuration system for the Feishu Webhook 
 
 ## Overview
 
-The enhanced YAML configuration system provides:
+The advanced YAML configuration system provides:
 
 - **Automated Tasks**: Define scheduled and event-driven tasks directly in YAML
 - **Task Templates**: Create reusable task definitions
@@ -452,4 +452,4 @@ watcher.stop()
 
 ## Example: Complete Configuration
 
-See `config.enhanced.example.yaml` for a complete example with all features.
+See `config.example.yaml` for a complete example with all features.

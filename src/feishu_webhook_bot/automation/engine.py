@@ -48,6 +48,8 @@ class AutomationEngine:
         self._send_text = send_text
         self._send_rendered = send_rendered
         self._registered_jobs: set[str] = set()
+        self._execution_history: list[dict[str, Any]] = []
+        self._max_history: int = 100
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -356,3 +358,178 @@ class AutomationEngine:
             ):
                 return False
         return True
+
+    # ------------------------------------------------------------------
+    # Rule management and triggering
+    # ------------------------------------------------------------------
+    def get_rule(self, rule_name: str) -> AutomationRule | None:
+        """Get a rule by name.
+
+        Args:
+            rule_name: Name of the rule to find
+
+        Returns:
+            AutomationRule if found, None otherwise
+        """
+        for rule in self._rules:
+            if rule.name == rule_name:
+                return rule
+        return None
+
+    def get_rules(self) -> list[AutomationRule]:
+        """Get all automation rules.
+
+        Returns:
+            List of all automation rules
+        """
+        return list(self._rules)
+
+    def trigger_rule(
+        self,
+        rule_name: str,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Manually trigger an automation rule by name.
+
+        Args:
+            rule_name: Name of the rule to trigger
+            context: Optional context to pass to the rule
+
+        Returns:
+            Execution result dictionary with success status and details
+        """
+        import time as time_module
+        from datetime import datetime
+
+        result: dict[str, Any] = {
+            "rule_name": rule_name,
+            "success": False,
+            "triggered_at": datetime.now().isoformat(),
+            "error": None,
+            "actions_executed": 0,
+        }
+
+        rule = self.get_rule(rule_name)
+        if not rule:
+            result["error"] = f"Rule not found: {rule_name}"
+            logger.warning("Attempted to trigger non-existent rule: %s", rule_name)
+            return result
+
+        if not rule.enabled:
+            result["error"] = f"Rule is disabled: {rule_name}"
+            logger.warning("Attempted to trigger disabled rule: %s", rule_name)
+            return result
+
+        start_time = time_module.time()
+        try:
+            event_payload = context if context else {}
+            self.execute_rule(rule, event_payload=event_payload)
+            result["success"] = True
+            result["actions_executed"] = len(rule.actions)
+            logger.info("Manually triggered automation rule: %s", rule_name)
+        except Exception as exc:
+            result["error"] = str(exc)
+            logger.error("Failed to trigger rule %s: %s", rule_name, exc, exc_info=True)
+
+        result["duration"] = time_module.time() - start_time
+
+        # Record execution history
+        self._record_execution(result)
+
+        return result
+
+    def enable_rule(self, rule_name: str) -> bool:
+        """Enable an automation rule.
+
+        Args:
+            rule_name: Name of the rule to enable
+
+        Returns:
+            True if rule was enabled, False if not found
+        """
+        rule = self.get_rule(rule_name)
+        if not rule:
+            return False
+        rule.enabled = True
+        logger.info("Enabled automation rule: %s", rule_name)
+        return True
+
+    def disable_rule(self, rule_name: str) -> bool:
+        """Disable an automation rule.
+
+        Args:
+            rule_name: Name of the rule to disable
+
+        Returns:
+            True if rule was disabled, False if not found
+        """
+        rule = self.get_rule(rule_name)
+        if not rule:
+            return False
+        rule.enabled = False
+        logger.info("Disabled automation rule: %s", rule_name)
+        return True
+
+    def _record_execution(self, result: dict[str, Any]) -> None:
+        """Record an execution result to history.
+
+        Args:
+            result: Execution result dictionary
+        """
+        self._execution_history.append(result)
+        # Trim history if needed
+        if len(self._execution_history) > self._max_history:
+            self._execution_history = self._execution_history[-self._max_history:]
+
+    def get_execution_history(
+        self,
+        rule_name: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Get execution history for automation rules.
+
+        Args:
+            rule_name: Optional filter by rule name
+            limit: Maximum number of entries to return
+
+        Returns:
+            List of execution history entries (newest first)
+        """
+        history = self._execution_history
+        if rule_name:
+            history = [h for h in history if h.get("rule_name") == rule_name]
+        return list(reversed(history[-limit:]))
+
+    def get_rule_status(self, rule_name: str) -> dict[str, Any]:
+        """Get detailed status for a rule.
+
+        Args:
+            rule_name: Name of the rule
+
+        Returns:
+            Status dictionary with rule details
+        """
+        rule = self.get_rule(rule_name)
+        if not rule:
+            return {"error": f"Rule not found: {rule_name}"}
+
+        job_id = f"automation.{rule_name}"
+        next_run = None
+        if self._scheduler and job_id in self._registered_jobs:
+            job = self._scheduler.get_job(job_id)
+            if job:
+                next_run = str(job.next_run_time) if job.next_run_time else None
+
+        # Get recent executions for this rule
+        recent_executions = self.get_execution_history(rule_name, limit=5)
+
+        return {
+            "name": rule.name,
+            "description": rule.description,
+            "enabled": rule.enabled,
+            "trigger_type": rule.trigger.type,
+            "actions_count": len(rule.actions),
+            "registered": job_id in self._registered_jobs,
+            "next_run": next_run,
+            "recent_executions": recent_executions,
+        }

@@ -1,10 +1,10 @@
-# Enhanced YAML Configuration Features
+# Advanced YAML Configuration Features
 
-This document provides an overview of the enhanced YAML configuration system for the Feishu Webhook Bot.
+This document provides an overview of the advanced YAML configuration system for the Feishu Webhook Bot.
 
 ## What's New
 
-The enhanced YAML configuration system adds powerful new capabilities:
+The advanced YAML configuration system adds powerful new capabilities:
 
 ### 1. **Automated Tasks** 🤖
 
@@ -115,12 +115,12 @@ config_hot_reload: true
 
 ## Quick Start
 
-### 1. Use the Enhanced Example Configuration
+### 1. Use the Example Configuration
 
-Copy the enhanced example configuration:
+Copy the example configuration:
 
 ```bash
-cp config.enhanced.example.yaml config.yaml
+cp config.example.yaml config.yaml
 ```
 
 Edit the configuration to add your webhook URLs and customize settings.

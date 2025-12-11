@@ -339,7 +339,7 @@ async def web_search(
     This function searches the web using DuckDuckGo with the following features:
     - Result caching to avoid redundant searches
     - Automatic retry with exponential backoff on failures
-    - Enhanced error handling and logging
+    - Robust error handling and logging
     - Improved result formatting for AI comprehension
 
     Args:
@@ -409,7 +409,7 @@ async def web_search(
                     _search_cache.set(query, max_results, result)
                 return result
 
-            # Format results with enhanced information
+            # Format results with detailed information
             formatted_results = []
             for idx, search_result in enumerate(results, 1):
                 title = search_result.get("title", "").strip()

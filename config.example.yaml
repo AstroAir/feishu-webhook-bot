@@ -2,32 +2,57 @@
 # ==================================
 #
 # This is the main configuration file for the Feishu Webhook Bot.
-# Edit this file to configure webhooks, scheduler, plugins, and logging.
+# Edit this file to configure webhooks, scheduler, plugins, logging, and more.
+#
+# Features:
+# - Environment variable substitution: ${VAR_NAME} or ${VAR_NAME:default}
+# - Multiple webhook endpoints
+# - Task scheduling and automation
+# - Plugin system with hot-reload
+# - Message bridge for cross-platform forwarding
+# - Multi-environment configuration
 
+# ==============================================================================
 # Webhook Configuration
-# ---------------------
+# ==============================================================================
 # Define one or more webhook endpoints to send messages to.
 webhooks:
   - name: "default"
-    url: "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL"
-    secret: null  # Optional: Add webhook signing secret for security
-    
+    url: "${FEISHU_WEBHOOK_URL:https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL}"
+    secret: "${FEISHU_WEBHOOK_SECRET:}"  # Optional: webhook signing secret
+    enabled: true
+
   # Example: Additional webhook for alerts
   # - name: "alerts"
-  #   url: "https://open.feishu.cn/open-apis/bot/v2/hook/ALERT_WEBHOOK_URL"
+  #   url: "${FEISHU_ALERTS_WEBHOOK_URL}"
   #   secret: "your-secret-key"
+  #   enabled: true
 
+# ==============================================================================
+# General Settings
+# ==============================================================================
+general:
+  bot_name: "Feishu Bot"
+  description: "Automated notification and task bot"
+  version: "2.0.0"
+
+# ==============================================================================
 # Scheduler Configuration
-# -----------------------
+# ==============================================================================
 # Configure the task scheduler for running periodic jobs.
 scheduler:
   enabled: true
   timezone: "Asia/Shanghai"  # Use your timezone (e.g., "America/New_York", "Europe/London")
   job_store_type: "memory"   # Options: "memory" or "sqlite"
   job_store_path: null       # Required if job_store_type is "sqlite" (e.g., "data/jobs.db")
+  job_defaults:
+    coalesce: true
+    max_instances: 3
+    misfire_grace_time: 60
 
+# ==============================================================================
 # Plugin System Configuration
-# ----------------------------
+# ==============================================================================
 # Configure the plugin system and hot-reload behavior.
 plugins:
   enabled: true
@@ -35,8 +60,18 @@ plugins:
   auto_reload: true      # Enable hot-reload of plugins
   reload_delay: 1.0      # Delay in seconds before reloading after file change
 
+  # Plugin-specific settings (optional)
+  # plugin_settings:
+  #   - plugin_name: "system-monitor"
+  #     enabled: true
+  #     priority: 10
+  #     settings:
+  #       cpu_threshold: 80
+  #       memory_threshold: 85
+
+# ==============================================================================
 # Logging Configuration
-# ----------------------
+# ==============================================================================
 # Configure logging level and file output.
 logging:
   level: "INFO"  # Options: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
@@ -45,8 +80,9 @@ logging:
   max_bytes: 10485760  # Max log file size (10MB)
   backup_count: 5      # Number of backup log files to keep
 
+# ==============================================================================
 # HTTP Client Configuration
-# --------------------------
+# ==============================================================================
 # Configure default timeout and retry behaviour for webhook requests.
 http:
   timeout: 10.0   # Default HTTP timeout in seconds
@@ -56,8 +92,9 @@ http:
     backoff_multiplier: 2.0
     max_backoff_seconds: 30.0
 
+# ==============================================================================
 # Templates
-# ---------
+# ==============================================================================
 # Define reusable message templates referenced by automations or plugins.
 # Template content supports either Python "string.Template" placeholders
 # (default engine) or str.format placeholders (set engine: "format").
@@ -80,13 +117,109 @@ templates:
         ]
       }
 
+  - name: "alert"
+    description: "Alert notification template"
+    engine: "format"
+    content: |
+      🚨 **Alert: {title}**
+      
+      **Severity:** {severity}
+      **Time:** {timestamp}
+      **Details:** {details}
+      
+      {action_required}
+
+  - name: "task_complete"
+    description: "Task completion notification"
+    engine: "format"
+    content: |
+      ✅ **Task Completed**
+      
+      **Task:** {task_name}
+      **Duration:** {duration}
+      **Status:** {status}
+
+# ==============================================================================
+# Task Templates
+# ==============================================================================
+# Create reusable task definitions with parameterized configurations.
+task_templates:
+  - name: "http_health_check"
+    description: "Template for HTTP endpoint health checks"
+    base_task:
+      name: "template"
+      enabled: true
+      schedule:
+        mode: "interval"
+        arguments:
+          minutes: 5
+      actions:
+        - type: "http_request"
+          request:
+            method: "GET"
+            url: "${url}"
+            timeout: 10
+            save_as: "response"
+        - type: "send_message"
+          webhook: "default"
+          message: "Health check for ${service_name}: ${status}"
+      error_handling:
+        on_failure: "notify"
+        retry_on_failure: true
+        max_retries: 3
+        retry_delay: 60
+    parameters:
+      - name: "url"
+        type: "string"
+        required: true
+        description: "URL to check"
+      - name: "service_name"
+        type: "string"
+        required: true
+        description: "Name of the service"
+      - name: "status"
+        type: "string"
+        default: "OK"
+        description: "Status message"
+
+# ==============================================================================
+# Automated Tasks
+# ==============================================================================
+# Define scheduled and event-driven tasks.
+tasks:
+  - name: "api_health_check"
+    description: "Check API health every 5 minutes"
+    enabled: false  # Set to true to enable
+    schedule:
+      mode: "interval"
+      arguments:
+        minutes: 5
+    actions:
+      - type: "http_request"
+        request:
+          method: "GET"
+          url: "https://api.example.com/health"
+          timeout: 10
+          save_as: "health_response"
+      - type: "send_message"
+        webhook: "default"
+        message: "API Health: ${health_response.status}"
+    error_handling:
+      on_failure: "notify"
+      retry_on_failure: true
+      max_retries: 3
+      retry_delay: 60
+    timeout: 30
+    priority: 100
+
+# ==============================================================================
 # Automations
-# -----------
+# ==============================================================================
 # Declarative workflows that run on schedules or in response to events.
 automations:
   - name: "daily-summary"
     description: "Send a summary every weekday at 9:30"
-    enabled: true
+    enabled: false  # Set to true to enable
     trigger:
       type: "schedule"
       schedule:
@@ -108,8 +241,9 @@ automations:
           date: "${event_date}"
         webhooks: ["default"]
 
+# ==============================================================================
 # Event Server
-# ------------
+# ==============================================================================
 # Optional FastAPI server that receives Feishu webhook events and feeds them
 # to automations and plugins for reactive behaviour.
 event_server:
@@ -120,3 +254,81 @@ event_server:
   auto_start: true
   verification_token: null
   signature_secret: null
+
+# ==============================================================================
+# Message Bridge Configuration
+# ==============================================================================
+# Cross-platform message forwarding (e.g., QQ ↔ Feishu).
+message_bridge:
+  enabled: false
+  default_format: "[{source}] {sender}: {content}"
+  rate_limit_per_minute: 60
+  retry_on_failure: true
+  max_retries: 3
+
+  rules:
+    # Example: Forward QQ group messages to Feishu
+    - name: "qq_to_feishu"
+      enabled: false
+      description: "Forward QQ group messages to Feishu webhook"
+      source_provider: "qq_napcat"
+      source_chat_type: "group"  # all, private, group
+      source_chat_ids: []  # Empty means all chats
+      target_provider: "feishu_default"
+      target_chat_id: "default"
+      include_sender_info: true
+      message_prefix: "[QQ转发] "
+      forward_images: true
+      keyword_blacklist: ["spam", "广告"]
+
+# ==============================================================================
+# Message Providers Configuration
+# ==============================================================================
+# Configure different message providers for cross-platform communication.
+providers:
+  # Feishu webhook provider
+  - name: "feishu_default"
+    provider_type: "feishu"
+    enabled: true
+    webhook_url: "${FEISHU_WEBHOOK_URL}"
+    webhook_secret: "${FEISHU_WEBHOOK_SECRET}"
+
+  # QQ/Napcat provider (OneBot11 protocol) - Example
+  # - name: "qq_napcat"
+  #   provider_type: "napcat"
+  #   enabled: false
+  #   http_url: "http://127.0.0.1:3000"
+  #   access_token: "${NAPCAT_ACCESS_TOKEN}"
+  #   bot_qq: "123456789"
+  #   default_target: "group:987654321"
+
+# ==============================================================================
+# Environment Configuration
+# ==============================================================================
+# Define environment-specific configurations.
+environments:
+  - name: "development"
+    description: "Development environment"
+    variables:
+      LOG_LEVEL: "DEBUG"
+    overrides:
+      logging:
+        level: "DEBUG"
+      plugins:
+        auto_reload: true
+
+  - name: "production"
+    description: "Production environment"
+    variables:
+      LOG_LEVEL: "WARNING"
+    overrides:
+      logging:
+        level: "WARNING"
+      plugins:
+        auto_reload: false
+
+# Active environment (set via environment variable or here)
+active_environment: "${ENVIRONMENT:development}"
+
+# Enable configuration hot-reload
+config_hot_reload: true

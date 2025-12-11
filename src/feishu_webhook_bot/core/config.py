@@ -719,6 +719,88 @@ class AuthConfig(BaseModel):
     )
 
 
+class MessageBridgeRuleConfig(BaseModel):
+    """Configuration for a message bridge rule (cross-platform forwarding).
+
+    Defines how messages from one platform/provider are forwarded to another.
+    """
+
+    name: str = Field(..., description="Rule name for identification")
+    enabled: bool = Field(default=True, description="Whether this rule is active")
+    description: str | None = Field(default=None, description="Rule description")
+
+    # Source configuration
+    source_provider: str = Field(
+        ..., description="Source provider name (e.g., 'qq_main', 'feishu_default')"
+    )
+    source_chat_type: Literal["private", "group", "all"] = Field(
+        default="all", description="Filter by chat type"
+    )
+    source_chat_ids: list[str] = Field(
+        default_factory=list,
+        description="Specific chat IDs to forward from (empty = all chats)",
+    )
+
+    # Target configuration
+    target_provider: str = Field(..., description="Target provider name")
+    target_chat_id: str = Field(..., description="Target chat ID or target identifier")
+
+    # Message transformation
+    include_sender_info: bool = Field(
+        default=True, description="Include sender name/ID in forwarded message"
+    )
+    message_prefix: str = Field(
+        default="", description="Prefix to add to forwarded messages"
+    )
+    message_suffix: str = Field(
+        default="", description="Suffix to add to forwarded messages"
+    )
+    forward_images: bool = Field(default=True, description="Forward image messages")
+    forward_at_mentions: bool = Field(default=False, description="Forward @mentions")
+
+    # Filtering
+    keyword_whitelist: list[str] = Field(
+        default_factory=list,
+        description="Only forward messages containing these keywords (empty = no filter)",
+    )
+    keyword_blacklist: list[str] = Field(
+        default_factory=list,
+        description="Don't forward messages containing these keywords",
+    )
+    sender_whitelist: list[str] = Field(
+        default_factory=list,
+        description="Only forward from these sender IDs (empty = all senders)",
+    )
+    sender_blacklist: list[str] = Field(
+        default_factory=list,
+        description="Don't forward from these sender IDs",
+    )
+
+
+class MessageBridgeConfig(BaseModel):
+    """Configuration for cross-platform message bridging.
+
+    Enables automatic message forwarding between different platforms
+    (e.g., QQ ↔ Feishu).
+    """
+
+    enabled: bool = Field(default=False, description="Enable message bridging")
+    rules: list[MessageBridgeRuleConfig] = Field(
+        default_factory=list, description="List of bridge rules"
+    )
+    default_format: str = Field(
+        default="[{source}] {sender}: {content}",
+        description="Default format template. Variables: {source}, {sender}, {content}, {time}",
+    )
+    rate_limit_per_minute: int = Field(
+        default=60, ge=1, description="Maximum messages to forward per minute per rule"
+    )
+    retry_on_failure: bool = Field(
+        default=True, description="Retry forwarding on failure"
+    )
+    max_retries: int = Field(default=3, ge=0, description="Maximum retry attempts")
+
+
 class EnvironmentVariableConfig(BaseModel):
     """Environment variable definition."""
 
@@ -801,7 +883,7 @@ class BotConfig(BaseSettings):
         default_factory=AuthConfig, description="Authentication system settings"
     )
 
-    # New enhanced configuration sections
+    # Advanced configuration sections
     tasks: list[TaskDefinitionConfig] = Field(
         default_factory=list, description="Automated task definitions"
     )
@@ -847,6 +929,12 @@ class BotConfig(BaseSettings):
     chat: ChatConfig = Field(
         default_factory=ChatConfig,
         description="Chat bot functionality settings",
+    )
+
+    # Message bridge configuration for cross-platform forwarding
+    message_bridge: MessageBridgeConfig | None = Field(
+        default=None,
+        description="Message bridge configuration for QQ ↔ Feishu forwarding",
     )
 
     @classmethod

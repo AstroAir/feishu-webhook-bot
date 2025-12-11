@@ -578,5 +578,5 @@ watcher.start()
 ## See Also
 
 - [YAML Configuration Guide](yaml-configuration-guide.md) - YAML-specific features
-- [Enhanced YAML Features](enhanced-yaml-features.md) - Advanced YAML features
+- [Advanced YAML Features](advanced-yaml-features.md) - Advanced YAML features
 - [Core Reference](../reference/core-reference.md) - Core component details

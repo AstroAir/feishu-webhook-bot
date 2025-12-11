@@ -18,6 +18,7 @@ from .core.circuit_breaker import CircuitBreakerConfig
 from .core.config import ProviderConfigBase, WebhookConfig
 from .core.config_watcher import ConfigWatcher, create_config_watcher
 from .core.event_server import EventServer
+from .core.message_bridge import MessageBridgeEngine
 from .core.message_queue import MessageQueue
 from .core.message_tracker import MessageTracker
 from .core.message_handler import IncomingMessage
@@ -93,6 +94,7 @@ class FeishuBot:
         self.chat_controller: ChatController | None = None
         self.message_tracker: MessageTracker | None = None
         self.message_queue: MessageQueue | None = None
+        self.message_bridge: MessageBridgeEngine | None = None
         self._message_queue_task: asyncio.Task[None] | None = None
         self._running: bool = False
         self._shutdown_event: threading.Event = threading.Event()
@@ -145,6 +147,7 @@ class FeishuBot:
             self._init_automation()
             self._init_ai_agent()  # Initialize AI agent before tasks
             self._init_chat_controller()  # Initialize chat controller after AI agent
+            self._init_message_bridge()  # Initialize message bridge after providers
             self._init_tasks()
             self._init_event_server()
             self._init_config_watcher()
@@ -859,6 +862,29 @@ class FeishuBot:
         except Exception as e:
             logger.error("Failed to initialize chat controller: %s", e, exc_info=True)
 
+    def _init_message_bridge(self) -> None:
+        """Initialize message bridge for cross-platform message forwarding."""
+        bridge_config = getattr(self.config, "message_bridge", None)
+        if bridge_config is None:
+            logger.info("Message bridge disabled (no config)")
+            return
+
+        if not bridge_config.enabled:
+            logger.info("Message bridge disabled")
+            return
+
+        try:
+            self.message_bridge = MessageBridgeEngine(
+                config=bridge_config,
+                providers=self.providers,
+            )
+            logger.info(
+                "Message bridge initialized with %d rules",
+                len(bridge_config.rules),
+            )
+        except Exception as e:
+            logger.error("Failed to initialize message bridge: %s", e, exc_info=True)
+
     def _automation_send_text(self, text: str, webhook_name: str) -> None:
         self.send_message(text, webhook_name)
 
@@ -907,6 +933,17 @@ class FeishuBot:
                 self.automation_engine.handle_event(payload)
             except Exception as exc:
                 logger.error("Automation event handling failed: %s", exc, exc_info=True)
+
+        # Handle message bridge forwarding
+        if self.message_bridge and self.message_bridge.is_running():
+            try:
+                message = self._parse_incoming_message(payload)
+                if message:
+                    import asyncio
+                    asyncio.create_task(self.message_bridge.handle_message(message))
+                    logger.debug("Message routed to bridge engine")
+            except Exception as exc:
+                logger.error("Message bridge handling failed: %s", exc, exc_info=True)
 
     def _parse_incoming_message(self, payload: dict[str, Any]) -> IncomingMessage | None:
         """Parse event payload into a unified IncomingMessage.
@@ -1213,12 +1250,24 @@ class FeishuBot:
                     logger.error("Failed to start event server: %s", exc, exc_info=True)
                     raise
 
-            # Send startup notification
+            # Send startup notification (with pre-validation)
             if self.client:
-                try:
-                    self.client.send_text("🤖 Feishu Bot started successfully!")
-                except Exception as exc:
-                    logger.warning("Failed to send startup notification: %s", exc, exc_info=True)
+                # Validate webhook before attempting to send
+                is_valid, error_msg = self.client.validate_webhook()
+                if not is_valid:
+                    logger.warning(
+                        "Startup notification skipped: %s",
+                        error_msg or "webhook not properly configured"
+                    )
+                elif not self.client.is_configured():
+                    logger.warning(
+                        "Startup notification skipped: webhook URL appears to be a placeholder"
+                    )
+                else:
+                    try:
+                        self.client.send_text("🤖 Feishu Bot started successfully!")
+                    except Exception as exc:
+                        logger.warning("Failed to send startup notification: %s", exc, exc_info=True)
             else:
                 logger.warning("No default webhook client configured; startup notification skipped")
 

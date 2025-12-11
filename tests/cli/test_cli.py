@@ -15,7 +15,7 @@ from feishu_webhook_bot.cli import main
 @pytest.fixture
 def mock_bot():
     """Fixture to mock the FeishuBot class."""
-    with patch("feishu_webhook_bot.cli.FeishuBot") as mock_bot_class:
+    with patch("feishu_webhook_bot.cli.commands.basic.FeishuBot") as mock_bot_class:
         mock_bot_instance = MagicMock()
         mock_bot_class.from_config.return_value = mock_bot_instance
         yield mock_bot_instance
@@ -88,8 +88,8 @@ class TestCliCommands:
         config_file = tmp_path / "config.yaml"
         config_file.write_text("logging:\n  level: INFO")
 
-        mock_bot_class = mocker.patch("feishu_webhook_bot.cli.FeishuBot")
-        mock_config_class = mocker.patch("feishu_webhook_bot.cli.BotConfig")
+        mock_bot_class = mocker.patch("feishu_webhook_bot.cli.commands.basic.FeishuBot")
+        mock_config_class = mocker.patch("feishu_webhook_bot.cli.commands.basic.BotConfig")
         # Create a mock config object that we can inspect
         mock_config_instance = MagicMock()
         mock_config_class.from_yaml.return_value = mock_config_instance
@@ -116,7 +116,7 @@ class TestCliCommands:
         content = config_path.read_text()
         assert "webhooks:" in content
 
-    @patch("feishu_webhook_bot.cli.run_ui")
+    @patch("feishu_webhook_bot.cli.commands.basic.run_ui")
     def test_main_webui_command(self, mock_run_ui):
         """Test that the 'webui' command calls run_ui with correct args."""
         exit_code = main(["webui", "-c", "my.yaml", "--host", "0.0.0.0", "--port", "9000"])
@@ -127,7 +127,7 @@ class TestCliCommands:
             port=9000,
         )
 
-    @patch("feishu_webhook_bot.cli.FeishuWebhookClient")
+    @patch("feishu_webhook_bot.cli.commands.basic.FeishuWebhookClient")
     def test_main_send_command(self, mock_client_class):
         """Test that the 'send' command calls the client correctly."""
         mock_client_instance = MagicMock()

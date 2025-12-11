@@ -1,9 +1,8 @@
 """Tests for the WebUI configuration interface."""
 
-import importlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
+import pytest  # noqa: F401
 
 
 class TestConfigUIModule:
@@ -14,12 +13,21 @@ class TestConfigUIModule:
         from feishu_webhook_bot import config_ui
 
         assert hasattr(config_ui, "run_ui")
+        assert hasattr(config_ui, "build_ui")
+        assert hasattr(config_ui, "BotController")
+        assert hasattr(config_ui, "UIMemoryLogHandler")
 
     def test_run_ui_function_exists(self):
         """Test that run_ui function exists."""
         from feishu_webhook_bot.config_ui import run_ui
 
         assert callable(run_ui)
+
+    def test_build_ui_function_exists(self):
+        """Test that build_ui function exists."""
+        from feishu_webhook_bot.config_ui import build_ui
+
+        assert callable(build_ui)
 
 
 class TestBotController:
@@ -34,7 +42,6 @@ class TestBotController:
     def test_bot_controller_init(self, tmp_path):
         """Test BotController initialization."""
         from feishu_webhook_bot.config_ui import BotController
-        from pathlib import Path
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -140,7 +147,6 @@ class TestBotController:
     def test_bot_controller_get_task_list_with_tasks(self, tmp_path):
         """Test BotController.get_task_list with configured tasks."""
         from feishu_webhook_bot.config_ui import BotController
-        from unittest.mock import MagicMock
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -182,7 +188,6 @@ class TestBotController:
     def test_bot_controller_get_automation_rules_with_rules(self, tmp_path):
         """Test BotController.get_automation_rules with configured rules."""
         from feishu_webhook_bot.config_ui import BotController
-        from unittest.mock import MagicMock
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -224,7 +229,6 @@ class TestBotController:
     def test_bot_controller_get_provider_list_with_providers(self, tmp_path):
         """Test BotController.get_provider_list with running bot."""
         from feishu_webhook_bot.config_ui import BotController
-        from unittest.mock import MagicMock
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -302,7 +306,6 @@ class TestBotController:
     def test_bot_controller_config_path(self, tmp_path):
         """Test BotController stores config path."""
         from feishu_webhook_bot.config_ui import BotController
-        from pathlib import Path
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -369,7 +372,6 @@ class TestBotController:
     def test_bot_controller_status(self, tmp_path):
         """Test BotController.status method."""
         from feishu_webhook_bot.config_ui import BotController
-        from unittest.mock import MagicMock
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -407,69 +409,317 @@ class TestBotController:
         assert controller._ui_handler is None
 
 
-class TestUIComponents:
-    """Tests for UI component existence."""
+class TestWebUIModule:
+    """Tests for WebUI module structure."""
 
-    def test_create_ai_dashboard_exists(self):
-        """Test that create_ai_dashboard function exists."""
+    def test_webui_module_imports(self):
+        """Test that webui module can be imported."""
+        from feishu_webhook_bot import webui
+
+        assert hasattr(webui, "BotController")
+        assert hasattr(webui, "UIMemoryLogHandler")
+        assert hasattr(webui, "build_ui")
+        assert hasattr(webui, "run_ui")
+        assert hasattr(webui, "t")
+        assert hasattr(webui, "get_lang")
+        assert hasattr(webui, "set_lang")
+
+    def test_webui_pages_module_imports(self):
+        """Test that webui.pages module can be imported."""
+        from feishu_webhook_bot.webui import pages
+
+        # Check all page builders exist
+        assert hasattr(pages, "build_general_page")
+        assert hasattr(pages, "build_scheduler_page")
+        assert hasattr(pages, "build_plugins_page")
+        assert hasattr(pages, "build_logging_page")
+        assert hasattr(pages, "build_templates_page")
+        assert hasattr(pages, "build_notifications_page")
+        assert hasattr(pages, "build_status_page")
+        assert hasattr(pages, "build_ai_dashboard_page")
+        assert hasattr(pages, "build_tasks_page")
+        assert hasattr(pages, "build_automation_page")
+        assert hasattr(pages, "build_providers_page")
+        assert hasattr(pages, "build_messages_page")
+        assert hasattr(pages, "build_auth_page")
+        assert hasattr(pages, "build_events_page")
+        assert hasattr(pages, "build_logs_page")
+
+
+class TestI18nModule:
+    """Tests for i18n internationalization module."""
+
+    def test_i18n_module_imports(self):
+        """Test that i18n module can be imported."""
+        from feishu_webhook_bot.webui.i18n import t, get_lang, set_lang
+
+        assert callable(t)
+        assert callable(get_lang)
+        assert callable(set_lang)
+
+    def test_i18n_default_language(self):
+        """Test default language is Chinese."""
+        from feishu_webhook_bot.webui.i18n import get_lang
+
+        # Default language should be 'zh'
+        assert get_lang() == "zh"
+
+    def test_i18n_set_language(self):
+        """Test setting language."""
+        from feishu_webhook_bot.webui.i18n import get_lang, set_lang
+
+        original = get_lang()
         try:
-            from feishu_webhook_bot.config_ui import create_ai_dashboard
+            set_lang("en")
+            assert get_lang() == "en"
+            set_lang("zh")
+            assert get_lang() == "zh"
+        finally:
+            set_lang(original)
 
-            assert callable(create_ai_dashboard)
-        except ImportError:
-            # Function may not exist if WebUI enhancements weren't added
-            pytest.skip("create_ai_dashboard not implemented")
+    def test_i18n_translation_function(self):
+        """Test translation function returns strings."""
+        from feishu_webhook_bot.webui.i18n import t, set_lang, get_lang
 
-    def test_create_tasks_panel_exists(self):
-        """Test that create_tasks_panel function exists."""
+        original = get_lang()
         try:
-            from feishu_webhook_bot.config_ui import create_tasks_panel
+            # Test English
+            set_lang("en")
+            assert isinstance(t("app.title"), str)
+            assert t("app.title") == "Feishu Webhook Bot"
 
-            assert callable(create_tasks_panel)
-        except ImportError:
-            pytest.skip("create_tasks_panel not implemented")
+            # Test Chinese
+            set_lang("zh")
+            assert isinstance(t("app.title"), str)
+            assert t("app.title") == "飞书 Webhook 机器人"
+        finally:
+            set_lang(original)
 
-    def test_create_automation_panel_exists(self):
-        """Test that create_automation_panel function exists."""
+    def test_i18n_missing_key_returns_key(self):
+        """Test that missing translation key returns the key itself."""
+        from feishu_webhook_bot.webui.i18n import t
+
+        missing_key = "nonexistent.key.that.does.not.exist"
+        result = t(missing_key)
+        assert result == missing_key
+
+    def test_i18n_has_common_keys(self):
+        """Test that common translation keys exist."""
+        from feishu_webhook_bot.webui.i18n import t, set_lang, get_lang
+
+        original = get_lang()
         try:
-            from feishu_webhook_bot.config_ui import create_automation_panel
+            set_lang("en")
+            # Test common keys exist and are not the key itself
+            common_keys = [
+                "app.title",
+                "dashboard.title",
+                "general.basic_settings",
+                "scheduler.title",
+                "plugins.settings",
+                "ai.title",
+                "tasks.title",
+                "common.save",
+                "common.cancel",
+            ]
+            for key in common_keys:
+                result = t(key)
+                assert result != key, f"Key '{key}' not found in translations"
+        finally:
+            set_lang(original)
 
-            assert callable(create_automation_panel)
-        except ImportError:
-            pytest.skip("create_automation_panel not implemented")
 
-    def test_create_providers_panel_exists(self):
-        """Test that create_providers_panel function exists."""
-        try:
-            from feishu_webhook_bot.config_ui import create_providers_panel
+class TestUIMemoryLogHandler:
+    """Tests for UIMemoryLogHandler class."""
 
-            assert callable(create_providers_panel)
-        except ImportError:
-            pytest.skip("create_providers_panel not implemented")
+    def test_ui_memory_log_handler_exists(self):
+        """Test that UIMemoryLogHandler class exists."""
+        from feishu_webhook_bot.config_ui import UIMemoryLogHandler
 
-    def test_create_messages_panel_exists(self):
-        """Test that create_messages_panel function exists."""
-        try:
-            from feishu_webhook_bot.config_ui import create_messages_panel
+        assert UIMemoryLogHandler is not None
 
-            assert callable(create_messages_panel)
-        except ImportError:
-            pytest.skip("create_messages_panel not implemented")
+    def test_ui_memory_log_handler_init(self):
+        """Test UIMemoryLogHandler initialization."""
+        from collections import deque
+        from feishu_webhook_bot.config_ui import UIMemoryLogHandler
 
-    def test_create_auth_panel_exists(self):
-        """Test that create_auth_panel function exists."""
-        try:
-            from feishu_webhook_bot.config_ui import create_auth_panel
+        ring = deque(maxlen=100)
+        handler = UIMemoryLogHandler(ring)
 
-            assert callable(create_auth_panel)
-        except ImportError:
-            pytest.skip("create_auth_panel not implemented")
+        assert handler.ring is ring
 
-    def test_create_events_panel_exists(self):
-        """Test that create_events_panel function exists."""
-        try:
-            from feishu_webhook_bot.config_ui import create_events_panel
+    def test_ui_memory_log_handler_emit(self):
+        """Test UIMemoryLogHandler emit method."""
+        import logging
+        from collections import deque
+        from feishu_webhook_bot.config_ui import UIMemoryLogHandler
 
-            assert callable(create_events_panel)
-        except ImportError:
-            pytest.skip("create_events_panel not implemented")
+        ring = deque(maxlen=100)
+        handler = UIMemoryLogHandler(ring)
+
+        # Create a log record
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="Test message",
+            args=(),
+            exc_info=None,
+        )
+
+        handler.emit(record)
+
+        assert len(ring) == 1
+        level, msg = ring[0]
+        assert level == logging.INFO
+        assert "Test message" in msg
+
+
+class TestBotControllerAIStats:
+    """Tests for BotController AI statistics methods."""
+
+    def test_get_ai_stats_without_bot(self, tmp_path):
+        """Test get_ai_stats returns default values when bot is not running."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+        stats = controller.get_ai_stats()
+
+        assert stats["enabled"] is False
+        assert stats["current_model"] == "N/A"
+        assert stats["requests"] == 0
+        assert stats["success_rate"] == 0.0
+        assert stats["tokens_used"] == 0
+        assert stats["mcp_servers"] == []
+
+    def test_get_ai_stats_structure(self, tmp_path):
+        """Test get_ai_stats returns correct structure."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+        stats = controller.get_ai_stats()
+
+        required_keys = [
+            "enabled", "current_model", "requests",
+            "success_rate", "tokens_used", "mcp_servers",
+        ]
+        for key in required_keys:
+            assert key in stats, f"Missing key: {key}"
+
+
+class TestBotControllerMessageStats:
+    """Tests for BotController message statistics methods."""
+
+    def test_get_message_stats_without_bot(self, tmp_path):
+        """Test get_message_stats returns default values when bot is not running."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+        stats = controller.get_message_stats()
+
+        assert stats["queue_size"] == 0
+        assert stats["queued"] == 0
+        assert stats["pending"] == 0
+        assert stats["failed"] == 0
+        assert stats["success"] == 0
+
+    def test_get_message_stats_structure(self, tmp_path):
+        """Test get_message_stats returns correct structure."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+        stats = controller.get_message_stats()
+
+        required_keys = ["queue_size", "queued", "pending", "failed", "success"]
+        for key in required_keys:
+            assert key in stats, f"Missing key: {key}"
+
+
+class TestBotControllerEventServer:
+    """Tests for BotController event server methods."""
+
+    def test_get_event_server_status_without_bot(self, tmp_path):
+        """Test get_event_server_status returns default values when bot is not running."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+        status = controller.get_event_server_status()
+
+        assert status["running"] is False
+        assert status["host"] == "N/A"
+        assert status["port"] == 0
+        assert status["recent_events"] == []
+
+    def test_get_event_server_status_structure(self, tmp_path):
+        """Test get_event_server_status returns correct structure."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+        status = controller.get_event_server_status()
+
+        required_keys = ["running", "host", "port", "recent_events"]
+        for key in required_keys:
+            assert key in status, f"Missing key: {key}"
+
+
+class TestBotControllerLifecycle:
+    """Tests for BotController lifecycle methods."""
+
+    def test_controller_start_stop_methods_exist(self, tmp_path):
+        """Test that start/stop/restart methods exist."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+
+        assert hasattr(controller, "start")
+        assert hasattr(controller, "stop")
+        assert hasattr(controller, "restart")
+        assert callable(controller.start)
+        assert callable(controller.stop)
+        assert callable(controller.restart)
+
+    def test_controller_set_runtime_log_level(self, tmp_path):
+        """Test set_runtime_log_level method exists and is callable."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+
+        assert hasattr(controller, "set_runtime_log_level")
+        assert callable(controller.set_runtime_log_level)
+
+    def test_controller_send_test_message_method_exists(self, tmp_path):
+        """Test send_test_message method exists."""
+        from feishu_webhook_bot.config_ui import BotController
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
+
+        controller = BotController(config_file)
+
+        assert hasattr(controller, "send_test_message")
+        assert callable(controller.send_test_message)

@@ -93,6 +93,51 @@ class FeishuWebhookClient:
         """Close the HTTP client."""
         self._client.close()
 
+    def is_configured(self) -> bool:
+        """Check if the webhook is properly configured.
+
+        Returns:
+            True if webhook URL appears valid, False otherwise.
+        """
+        url = self.config.url
+        if not url or not url.strip():
+            return False
+        # Check for placeholder or example URLs
+        if "${" in url or "$(" in url:
+            return False
+        if "your-webhook" in url.lower() or "xxx" in url.lower():
+            return False
+        if not url.startswith("https://"):
+            return False
+        # Check for Feishu webhook URL pattern
+        if "open.feishu.cn" not in url and "open.larksuite.com" not in url:
+            logger.debug("Webhook URL does not appear to be a Feishu URL: %s", url[:50])
+        return True
+
+    def validate_webhook(self) -> tuple[bool, str]:
+        """Validate the webhook by checking its configuration.
+
+        Returns:
+            Tuple of (is_valid, error_message). error_message is empty if valid.
+        """
+        if not self.is_configured():
+            return False, "Webhook URL is not properly configured"
+
+        url = self.config.url
+        # Check URL format
+        if not url.startswith("https://"):
+            return False, "Webhook URL must use HTTPS"
+
+        # Check for common Feishu webhook patterns
+        valid_patterns = [
+            "open.feishu.cn/open-apis/bot/v2/hook/",
+            "open.larksuite.com/open-apis/bot/v2/hook/",
+        ]
+        if not any(pattern in url for pattern in valid_patterns):
+            return False, "Webhook URL does not match expected Feishu webhook pattern"
+
+        return True, ""
+
     def _generate_sign(self, timestamp: int) -> str:
         """Generate HMAC-SHA256 signature for webhook security.
 

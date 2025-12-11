@@ -255,7 +255,7 @@ class BasePlugin(ABC):
 
     # ========== Configuration Schema Support (Optional) ==========
 
-    # Optional class attributes for enhanced features
+    # Optional class attributes for advanced features
     # Subclasses can set these to enable configuration schema and manifest support
     config_schema: type[PluginConfigSchema] | None = None
     PYTHON_DEPENDENCIES: list = []

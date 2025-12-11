@@ -26,7 +26,70 @@ http:
     backoff_multiplier: 2.0
     max_backoff_seconds: 30.0
 templates: []
-automations: []
+tasks:
+  - name: test_task_1
+    description: "测试任务 - 每分钟发送消息"
+    enabled: true
+    cron: "* * * * *"
+    timeout: 30
+    max_concurrent: 1
+    actions:
+      - type: send_message
+        message: "这是一条测试消息"
+        webhooks:
+          - default
+    conditions: []
+    error_handling:
+      retry_on_failure: true
+      max_retries: 3
+      on_failure_action: log
+  - name: test_task_2
+    description: "测试任务 - HTTP 请求"
+    enabled: false
+    interval:
+      minutes: 5
+    timeout: 60
+    max_concurrent: 2
+    actions:
+      - type: http_request
+        url: "https://httpbin.org/get"
+        method: GET
+    conditions:
+      - type: time_range
+        start_time: "09:00"
+        end_time: "18:00"
+    error_handling:
+      retry_on_failure: false
+      max_retries: 0
+      on_failure_action: notify
+automations:
+  - name: test_automation_1
+    description: "测试自动化规则 - 定时触发"
+    enabled: true
+    trigger:
+      type: schedule
+      schedule:
+        mode: cron
+        arguments:
+          hour: 9
+          minute: 0
+    actions:
+      - type: send_text
+        text: "早上好！这是自动化消息"
+    default_webhooks:
+      - default
+  - name: test_automation_2
+    description: "测试自动化规则 - 事件触发"
+    enabled: false
+    trigger:
+      type: event
+      event:
+        event_type: message.received
+    actions:
+      - type: send_template
+        template: welcome_template
+    default_webhooks:
+      - default
 event_server:
   enabled: false
   host: 0.0.0.0

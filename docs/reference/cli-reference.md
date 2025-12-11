@@ -359,7 +359,7 @@ webhooks:
 
 ### Full Configuration
 
-See `config.example.yaml` or `config.enhanced.example.yaml` for complete examples.
+See `config.example.yaml` for complete examples.
 
 ## Exit Codes
 

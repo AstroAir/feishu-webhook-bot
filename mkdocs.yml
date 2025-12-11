@@ -37,7 +37,7 @@ nav:
       - Web UI: guides/webui-guide.md
       - Configuration:
           - YAML Configuration: guides/yaml-configuration-guide.md
-          - Enhanced YAML Features: guides/enhanced-yaml-features.md
+          - Advanced YAML Features: guides/advanced-yaml-features.md
           - Configuration Reference: guides/configuration-reference.md
   - AI Features:
       - AI Enhancements: ai/enhancements.md

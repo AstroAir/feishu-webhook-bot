@@ -100,7 +100,7 @@ class RSSEntry:
     feed_name: str = ""
     feed_url: str = ""
 
-    # AI-enhanced fields
+    # AI-generated fields
     summary: str = ""
     categories: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
@@ -769,7 +769,7 @@ class RSSSubscriptionPlugin(BasePlugin):
             entry: Entry to process
 
         Returns:
-            Enhanced entry
+            Processed entry
         """
         if not self._ai_agent:
             return entry

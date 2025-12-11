@@ -521,6 +521,134 @@ class CalendarEvent:
         return "，".join(parts) if parts else f"共{total}人"
 
 
+class CalendarSetupGuide:
+    """Interactive setup guide for calendar subscription."""
+
+    # Required Feishu API permissions for calendar access
+    REQUIRED_PERMISSIONS = [
+        ("calendar:calendar", "日历信息读取"),
+        ("calendar:calendar:readonly", "日历只读权限"),
+        ("calendar:event", "日程信息读取"),
+        ("calendar:event:readonly", "日程只读权限"),
+    ]
+
+    # Feishu Open Platform URLs
+    FEISHU_CONSOLE_URL = "https://open.feishu.cn/app"
+    FEISHU_PERMISSION_DOCS = "https://open.feishu.cn/document/server-docs/calendar-v4/calendar/list"
+
+    @classmethod
+    def get_setup_steps(cls) -> list[dict[str, str]]:
+        """Get step-by-step setup instructions."""
+        return [
+            {
+                "step": "1",
+                "title": "创建飞书应用",
+                "description": f"访问 {cls.FEISHU_CONSOLE_URL} 创建一个新的企业自建应用",
+                "action": "create_app",
+            },
+            {
+                "step": "2",
+                "title": "获取应用凭证",
+                "description": "在应用详情页获取 App ID 和 App Secret",
+                "action": "get_credentials",
+            },
+            {
+                "step": "3",
+                "title": "配置应用权限",
+                "description": "在「权限管理」中添加日历相关权限并申请审批",
+                "action": "configure_permissions",
+            },
+            {
+                "step": "4",
+                "title": "发布应用",
+                "description": "将应用发布到企业，确保有日历访问权限",
+                "action": "publish_app",
+            },
+            {
+                "step": "5",
+                "title": "配置插件",
+                "description": "在 config.yaml 中配置 app_id 和 app_secret",
+                "action": "configure_plugin",
+            },
+            {
+                "step": "6",
+                "title": "验证连接",
+                "description": "运行连接测试确保配置正确",
+                "action": "verify_connection",
+            },
+        ]
+
+    @classmethod
+    def get_permission_guide(cls) -> str:
+        """Get permission configuration guide."""
+        permissions_list = "\n".join(
+            f"  - {code}: {desc}" for code, desc in cls.REQUIRED_PERMISSIONS
+        )
+        return f"""
+飞书日历插件所需权限:
+{permissions_list}
+
+配置步骤:
+1. 登录飞书开放平台: {cls.FEISHU_CONSOLE_URL}
+2. 进入您的应用 -> 权限管理
+3. 搜索并添加上述权限
+4. 提交审批并等待管理员批准
+5. 发布应用版本
+
+权限文档: {cls.FEISHU_PERMISSION_DOCS}
+"""
+
+    @classmethod
+    def get_config_template(cls) -> str:
+        """Get configuration template."""
+        return """
+# 飞书日历插件配置模板
+plugins:
+  plugin_settings:
+    - plugin_name: "feishu-calendar"
+      enabled: true
+      settings:
+        # 必填: 飞书应用凭证 (建议使用环境变量)
+        app_id: "${FEISHU_APP_ID}"
+        app_secret: "${FEISHU_APP_SECRET}"
+        
+        # 要监控的日历ID列表 (primary 表示主日历)
+        calendar_ids:
+          - "primary"
+        
+        # 检查间隔 (分钟)
+        check_interval_minutes: 5
+        
+        # 提醒时间 (事件开始前多少分钟发送提醒)
+        reminder_minutes:
+          - 30
+          - 15
+          - 5
+        
+        # 发送通知的 Webhook 名称
+        webhook_name: "default"
+        
+        # 时区偏移 (小时, 默认东八区)
+        timezone_offset: 8
+        
+        # 每日摘要设置
+        daily_summary_enabled: true
+        daily_summary_hour: 8  # 早上8点发送
+"""
+
+    @classmethod
+    def get_env_template(cls) -> str:
+        """Get environment variables template."""
+        return """
+# 飞书日历插件环境变量配置
+# 将以下内容添加到 .env 文件或系统环境变量
+
+# 飞书应用凭证 (从飞书开放平台获取)
+FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxx
+FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+"""
+
+
 class FeishuCalendarPlugin(BasePlugin):
     """Plugin for monitoring Feishu calendar events and sending reminders.
 
@@ -534,6 +662,7 @@ class FeishuCalendarPlugin(BasePlugin):
     - Event details fetching
     - Daily/weekly agenda summaries
     - Beautiful card-based display
+    - **Automatic setup guidance and permission checking**
 
     Configuration in config.yaml:
         ```yaml
@@ -556,7 +685,8 @@ class FeishuCalendarPlugin(BasePlugin):
                 daily_summary_enabled: false
         ```
 
-    Run `feishu-webhook-bot plugin setup feishu-calendar` for interactive configuration.
+    Run `feishu-webhook-bot calendar setup` for interactive configuration.
+    Run `feishu-webhook-bot calendar test` to verify connection.
     """
 
     # Configuration schema for this plugin
@@ -729,6 +859,217 @@ class FeishuCalendarPlugin(BasePlugin):
         """Clean up when plugin is disabled."""
         self._reminded_events.clear()
         logger.info("Feishu Calendar plugin disabled")
+
+    # ========== Setup and Validation Methods ==========
+
+    def test_connection(self) -> dict[str, Any]:
+        """Test connection to Feishu Calendar API.
+
+        Returns:
+            Dict with test results including:
+            - success: bool
+            - token_valid: bool
+            - calendars_accessible: bool
+            - calendar_count: int
+            - error: Optional error message
+            - permissions: List of detected permissions
+        """
+        result: dict[str, Any] = {
+            "success": False,
+            "token_valid": False,
+            "calendars_accessible": False,
+            "calendar_count": 0,
+            "error": None,
+            "permissions": [],
+            "app_id": self._app_id[:8] + "..." if self._app_id else None,
+        }
+
+        # Check configuration
+        if not self._app_id or not self._app_secret:
+            result["error"] = "缺少 app_id 或 app_secret 配置"
+            return result
+
+        # Test token acquisition
+        try:
+            token = self._get_tenant_access_token()
+            if not token:
+                result["error"] = "无法获取访问令牌，请检查 app_id 和 app_secret"
+                return result
+            result["token_valid"] = True
+        except Exception as e:
+            result["error"] = f"获取令牌失败: {e}"
+            return result
+
+        # Test calendar access
+        try:
+            calendars = self.get_calendar_list(token)
+            result["calendars_accessible"] = True
+            result["calendar_count"] = len(calendars)
+            result["calendars"] = [
+                {"id": c.calendar_id, "name": c.summary, "type": c.type}
+                for c in calendars[:5]  # Limit to first 5 for display
+            ]
+        except Exception as e:
+            result["error"] = f"访问日历失败: {e}"
+            return result
+
+        # If we got here, everything works
+        result["success"] = True
+        return result
+
+    def get_setup_status(self) -> dict[str, Any]:
+        """Get current setup status and guidance.
+
+        Returns:
+            Dict with setup status and next steps
+        """
+        status: dict[str, Any] = {
+            "configured": False,
+            "ready": False,
+            "missing_config": [],
+            "next_steps": [],
+            "guide": CalendarSetupGuide,
+        }
+
+        # Check required configuration
+        if not self._app_id:
+            status["missing_config"].append("app_id")
+        if not self._app_secret:
+            status["missing_config"].append("app_secret")
+
+        if status["missing_config"]:
+            status["next_steps"] = CalendarSetupGuide.get_setup_steps()[:3]
+            return status
+
+        status["configured"] = True
+
+        # Test connection
+        test_result = self.test_connection()
+        if test_result["success"]:
+            status["ready"] = True
+            status["calendar_count"] = test_result["calendar_count"]
+        else:
+            status["error"] = test_result.get("error")
+            status["next_steps"] = [
+                {
+                    "step": "1",
+                    "title": "检查权限配置",
+                    "description": CalendarSetupGuide.get_permission_guide(),
+                }
+            ]
+
+        return status
+
+    def print_setup_guide(self) -> str:
+        """Get printable setup guide.
+
+        Returns:
+            Formatted setup guide string
+        """
+        lines = [
+            "=" * 60,
+            "飞书日历插件配置向导",
+            "=" * 60,
+            "",
+        ]
+
+        # Setup steps
+        for step in CalendarSetupGuide.get_setup_steps():
+            lines.append(f"步骤 {step['step']}: {step['title']}")
+            lines.append(f"  {step['description']}")
+            lines.append("")
+
+        # Configuration template
+        lines.append("-" * 60)
+        lines.append("配置模板:")
+        lines.append(CalendarSetupGuide.get_config_template())
+
+        # Environment variables
+        lines.append("-" * 60)
+        lines.append("环境变量模板:")
+        lines.append(CalendarSetupGuide.get_env_template())
+
+        # Permissions
+        lines.append("-" * 60)
+        lines.append(CalendarSetupGuide.get_permission_guide())
+
+        return "\n".join(lines)
+
+    @classmethod
+    def interactive_setup(cls) -> dict[str, Any]:
+        """Run interactive setup wizard.
+
+        Returns:
+            Dict with collected configuration values
+        """
+        config: dict[str, Any] = {}
+
+        print("\n" + "=" * 60)
+        print("飞书日历插件交互式配置向导")
+        print("=" * 60 + "\n")
+
+        # Step 1: App credentials
+        print("步骤 1/4: 应用凭证")
+        print("-" * 40)
+        print(f"请先在飞书开放平台创建应用: {CalendarSetupGuide.FEISHU_CONSOLE_URL}")
+        print()
+
+        app_id = input("请输入 App ID: ").strip()
+        if app_id:
+            config["app_id"] = app_id
+
+        app_secret = input("请输入 App Secret: ").strip()
+        if app_secret:
+            config["app_secret"] = app_secret
+
+        # Step 2: Calendar selection
+        print("\n步骤 2/4: 日历配置")
+        print("-" * 40)
+        calendar_ids_input = input(
+            "请输入要监控的日历ID (多个用逗号分隔, 默认 primary): "
+        ).strip()
+        if calendar_ids_input:
+            config["calendar_ids"] = [c.strip() for c in calendar_ids_input.split(",")]
+        else:
+            config["calendar_ids"] = ["primary"]
+
+        # Step 3: Reminder settings
+        print("\n步骤 3/4: 提醒设置")
+        print("-" * 40)
+        interval_input = input("检查间隔 (分钟, 默认 5): ").strip()
+        config["check_interval_minutes"] = int(interval_input) if interval_input else 5
+
+        reminder_input = input(
+            "提醒时间 (事件开始前分钟数, 多个用逗号分隔, 默认 15,5): "
+        ).strip()
+        if reminder_input:
+            config["reminder_minutes"] = [
+                int(r.strip()) for r in reminder_input.split(",")
+            ]
+        else:
+            config["reminder_minutes"] = [15, 5]
+
+        # Step 4: Additional settings
+        print("\n步骤 4/4: 其他设置")
+        print("-" * 40)
+        tz_input = input("时区偏移 (小时, 默认 8 表示东八区): ").strip()
+        config["timezone_offset"] = int(tz_input) if tz_input else 8
+
+        daily_summary = input("启用每日摘要? (y/N): ").strip().lower()
+        config["daily_summary_enabled"] = daily_summary == "y"
+
+        if config["daily_summary_enabled"]:
+            hour_input = input("每日摘要发送时间 (小时, 默认 8): ").strip()
+            config["daily_summary_hour"] = int(hour_input) if hour_input else 8
+
+        webhook_name = input("Webhook 名称 (默认 default): ").strip()
+        config["webhook_name"] = webhook_name if webhook_name else "default"
+
+        print("\n" + "=" * 60)
+        print("配置完成!")
+        print("=" * 60)
+
+        return config
 
     def _get_tenant_access_token(self) -> str | None:
         """Get tenant_access_token from Feishu API.

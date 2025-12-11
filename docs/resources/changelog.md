@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Improved plugin system with better lifecycle hooks
-- Enhanced automation engine with more action types
+- Improved automation engine with more action types
 - Better error handling and logging
 - Updated dependencies
 

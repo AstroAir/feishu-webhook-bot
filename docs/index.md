@@ -111,7 +111,7 @@ A production-ready framework for building powerful Feishu (Lark) webhook bots wi
 | ------------------------------------------------------------ | ------------------------------ |
 | [Configuration Reference](guides/configuration-reference.md) | Complete configuration options |
 | [YAML Configuration](guides/yaml-configuration-guide.md)     | YAML-specific features         |
-| [Enhanced YAML](guides/enhanced-yaml-features.md)            | Advanced configuration         |
+| [Advanced YAML](guides/advanced-yaml-features.md)            | Advanced configuration         |
 
 ### 🤖 AI Features
 
