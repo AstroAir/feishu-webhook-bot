@@ -523,6 +523,7 @@ class TestSecurityConfigIntegration:
     def test_get_secret_key_default_with_warning(self, caplog):
         """Test that using default secret key logs a warning."""
         import os
+
         from feishu_webhook_bot.auth.security import get_secret_key
 
         # Ensure no env var is set

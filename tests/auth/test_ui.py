@@ -19,7 +19,6 @@ sys.modules["nicegui"] = MagicMock()
 
 from feishu_webhook_bot.auth.ui import AuthUI
 
-
 # ==============================================================================
 # AuthUI Initialization Tests
 # ==============================================================================
@@ -194,9 +193,7 @@ class TestPasswordStrengthUpdate:
                         mock_label = MagicMock()
                         mock_progress = MagicMock()
 
-                        auth_ui._update_password_strength(
-                            "weak", mock_label, mock_progress
-                        )
+                        auth_ui._update_password_strength("weak", mock_label, mock_progress)
 
                         assert mock_label.text == "Weak password"
                         assert mock_progress.value == 0.2
@@ -217,9 +214,7 @@ class TestPasswordStrengthUpdate:
                         mock_label = MagicMock()
                         mock_progress = MagicMock()
 
-                        auth_ui._update_password_strength(
-                            "Medium1", mock_label, mock_progress
-                        )
+                        auth_ui._update_password_strength("Medium1", mock_label, mock_progress)
 
                         assert mock_label.text == "Medium password"
                         assert mock_progress.value == 0.5

@@ -5,6 +5,13 @@ This module provides message provider implementations for various platforms:
 - NapcatProvider: QQ messaging via Napcat OneBot11 protocol
 - FeishuOpenAPI: Full Feishu Open Platform API client
 - QQEventHandler: OneBot11 event parsing
+
+QQ Bot Features (via NapcatProvider):
+- Full OneBot11 API support
+- NapCat extended APIs (AI voice, poke, emoji reactions)
+- Group management (kick, ban, admin, etc.)
+- Message history and forwarding
+- Compatible with NapCatQQ, LLOneBot, Lagrange
 """
 
 from .feishu import FeishuProvider, FeishuProviderConfig
@@ -16,8 +23,24 @@ from .feishu_api import (
     UserToken,
     create_feishu_api,
 )
-from .qq_event_handler import QQEventHandler, QQEventMeta, create_qq_event_handler
-from .qq_napcat import NapcatProvider, NapcatProviderConfig
+from .qq_event_handler import (
+    QQEventHandler,
+    QQEventMeta,
+    QQEventType,
+    QQNoticeEvent,
+    QQRequestEvent,
+    create_qq_event_handler,
+)
+from .qq_napcat import (
+    NapcatProvider,
+    NapcatProviderConfig,
+    OneBotResponse,
+    OnlineStatus,
+    QQGroupInfo,
+    QQGroupMember,
+    QQMessage,
+    QQUserInfo,
+)
 
 __all__ = [
     # Feishu Provider
@@ -33,9 +56,18 @@ __all__ = [
     # QQ/Napcat Provider
     "NapcatProvider",
     "NapcatProviderConfig",
+    # QQ Data Models
+    "QQUserInfo",
+    "QQGroupInfo",
+    "QQGroupMember",
+    "QQMessage",
+    "OnlineStatus",
+    "OneBotResponse",
     # QQ Event Handler
     "QQEventHandler",
     "QQEventMeta",
+    "QQEventType",
+    "QQNoticeEvent",
+    "QQRequestEvent",
     "create_qq_event_handler",
 ]
-

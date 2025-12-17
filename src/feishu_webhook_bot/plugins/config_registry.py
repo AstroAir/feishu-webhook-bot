@@ -121,7 +121,7 @@ class ConfigSchemaRegistry:
 
         # 1. Check for config_schema class attribute
         if hasattr(plugin_class, "config_schema"):
-            schema = getattr(plugin_class, "config_schema")
+            schema = plugin_class.config_schema
             if isinstance(schema, type) and issubclass(schema, PluginConfigSchema):
                 return schema
             # It might be a classmethod
@@ -135,7 +135,7 @@ class ConfigSchemaRegistry:
 
         # 2. Check for get_config_schema method
         if hasattr(plugin_class, "get_config_schema"):
-            get_schema = getattr(plugin_class, "get_config_schema")
+            get_schema = plugin_class.get_config_schema
             if callable(get_schema):
                 try:
                     result = get_schema()
@@ -146,7 +146,7 @@ class ConfigSchemaRegistry:
 
         # 3. Check for ConfigSchema inner class
         if hasattr(plugin_class, "ConfigSchema"):
-            inner_class = getattr(plugin_class, "ConfigSchema")
+            inner_class = plugin_class.ConfigSchema
             if isinstance(inner_class, type) and issubclass(inner_class, PluginConfigSchema):
                 return inner_class
 

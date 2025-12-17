@@ -475,7 +475,6 @@ class FeishuWebhookClient:
             client.send_image_file("/path/to/image.png", "Screenshot")
             ```
         """
-        import os
         from pathlib import Path
 
         path = Path(file_path)
@@ -1057,7 +1056,9 @@ class CardBuilder:
                     ],
                 },
             ]
-            self.add_column_set(row2, flex_mode="bisect", horizontal_spacing="small", margin="4px 0 0 0")
+            self.add_column_set(
+                row2, flex_mode="bisect", horizontal_spacing="small", margin="4px 0 0 0"
+            )
 
         return self
 
@@ -1197,7 +1198,7 @@ class CardBuilder:
             "tag": "table",
             "columns": columns,
             "rows": [
-                {col["name"]: val for col, val in zip(columns, row)} for row in rows
+                {col["name"]: val for col, val in zip(columns, row, strict=False)} for row in rows
             ],
         }
         if row_height:

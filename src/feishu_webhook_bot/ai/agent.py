@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, ModelRetry, RunContext
@@ -20,6 +20,7 @@ from .exceptions import (
 )
 from .mcp_client import MCPClient
 from .multi_agent import AgentOrchestrator
+from .persona import PersonaManager
 from .retry import CircuitBreaker
 from .tools import (
     ToolRegistry,
@@ -30,6 +31,10 @@ from .tools import (
 )
 
 logger = get_logger("ai.agent")
+
+
+if TYPE_CHECKING:
+    from .conversation_store import PersistentConversationManager
 
 
 class AIResponse(BaseModel):
@@ -111,6 +116,12 @@ class AIAgent:
             config: AI configuration
         """
         self.config = config
+        self.persona_manager = PersonaManager(
+            personas=config.personas,
+            default_persona=config.default_persona,
+        )
+        self.conversation_store: PersistentConversationManager | None = None
+        self._toolsets: list[Any] = []
         self.conversation_manager = ConversationManager(
             timeout_minutes=config.conversation_timeout_minutes
         )
@@ -170,7 +181,13 @@ class AIAgent:
             config.multi_agent.enabled,
         )
 
-    def _create_agent(self) -> None:
+    def set_conversation_store(
+        self,
+        conversation_store: PersistentConversationManager | None,
+    ) -> None:
+        self.conversation_store = conversation_store
+
+    def _create_agent(self, toolsets: list[Any] | None = None) -> None:
         """Create the pydantic-ai agent with current configuration.
 
         This method is called during initialization and when switching models.
@@ -179,8 +196,9 @@ class AIAgent:
         # Determine output type based on configuration
         output_type = AIResponse if self.config.structured_output_enabled else str
 
-        # Prepare toolsets (MCP servers will be added if enabled)
-        toolsets: list[Any] = []
+        if toolsets is None:
+            toolsets = self._toolsets
+        self._toolsets = toolsets
 
         # Create model settings with temperature and max_tokens
         model_settings = None
@@ -196,10 +214,28 @@ class AIAgent:
             model=self.config.model,
             deps_type=AIAgentDependencies,
             output_type=output_type,
-            system_prompt=self.config.system_prompt,
             toolsets=toolsets,
             model_settings=model_settings,
         )
+
+        @self._agent.system_prompt
+        def persona_system_prompt(ctx: RunContext[AIAgentDependencies]) -> str:
+            persona_id = None
+            if self.conversation_store is not None:
+                try:
+                    persona_id = self.conversation_store.get_active_persona_id(ctx.deps.user_id)
+                except Exception as exc:
+                    logger.error(
+                        "Failed to get active persona for user %s: %s",
+                        ctx.deps.user_id,
+                        exc,
+                        exc_info=True,
+                    )
+
+            return self.persona_manager.build_system_prompt(
+                base_prompt=ctx.deps.config.system_prompt,
+                persona_id=persona_id,
+            )
 
     def _get_api_key_from_env(self, model: str) -> str | None:
         """Get API key from environment based on model provider.
@@ -605,18 +641,7 @@ class AIAgent:
                 # Get MCP servers and add them as toolsets to the agent
                 mcp_servers = self.mcp_client.get_mcp_servers()
                 if mcp_servers:
-                    # Add MCP servers to agent's toolsets
-                    # Note: We need to recreate the agent with the new toolsets
-                    # because pydantic-ai doesn't support dynamic toolset addition
-                    output_type = AIResponse if self.config.structured_output_enabled else str
-
-                    self._agent = Agent(
-                        model=self.config.model,
-                        deps_type=AIAgentDependencies,
-                        output_type=output_type,
-                        system_prompt=self.config.system_prompt,
-                        toolsets=mcp_servers,
-                    )
+                    self._create_agent(toolsets=mcp_servers)
 
                     # Re-register tools and validators
                     if self.config.tools_enabled:

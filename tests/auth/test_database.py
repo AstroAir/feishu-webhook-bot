@@ -10,6 +10,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import contextlib
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,7 +23,6 @@ from feishu_webhook_bot.auth.database import (
     init_database,
 )
 from feishu_webhook_bot.auth.models import Base, User
-
 
 # ==============================================================================
 # DatabaseManager Singleton Tests
@@ -105,12 +105,14 @@ class TestDatabaseManagerInitialization:
         with patch("feishu_webhook_bot.auth.database.create_engine") as mock_engine:
             mock_engine.return_value = MagicMock()
 
-            db = DatabaseManager("postgresql://user:pass@localhost/db")
+            DatabaseManager("postgresql://user:pass@localhost/db")
 
             # Should not include check_same_thread for non-SQLite
             call_args = mock_engine.call_args
-            assert "connect_args" not in call_args.kwargs or \
-                   "check_same_thread" not in call_args.kwargs.get("connect_args", {})
+            assert (
+                "connect_args" not in call_args.kwargs
+                or "check_same_thread" not in call_args.kwargs.get("connect_args", {})
+            )
 
 
 # ==============================================================================
@@ -223,9 +225,8 @@ class TestSessionManagement:
         db = DatabaseManager("sqlite:///:memory:")
         db._session_factory = None
 
-        with pytest.raises(RuntimeError, match="not initialized"):
-            with db.get_session():
-                pass
+        with pytest.raises(RuntimeError, match="not initialized"), db.get_session():
+            pass
 
     def test_get_session_factory(self, db):
         """Test get_session_factory returns factory."""
@@ -265,7 +266,7 @@ class TestHelperFunctions:
         DatabaseManager._instance = None
 
         with patch.object(DatabaseManager, "create_tables") as mock_create:
-            db = init_database()
+            init_database()
             mock_create.assert_called_once()
 
     def test_get_db_generator(self):
@@ -281,10 +282,8 @@ class TestHelperFunctions:
         assert session is not None
 
         # Clean up
-        try:
+        with contextlib.suppress(StopIteration):
             next(gen)
-        except StopIteration:
-            pass
 
 
 # ==============================================================================
@@ -370,7 +369,7 @@ class TestDatabaseIntegration:
 
         # Second session should not see uncommitted user
         with db.get_session() as session2:
-            users = session2.query(User).filter_by(email="isolated@example.com").all()
+            session2.query(User).filter_by(email="isolated@example.com").all()
             # Depending on isolation level, may or may not see
             # For SQLite default, should not see uncommitted
 

@@ -13,7 +13,6 @@ The validation utilities help ensure configuration correctness
 before the bot starts.
 """
 
-import json
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -77,7 +76,7 @@ def demo_save_schema_to_file() -> None:
 
         # Generate and save schema
         print(f"Saving schema to: {schema_path}")
-        schema = generate_json_schema(output_path=schema_path)
+        generate_json_schema(output_path=schema_path)
 
         # Verify file was created
         print(f"File exists: {schema_path.exists()}")
@@ -87,7 +86,7 @@ def demo_save_schema_to_file() -> None:
         with open(schema_path) as f:
             content = f.read()
 
-        print(f"\nFirst 500 characters of schema:")
+        print("\nFirst 500 characters of schema:")
         print("-" * 40)
         print(content[:500])
         print("-" * 40)
@@ -139,7 +138,7 @@ def demo_validate_yaml_config() -> None:
 
         is_valid, errors = validate_yaml_config(invalid_config_path)
         print(f"Valid: {is_valid}")
-        print(f"Errors:")
+        print("Errors:")
         for error in errors:
             print(f"  - {error}")
 
@@ -151,7 +150,7 @@ def demo_validate_yaml_config() -> None:
 
         is_valid, errors = validate_yaml_config(syntax_error_path)
         print(f"Valid: {is_valid}")
-        print(f"Errors:")
+        print("Errors:")
         for error in errors:
             print(f"  - {error[:80]}...")
 
@@ -159,7 +158,7 @@ def demo_validate_yaml_config() -> None:
         print("\n--- Test 4: Non-existent file ---")
         is_valid, errors = validate_yaml_config(Path(tmpdir) / "nonexistent.yaml")
         print(f"Valid: {is_valid}")
-        print(f"Errors:")
+        print("Errors:")
         for error in errors:
             print(f"  - {error}")
 
@@ -194,7 +193,7 @@ def demo_validate_config_dict() -> None:
     }
     is_valid, errors = validate_config_dict(invalid_type_dict)
     print(f"Valid: {is_valid}")
-    print(f"Errors:")
+    print("Errors:")
     for error in errors:
         print(f"  - {error}")
 
@@ -213,16 +212,14 @@ def demo_validate_config_dict() -> None:
     }
     is_valid, errors = validate_config_dict(invalid_nested_dict)
     print(f"Valid: {is_valid}")
-    print(f"Errors:")
+    print("Errors:")
     for error in errors:
         print(f"  - {error}")
 
     # Test 4: Extra unknown fields (should be allowed)
     print("\n--- Test 4: Extra unknown fields ---")
     extra_fields_dict = {
-        "webhooks": [
-            {"url": "https://example.com/webhook", "name": "test"}
-        ],
+        "webhooks": [{"url": "https://example.com/webhook", "name": "test"}],
         "custom_field": "custom_value",  # Extra field
     }
     is_valid, errors = validate_config_dict(extra_fields_dict)
@@ -243,9 +240,7 @@ def demo_comprehensive_validation() -> None:
         {
             "name": "Minimal valid config",
             "config": {
-                "webhooks": [
-                    {"url": "https://example.com/webhook", "name": "default"}
-                ],
+                "webhooks": [{"url": "https://example.com/webhook", "name": "default"}],
             },
         },
         {
@@ -287,9 +282,7 @@ def demo_comprehensive_validation() -> None:
         {
             "name": "Invalid URL format",
             "config": {
-                "webhooks": [
-                    {"url": "not_a_valid_url", "name": "invalid"}
-                ],
+                "webhooks": [{"url": "not_a_valid_url", "name": "invalid"}],
             },
         },
         {
@@ -305,7 +298,7 @@ def demo_comprehensive_validation() -> None:
         is_valid, errors = validate_config_dict(test["config"])
         print(f"Valid: {is_valid}")
         if errors:
-            print(f"Errors:")
+            print("Errors:")
             for error in errors[:3]:  # Show first 3 errors
                 print(f"  - {error}")
             if len(errors) > 3:
@@ -335,7 +328,7 @@ def demo_schema_for_ide() -> None:
     # Generate example schema
     with tempfile.TemporaryDirectory() as tmpdir:
         schema_path = Path(tmpdir) / "config-schema.json"
-        schema = generate_json_schema(schema_path)
+        generate_json_schema(schema_path)
 
         # Show how to reference in YAML
         print("\n--- Example YAML with schema reference ---")
@@ -379,15 +372,11 @@ def demo_custom_validation() -> None:
                 errors.append(f"webhooks[{i}].url: Must use HTTPS")
 
             if "feishu.cn" not in url and "larksuite.com" not in url:
-                errors.append(
-                    f"webhooks[{i}].url: Should be a Feishu/Lark webhook URL"
-                )
+                errors.append(f"webhooks[{i}].url: Should be a Feishu/Lark webhook URL")
 
             # Check for secret if using signed webhooks
             if "hook/v2" in url and not webhook.get("secret"):
-                errors.append(
-                    f"webhooks[{i}]: v2 webhooks should have a secret configured"
-                )
+                errors.append(f"webhooks[{i}]: v2 webhooks should have a secret configured")
 
         return len(errors) == 0, errors
 
@@ -452,9 +441,7 @@ def demo_custom_validation() -> None:
         {
             "name": "HTTP URL (should warn)",
             "config": {
-                "webhooks": [
-                    {"url": "http://example.com/webhook", "name": "insecure"}
-                ],
+                "webhooks": [{"url": "http://example.com/webhook", "name": "insecure"}],
             },
         },
         {
@@ -471,9 +458,7 @@ def demo_custom_validation() -> None:
         {
             "name": "Unknown timezone",
             "config": {
-                "webhooks": [
-                    {"url": "https://open.feishu.cn/webhook", "name": "test"}
-                ],
+                "webhooks": [{"url": "https://open.feishu.cn/webhook", "name": "test"}],
                 "scheduler": {"timezone": "Mars/Olympus"},
             },
         },
@@ -484,7 +469,7 @@ def demo_custom_validation() -> None:
         is_valid, errors = full_validation(test["config"])
         print(f"Valid: {is_valid}")
         if errors:
-            print(f"Issues:")
+            print("Issues:")
             for error in errors:
                 print(f"  - {error}")
 
@@ -518,7 +503,7 @@ def demo_real_world_workflow() -> None:
 
             # Check file extension
             if config_path.suffix not in [".yaml", ".yml"]:
-                errors.append(f"Warning: Expected .yaml or .yml extension")
+                errors.append("Warning: Expected .yaml or .yml extension")
 
             # Validate YAML
             is_valid, yaml_errors = validate_yaml_config(config_path)
@@ -545,7 +530,7 @@ def demo_real_world_workflow() -> None:
             if is_valid:
                 print("Status: VALID")
                 if config:
-                    print(f"\nConfiguration Summary:")
+                    print("\nConfiguration Summary:")
                     print(f"  Webhooks: {len(config.webhooks)}")
                     print(f"  Scheduler enabled: {config.scheduler.enabled}")
                     print(f"  Plugins enabled: {config.plugins.enabled}")
@@ -579,9 +564,7 @@ def demo_real_world_workflow() -> None:
                 "webhooks": [{"name": "missing_url"}],
             },
             "config.txt": {  # Wrong extension
-                "webhooks": [
-                    {"url": "https://example.com/webhook", "name": "test"}
-                ],
+                "webhooks": [{"url": "https://example.com/webhook", "name": "test"}],
             },
         }
 

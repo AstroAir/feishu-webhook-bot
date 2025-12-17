@@ -28,7 +28,6 @@ from feishu_webhook_bot.core.message_tracker import (
     TrackedMessage,
 )
 
-
 # ==============================================================================
 # MessageStatus Tests
 # ==============================================================================
@@ -169,7 +168,7 @@ class TestMessageTrackerInitialization:
 
     @pytest.mark.skipif(
         platform.system() == "Windows",
-        reason="Windows file locking prevents cleanup of temp db files"
+        reason="Windows file locking prevents cleanup of temp db files",
     )
     def test_tracker_with_database(self):
         """Test MessageTracker with database persistence."""
@@ -578,7 +577,7 @@ class TestDatabasePersistence:
 
     @pytest.mark.skipif(
         platform.system() == "Windows",
-        reason="Windows file locking prevents cleanup of temp db files"
+        reason="Windows file locking prevents cleanup of temp db files",
     )
     def test_save_and_load(self):
         """Test saving and loading messages from database."""
@@ -601,7 +600,7 @@ class TestDatabasePersistence:
 
     @pytest.mark.skipif(
         platform.system() == "Windows",
-        reason="Windows file locking prevents cleanup of temp db files"
+        reason="Windows file locking prevents cleanup of temp db files",
     )
     def test_load_with_limit(self):
         """Test loading with limit."""

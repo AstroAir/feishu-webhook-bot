@@ -8,6 +8,7 @@ This example shows how to:
 """
 
 import asyncio
+
 from feishu_webhook_bot.ai.config import MCPConfig
 from feishu_webhook_bot.ai.mcp_client import MCPClient
 
@@ -115,10 +116,10 @@ async def example_call_tool():
         )
 
         if result["success"]:
-            print(f"Tool execution succeeded!")
+            print("Tool execution succeeded!")
             print(f"Result: {result['result']}")
         else:
-            print(f"Tool execution failed!")
+            print("Tool execution failed!")
             print(f"Error: {result['error']}")
 
     finally:

@@ -14,12 +14,12 @@ The logging system provides consistent logging across all bot components.
 """
 
 import logging
-import sys
 import tempfile
 import time
 from pathlib import Path
 
 from feishu_webhook_bot.core import LoggingConfig, get_logger, setup_logging
+
 
 # =============================================================================
 # Demo 1: Basic Logging Setup
@@ -128,7 +128,7 @@ def demo_logging_with_context() -> None:
 
     # Logging exceptions
     try:
-        result = 1 / 0
+        pass
     except ZeroDivisionError:
         logger.exception("An error occurred during calculation")
 
@@ -381,7 +381,7 @@ def demo_real_world_pattern() -> None:
                 )
                 return True
 
-            except Exception as e:
+            except Exception:
                 self.logger.exception(f"Failed to send message to {target}")
                 return False
 
@@ -398,9 +398,7 @@ def demo_real_world_pattern() -> None:
                 else:
                     results["failed"] += 1
 
-            self.logger.info(
-                f"Batch complete: {results['sent']} sent, {results['failed']} failed"
-            )
+            self.logger.info(f"Batch complete: {results['sent']} sent, {results['failed']} failed")
             return results
 
     # Use the service

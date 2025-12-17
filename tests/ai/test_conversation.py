@@ -94,6 +94,7 @@ class TestConversationStateMessages:
 
         # Small delay to ensure timestamp difference
         import time
+
         time.sleep(0.01)
 
         state.add_messages([Mock()])
@@ -140,8 +141,7 @@ class TestConversationStateClear:
     def test_clear_resets_all(self):
         """Test clear resets messages, context, and summary."""
         state = ConversationState("user123")
-        state.add_messages(
-            [Mock(), Mock()], input_tokens=100, output_tokens=50)
+        state.add_messages([Mock(), Mock()], input_tokens=100, output_tokens=50)
         state.context["key"] = "value"
         state.summary = "Test summary"
 
@@ -158,6 +158,7 @@ class TestConversationStateClear:
         original = state.last_activity
 
         import time
+
         time.sleep(0.01)
 
         state.clear()
@@ -186,8 +187,7 @@ class TestConversationStateExpiration:
         """Test expiration at exact boundary."""
         state = ConversationState("user123")
         # Set last_activity to exactly 30 minutes ago
-        state.last_activity = datetime.now(
-            UTC) - timedelta(minutes=30, seconds=1)
+        state.last_activity = datetime.now(UTC) - timedelta(minutes=30, seconds=1)
 
         assert state.is_expired(timeout_minutes=30) is True
 
@@ -228,8 +228,7 @@ class TestConversationStateAnalytics:
     def test_get_analytics(self):
         """Test getting conversation analytics."""
         state = ConversationState("user123")
-        state.add_messages(
-            [Mock(), Mock()], input_tokens=100, output_tokens=50)
+        state.add_messages([Mock(), Mock()], input_tokens=100, output_tokens=50)
         state.context["key"] = "value"
         state.summary = "Test"
 
@@ -318,8 +317,7 @@ class TestConversationManagerCreation:
 
     def test_manager_creation_custom(self):
         """Test ConversationManager with custom settings."""
-        manager = ConversationManager(
-            timeout_minutes=60, cleanup_interval_seconds=600)
+        manager = ConversationManager(timeout_minutes=60, cleanup_interval_seconds=600)
 
         assert manager._timeout_minutes == 60
         assert manager._cleanup_interval == 600
@@ -452,10 +450,12 @@ class TestConversationManagerExportImport:
     async def test_import_conversation(self):
         """Test importing a conversation from JSON."""
         manager = ConversationManager()
-        json_data = json.dumps({
-            "user_id": "imported_user",
-            "context": {"imported": True},
-        })
+        json_data = json.dumps(
+            {
+                "user_id": "imported_user",
+                "context": {"imported": True},
+            }
+        )
 
         user_id = await manager.import_conversation(json_data)
 
@@ -511,8 +511,7 @@ class TestConversationManagerAnalytics:
         manager = ConversationManager()
 
         conv1 = await manager.get_conversation("user1")
-        conv1.add_messages(
-            [Mock(), Mock()], input_tokens=100, output_tokens=50)
+        conv1.add_messages([Mock(), Mock()], input_tokens=100, output_tokens=50)
 
         conv2 = await manager.get_conversation("user2")
         conv2.add_messages([Mock()], input_tokens=50, output_tokens=25)
@@ -744,7 +743,7 @@ class TestConversationManagerEdgeCases:
         conv1 = await manager.get_conversation("user1")
         conv1.set_summary("Summary 1")
 
-        conv2 = await manager.get_conversation("user2")
+        await manager.get_conversation("user2")
         # No summary for conv2
 
         stats = await manager.get_stats()
@@ -778,10 +777,12 @@ class TestConversationManagerEdgeCases:
         existing.context["old"] = True
 
         # Import new conversation
-        json_data = json.dumps({
-            "user_id": "user123",
-            "context": {"new": True},
-        })
+        json_data = json.dumps(
+            {
+                "user_id": "user123",
+                "context": {"new": True},
+            }
+        )
 
         await manager.import_conversation(json_data)
 
@@ -814,7 +815,7 @@ class TestConversationManagerEdgeCases:
         """Test manager with zero timeout (immediate expiration)."""
         manager = ConversationManager(timeout_minutes=0)
 
-        conv = await manager.get_conversation("user123")
+        await manager.get_conversation("user123")
         # Conversation is immediately expired
 
         # Wait a tiny bit to ensure expiration

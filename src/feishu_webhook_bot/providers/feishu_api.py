@@ -261,8 +261,7 @@ class FeishuOpenAPI:
         """Ensure HTTP client is initialized."""
         if self._client is None:
             raise RuntimeError(
-                "FeishuOpenAPI client not connected. "
-                "Use 'async with' or call connect() first."
+                "FeishuOpenAPI client not connected. Use 'async with' or call connect() first."
             )
         return self._client
 
@@ -283,11 +282,7 @@ class FeishuOpenAPI:
             FeishuAPIError: If token request fails.
         """
         async with self._token_lock:
-            if (
-                not force_refresh
-                and self._tenant_token
-                and not self._tenant_token.is_expired()
-            ):
+            if not force_refresh and self._tenant_token and not self._tenant_token.is_expired():
                 return self._tenant_token.token
 
             logger.debug("Requesting new tenant_access_token")
@@ -333,11 +328,7 @@ class FeishuOpenAPI:
             FeishuAPIError: If token request fails.
         """
         async with self._token_lock:
-            if (
-                not force_refresh
-                and self._app_token
-                and not self._app_token.is_expired()
-            ):
+            if not force_refresh and self._app_token and not self._app_token.is_expired():
                 return self._app_token.token
 
             logger.debug("Requesting new app_access_token")

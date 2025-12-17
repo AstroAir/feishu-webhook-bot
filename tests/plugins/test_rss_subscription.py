@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from anyio import from_thread, to_thread
+
+pytest.importorskip("feedparser")
 
 from feishu_webhook_bot.core.config import BotConfig
 from feishu_webhook_bot.plugins.rss_subscription import (
-    FeedCheckResult,
     RSSConfigSchema,
     RSSEntry,
     RSSFeed,
@@ -399,9 +398,7 @@ class TestAggregation:
         assert len(plugin._aggregation_buffer["default"]) == 1
         assert plugin._aggregation_buffer["default"][0] == sample_entry
 
-    def test_should_flush_aggregation_empty(
-        self, plugin: RSSSubscriptionPlugin
-    ) -> None:
+    def test_should_flush_aggregation_empty(self, plugin: RSSSubscriptionPlugin) -> None:
         """Test flush check with empty buffer."""
         assert plugin._should_flush_aggregation() is False
 
@@ -444,9 +441,7 @@ class TestCardBuilding:
         assert "header" in card
         assert "elements" in card
 
-    def test_build_aggregated_card_empty(
-        self, plugin: RSSSubscriptionPlugin
-    ) -> None:
+    def test_build_aggregated_card_empty(self, plugin: RSSSubscriptionPlugin) -> None:
         """Test building aggregated card with no entries."""
         card = plugin.build_aggregated_card([])
 
@@ -507,9 +502,7 @@ class TestCommandHandlers:
         assert "/rss add" in result.response
         assert "/rss remove" in result.response
 
-    async def test_handle_rss_command_unknown(
-        self, plugin: RSSSubscriptionPlugin
-    ) -> None:
+    async def test_handle_rss_command_unknown(self, plugin: RSSSubscriptionPlugin) -> None:
         """Test handling unknown subcommand."""
         message = MagicMock()
         result = await plugin.handle_rss_command(message, ["unknown"])
@@ -526,9 +519,7 @@ class TestCommandHandlers:
 class TestPersistence:
     """Tests for persistence functionality."""
 
-    def test_save_and_load_history(
-        self, plugin: RSSSubscriptionPlugin, tmp_path
-    ) -> None:
+    def test_save_and_load_history(self, plugin: RSSSubscriptionPlugin, tmp_path) -> None:
         """Test saving and loading history."""
         plugin._storage_path = tmp_path / "history.json"
 

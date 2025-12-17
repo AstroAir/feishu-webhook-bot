@@ -158,9 +158,7 @@ class ConfigValidator:
             results.append(self.validate_plugin(plugin_name))
         return results
 
-    def generate_startup_report(
-        self, plugins: dict[str, BasePlugin]
-    ) -> StartupValidationReport:
+    def generate_startup_report(self, plugins: dict[str, BasePlugin]) -> StartupValidationReport:
         """Generate comprehensive validation report at startup.
 
         This method validates all loaded plugins and generates a report
@@ -197,12 +195,8 @@ class ConfigValidator:
                     field_list = ", ".join(result.missing_required[:3])
                     if len(result.missing_required) > 3:
                         field_list += f" (and {len(result.missing_required) - 3} more)"
-                    suggestions.append(
-                        f"Plugin '{name}' missing required fields: {field_list}"
-                    )
-                    suggestions.append(
-                        f"  -> Run: feishu-webhook-bot plugin setup {name}"
-                    )
+                    suggestions.append(f"Plugin '{name}' missing required fields: {field_list}")
+                    suggestions.append(f"  -> Run: feishu-webhook-bot plugin setup {name}")
 
         all_valid = not need_config
 

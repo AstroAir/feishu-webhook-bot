@@ -13,7 +13,6 @@ from datetime import UTC, datetime, timedelta
 
 from feishu_webhook_bot.auth.models import Base, User
 
-
 # ==============================================================================
 # User Model Creation Tests
 # ==============================================================================

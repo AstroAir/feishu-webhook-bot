@@ -66,6 +66,9 @@ dev = [
     "pytest>=8.4",
     "pytest-cov>=5.0",
     "pytest-mock>=3.14",
+    "pytest-asyncio>=0.24.0",
+    "pytest-anyio>=0.0.0",
+    "anyio>=4.0",
     "ruff>=0.6",
     "black>=24.8",
     "mypy>=1.11",
@@ -83,8 +86,11 @@ dev = [
 testpaths = ["tests"]
 addopts = "-ra"
 pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "slow: marks tests as slow (deselect with -m \"not slow\")",
+    "asyncio: marks tests as async",
 ]
 
 [tool.ruff]
@@ -93,7 +99,20 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-ignore = ["B008"]  # Allow function calls in default arguments (FastAPI Depends pattern)
+ignore = [
+    "B008",   # Allow function calls in default arguments (FastAPI Depends pattern)
+    "B017",   # Allow pytest.raises(Exception) in tests
+    "B027",   # Allow empty methods in abstract base class without @abstractmethod
+    "E501",   # Line too long - handled by formatter
+    "SIM102", # Allow nested if statements for readability
+    "SIM105", # Allow try-except-pass for clarity
+    "SIM117", # Allow nested with statements for readability
+    "UP038",  # Allow isinstance with tuple (more readable than union)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E741", "E402"]  # Allow ambiguous variable names and late imports in tests
+"examples/*" = ["B007", "B018"]  # Allow unused loop variables and useless expressions in examples
 
 [tool.black]
 line-length = 100
@@ -110,3 +129,26 @@ check_untyped_defs = true
 show_error_codes = true
 ignore_missing_imports = true
 exclude = ["tests/", "examples/", "plugins/"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "examples", "plugins", ".venv"]
+skips = [
+    "B101",  # assert usage (ok in production code for invariants)
+    "B102",  # exec_used (legitimate in task executor)
+    "B104",  # bind_all_interfaces (legitimate in server)
+    "B105",  # hardcoded_password_string (false positives)
+    "B106",  # hardcoded_password_funcarg (false positives)
+    "B110",  # try_except_pass (legitimate error suppression)
+    "B307",  # eval usage (restricted builtins in automation)
+    "B311",  # random for non-crypto (ok for non-security uses)
+    "B324",  # MD5 for cache keys (not security-sensitive)
+    "B404",  # subprocess import (needed for OS operations)
+    "B602",  # shell=True (needed for Windows start command)
+    "B603",  # subprocess without shell (legitimate use)
+    "B607",  # partial path (system commands like open, xdg-open)
+    "B608",  # SQL injection (using parameterized queries)
+]
+
+[tool.codespell]
+skip = "*.lock,*.min.js,*.min.css,.git,uv.lock"
+ignore-words = ".codespell-ignore"

@@ -62,8 +62,7 @@ class FeishuPermissionChecker:
     }
 
     AUTH_URL_TEMPLATE = (
-        "https://open.feishu.cn/app/{app_id}/auth"
-        "?q={permissions}&op_from=openapi&token_type=tenant"
+        "https://open.feishu.cn/app/{app_id}/auth?q={permissions}&op_from=openapi&token_type=tenant"
     )
 
     @classmethod
@@ -312,9 +311,9 @@ class FeishuImageUploader:
         # Try to parse JSON even for error responses
         try:
             result = response.json()
-        except Exception:
+        except Exception as err:
             response.raise_for_status()
-            raise FeishuImageUploaderError(f"{operation} failed: Unable to parse response")
+            raise FeishuImageUploaderError(f"{operation} failed: Unable to parse response") from err
 
         code = result.get("code", 0)
 

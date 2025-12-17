@@ -15,8 +15,9 @@ Key features:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
@@ -176,13 +177,18 @@ class ChatController:
         self.config = config or ChatConfig()
         self.conversation_store = conversation_store
 
+        if self.ai_agent is not None and hasattr(self.ai_agent, "set_conversation_store"):
+            self.ai_agent.set_conversation_store(conversation_store)
+
+        if self.command_handler is not None and hasattr(self.command_handler, "conversation_store"):
+            self.command_handler.conversation_store = conversation_store
+
         self._middlewares: list[MessageMiddleware] = []
         self._message_queue: asyncio.Queue[IncomingMessage] = asyncio.Queue()
         self._processing = False
 
         logger.debug(
-            "ChatController initialized: ai_agent=%s, command_handler=%s, "
-            "providers=%s, config=%s",
+            "ChatController initialized: ai_agent=%s, command_handler=%s, providers=%s, config=%s",
             ai_agent is not None,
             command_handler is not None,
             list(self.providers.keys()),
@@ -240,9 +246,7 @@ class ChatController:
             TypeError: If provider is not a BaseProvider instance
         """
         if not isinstance(provider, BaseProvider):
-            raise TypeError(
-                f"Provider must be BaseProvider instance, got {type(provider)}"
-            )
+            raise TypeError(f"Provider must be BaseProvider instance, got {type(provider)}")
         self.providers[name] = provider
         logger.info("Added provider: %s", name)
 
@@ -380,9 +384,7 @@ class ChatController:
                 if response:
                     # Truncate if too long
                     if len(response) > self.config.max_message_length:
-                        response = (
-                            response[: self.config.max_message_length - 3] + "..."
-                        )
+                        response = response[: self.config.max_message_length - 3] + "..."
                     await self.send_reply(message, response)
                     logger.debug("AI response sent")
             except Exception as e:
@@ -393,15 +395,14 @@ class ChatController:
                 )
                 await self._send_error_response(ctx)
         else:
-            logger.warning(
-                "No AI agent configured and message is not a command, ignoring"
-            )
+            logger.warning("No AI agent configured and message is not a command, ignoring")
 
     async def send_reply(
         self,
         original: IncomingMessage,
         reply: str,
         reply_in_thread: bool = True,
+        quote_reply: bool = False,
     ) -> SendResult | None:
         """Send reply to the original message.
 
@@ -412,6 +413,7 @@ class ChatController:
             original: Original incoming message
             reply: Reply text to send
             reply_in_thread: Whether to reply in thread (if supported)
+            quote_reply: Whether to quote the original message (QQ only)
 
         Returns:
             SendResult with operation status, or None if provider not found
@@ -435,11 +437,7 @@ class ChatController:
             # Determine target based on platform and chat type
             if original.platform == "feishu":
                 # For Feishu, prefer reply API if message ID is available
-                if (
-                    hasattr(provider, "reply_to_message")
-                    and original.id
-                    and reply_in_thread
-                ):
+                if hasattr(provider, "reply_to_message") and original.id and reply_in_thread:
                     try:
                         return await provider.reply_to_message(original.id, reply)
                     except Exception as e:
@@ -457,6 +455,22 @@ class ChatController:
                     target = f"group:{original.chat_id}"
                 else:
                     target = f"private:{original.sender_id}"
+
+                # Use quote reply if requested and provider supports it
+                if quote_reply and original.id and hasattr(provider, "send_reply"):
+                    try:
+                        result = provider.send_reply(int(original.id), reply, target)
+                        if result.success:
+                            logger.info(
+                                "Quote reply sent successfully: %s",
+                                result.message_id,
+                            )
+                        return result
+                    except Exception as e:
+                        logger.debug(
+                            "Quote reply failed, falling back to direct send: %s",
+                            e,
+                        )
 
             else:
                 # Generic fallback
@@ -481,6 +495,149 @@ class ChatController:
                 e,
                 exc_info=True,
             )
+            return None
+
+    async def send_rich_reply(
+        self,
+        original: IncomingMessage,
+        text: str | None = None,
+        image: str | None = None,
+        at_sender: bool = False,
+        quote_reply: bool = False,
+    ) -> SendResult | None:
+        """Send rich reply with multimedia content (QQ enhanced).
+
+        Supports sending text with images, @mentions, and quote replies.
+        Falls back to text-only for platforms that don't support rich content.
+
+        Args:
+            original: Original incoming message
+            text: Text content to send
+            image: Image URL or file path to send
+            at_sender: Whether to @mention the original sender (group only)
+            quote_reply: Whether to quote the original message
+
+        Returns:
+            SendResult with operation status, or None if provider not found
+        """
+        provider = self.get_provider(original.platform)
+        if not provider:
+            logger.error(
+                "No provider found for platform: %s",
+                original.platform,
+            )
+            return None
+
+        try:
+            if original.platform == "qq":
+                # Build QQ target
+                if original.chat_type == "group":
+                    target = f"group:{original.chat_id}"
+                else:
+                    target = f"private:{original.sender_id}"
+
+                # Send @mention + text with optional quote
+                if at_sender and original.chat_type == "group":
+                    if hasattr(provider, "send_at"):
+                        # Use send_at for @mention
+                        at_text = text or ""
+                        result = provider.send_at(
+                            int(original.sender_id),
+                            target,
+                            at_text,
+                        )
+                        if not result.success:
+                            logger.warning("@mention failed: %s", result.error)
+                    elif text:
+                        # Fallback: prepend @mention in text
+                        text = f"@{original.sender_name} {text}"
+
+                # Send quote reply if requested
+                if quote_reply and original.id and hasattr(provider, "send_reply"):
+                    result = provider.send_reply(
+                        int(original.id),
+                        text or "",
+                        target,
+                    )
+                    if result.success:
+                        logger.debug("Quote reply sent")
+                    # Continue to send image if present
+
+                # Send image if provided
+                if image and hasattr(provider, "send_image"):
+                    img_result = provider.send_image(image, target)
+                    if img_result.success:
+                        logger.debug("Image sent successfully")
+                    else:
+                        logger.warning("Image send failed: %s", img_result.error)
+                    if not text and not quote_reply:
+                        return img_result
+
+                # Send text if not already sent via quote
+                if text and not quote_reply:
+                    return provider.send_text(text, target)
+
+                return SendResult.ok("rich_reply")
+
+            else:
+                # Fallback for other platforms - text only
+                if text:
+                    return await self.send_reply(original, text)
+                return None
+
+        except Exception as e:
+            logger.error(
+                "Exception sending rich reply to %s: %s",
+                original.platform,
+                e,
+                exc_info=True,
+            )
+            return None
+
+    async def send_image_reply(
+        self,
+        original: IncomingMessage,
+        image_url: str,
+        caption: str | None = None,
+    ) -> SendResult | None:
+        """Send image reply to the original message.
+
+        Args:
+            original: Original incoming message
+            image_url: Image URL or file path
+            caption: Optional caption text
+
+        Returns:
+            SendResult with operation status
+        """
+        provider = self.get_provider(original.platform)
+        if not provider:
+            return None
+
+        try:
+            if original.platform == "qq":
+                if original.chat_type == "group":
+                    target = f"group:{original.chat_id}"
+                else:
+                    target = f"private:{original.sender_id}"
+
+                # Send caption first if provided
+                if caption:
+                    provider.send_text(caption, target)
+
+                # Send image
+                if hasattr(provider, "send_image"):
+                    return provider.send_image(image_url, target)
+
+            elif original.platform == "feishu":
+                target = original.chat_id or original.sender_id
+                if hasattr(provider, "send_image"):
+                    return provider.send_image(image_url, target)
+
+            return SendResult.fail("Image sending not supported for this platform")
+
+        except Exception as e:
+            logger.error("Exception sending image: %s", e, exc_info=True)
             return None
 
     async def _send_error_response(self, ctx: ChatContext) -> None:
@@ -571,8 +728,7 @@ class ChatController:
 
                     if result.success:
                         logger.debug(
-                            "Broadcast successful: platform=%s, target=%s, "
-                            "message_id=%s",
+                            "Broadcast successful: platform=%s, target=%s, message_id=%s",
                             platform,
                             target,
                             result.message_id,
@@ -593,9 +749,7 @@ class ChatController:
                         e,
                         exc_info=True,
                     )
-                    results[platform].append(
-                        SendResult.fail(f"Exception: {str(e)}")
-                    )
+                    results[platform].append(SendResult.fail(f"Exception: {str(e)}"))
 
         return results
 
@@ -620,6 +774,7 @@ def create_chat_controller(
     providers: dict[str, BaseProvider] | None = None,
     config: ChatConfig | None = None,
     available_models: list[str] | None = None,
+    conversation_store: PersistentConversationManager | None = None,
 ) -> ChatController:
     """Factory function to create a chat controller with command handler.
 
@@ -659,14 +814,19 @@ def create_chat_controller(
     """
     from ..ai.commands import CommandHandler
 
-    # Create command handler
+    # Get QQ provider for QQ-specific commands
+    qq_provider = None
+    if providers:
+        qq_provider = providers.get("napcat") or providers.get("qq")
+
+    # Create command handler with QQ provider for QQ-specific commands
     command_handler = CommandHandler(
         ai_agent=ai_agent,
-        conversation_manager=(
-            ai_agent.conversation_manager if ai_agent else None
-        ),
+        conversation_manager=(ai_agent.conversation_manager if ai_agent else None),
         command_prefix=config.command_prefix if config else "/",
         available_models=available_models,
+        qq_provider=qq_provider,
+        conversation_store=conversation_store,
     )
 
     return ChatController(
@@ -674,4 +834,5 @@ def create_chat_controller(
         command_handler=command_handler,
         providers=providers,
         config=config,
+        conversation_store=conversation_store,
     )

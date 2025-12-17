@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import tempfile
 import threading
@@ -226,7 +225,7 @@ class TestMessageTracker:
         """Test cleanup of old messages."""
         # Track messages
         msg1 = tracker.track("msg-1", "feishu", "webhook-1", "content1")
-        msg2 = tracker.track("msg-2", "feishu", "webhook-2", "content2")
+        tracker.track("msg-2", "feishu", "webhook-2", "content2")
 
         # Manually set one message to be old
         old_time = datetime.now() - timedelta(seconds=100000)
@@ -352,9 +351,7 @@ class TestMessageTracker:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=add_messages, args=(i * 100, 100)) for i in range(5)
-        ]
+        threads = [threading.Thread(target=add_messages, args=(i * 100, 100)) for i in range(5)]
 
         for t in threads:
             t.start()

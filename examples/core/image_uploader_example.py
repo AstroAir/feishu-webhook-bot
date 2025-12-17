@@ -56,7 +56,7 @@ def demo_permission_checker() -> None:
     print("\n--- Generating authorization URL ---")
     permissions = FeishuPermissionChecker.PERMISSIONS["image_upload"]
     auth_url = FeishuPermissionChecker.get_auth_url(app_id, permissions)
-    print(f"Auth URL for image upload:")
+    print("Auth URL for image upload:")
     print(f"  {auth_url}")
 
     # Get app config URL
@@ -72,7 +72,7 @@ def demo_permission_checker() -> None:
     }
     perm_error = FeishuPermissionChecker.parse_permission_error(error_response, app_id)
     if perm_error:
-        print(f"Permission error detected:")
+        print("Permission error detected:")
         print(f"  Code: {perm_error.code}")
         print(f"  Message: {perm_error.message}")
         print(f"  Required permissions: {perm_error.required_permissions}")
@@ -210,8 +210,8 @@ def demo_upload_workflow() -> None:
     uploader = SimulatedUploader()
     uploader.get_token()
     image_key = uploader.upload_image("/path/to/image.png")
-    message = uploader.create_message(image_key)
-    print(f"\n  Message ready to send!")
+    uploader.create_message(image_key)
+    print("\n  Message ready to send!")
 
 
 # =============================================================================

@@ -12,7 +12,6 @@ from feishu_webhook_bot.core.config import (
     TaskDefinitionConfig,
 )
 from feishu_webhook_bot.tasks.manager import TaskManager
-
 from tests.mocks import MockScheduler
 
 
@@ -225,9 +224,7 @@ class TestTaskExecution:
                     "name": "retry_task",
                     "enabled": True,
                     "interval": {"minutes": 5},
-                    "actions": [
-                        {"type": "python_code", "code": "context['value'] = 1"}
-                    ],
+                    "actions": [{"type": "python_code", "code": "context['value'] = 1"}],
                 }
             ],
         )
@@ -426,9 +423,7 @@ class TestTaskManagerUtilities:
                     "name": "orphan_task",
                     "enabled": True,
                     "interval": {"minutes": 5},
-                    "actions": [
-                        {"type": "send_message", "webhooks": ["default"], "message": "hi"}
-                    ],
+                    "actions": [{"type": "send_message", "webhooks": ["default"], "message": "hi"}],
                 }
             ],
         )

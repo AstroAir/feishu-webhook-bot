@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 
 import pytest
@@ -16,6 +15,9 @@ class DummyConversation:
         self.messages = ["hi"]
         self.input_tokens = 5
         self.output_tokens = 7
+
+    def clear(self) -> None:
+        self.messages.clear()
 
     def get_duration(self) -> timedelta:
         return timedelta(seconds=125)

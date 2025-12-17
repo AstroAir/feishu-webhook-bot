@@ -22,10 +22,11 @@ from feishu_webhook_bot.core.image_uploader import (
     FeishuImageUploader,
     FeishuPermissionChecker,
     FeishuPermissionDeniedError,
-    PermissionError as FeishuPermissionError,
     create_image_card,
 )
-
+from feishu_webhook_bot.core.image_uploader import (
+    PermissionError as FeishuPermissionError,
+)
 
 # ==============================================================================
 # FeishuPermissionChecker Tests
@@ -58,9 +59,7 @@ class TestFeishuPermissionChecker:
         """Test parse_permission_error returns None for non-permission errors."""
         response_data = {"code": 99991663, "msg": "Invalid token"}
 
-        result = FeishuPermissionChecker.parse_permission_error(
-            response_data, "cli_test"
-        )
+        result = FeishuPermissionChecker.parse_permission_error(response_data, "cli_test")
 
         assert result is None
 
@@ -76,9 +75,7 @@ class TestFeishuPermissionChecker:
             },
         }
 
-        result = FeishuPermissionChecker.parse_permission_error(
-            response_data, "cli_test"
-        )
+        result = FeishuPermissionChecker.parse_permission_error(response_data, "cli_test")
 
         assert result is not None
         assert result.code == 99991672
@@ -93,9 +90,7 @@ class TestFeishuPermissionChecker:
             "error": {},
         }
 
-        result = FeishuPermissionChecker.parse_permission_error(
-            response_data, "cli_test"
-        )
+        result = FeishuPermissionChecker.parse_permission_error(response_data, "cli_test")
 
         assert result is not None
         assert len(result.required_permissions) > 0
@@ -118,9 +113,7 @@ class TestFeishuPermissionChecker:
         mock_subprocess.side_effect = Exception("Subprocess error")
 
         # Should not raise, returns False
-        result = FeishuPermissionChecker.open_auth_page(
-            "https://example.com/auth", silent=True
-        )
+        result = FeishuPermissionChecker.open_auth_page("https://example.com/auth", silent=True)
 
         assert result is False
 
@@ -301,9 +294,11 @@ class TestImageUpload:
         # Create a temporary test image
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             # Write minimal PNG data
-            f.write(base64.b64decode(
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-            ))
+            f.write(
+                base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                )
+            )
             temp_path = f.name
 
         try:

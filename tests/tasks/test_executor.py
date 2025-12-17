@@ -4,7 +4,6 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import httpx
-
 import pytest
 
 from feishu_webhook_bot.ai.task_integration import AITaskResult
@@ -887,8 +886,7 @@ class TestExecutionEdgeCases:
             return success_result
 
         monkeypatch.setattr(
-            "feishu_webhook_bot.ai.task_integration.execute_ai_task_action",
-            mock_execute
+            "feishu_webhook_bot.ai.task_integration.execute_ai_task_action", mock_execute
         )
 
         executor = TaskExecutor(
@@ -934,4 +932,3 @@ class TestExecutionEdgeCases:
 
         assert result["success"] is False
         clients["alerts"].send_text.assert_called_once()
-

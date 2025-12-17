@@ -162,9 +162,7 @@ class TestConfigValidator:
         """Test validating specific plugins."""
         ConfigSchemaRegistry.register("plugin-a", MockConfigSchema)
         ConfigSchemaRegistry.register("plugin-b", MockConfigSchema)
-        mock_config = self._create_mock_config(
-            {"plugin-a": {"api_key": "key1"}}
-        )
+        mock_config = self._create_mock_config({"plugin-a": {"api_key": "key1"}})
 
         validator = ConfigValidator(mock_config)
         results = validator.validate_plugins(["plugin-a"])
@@ -175,9 +173,7 @@ class TestConfigValidator:
     def test_generate_startup_report_all_valid(self) -> None:
         """Test generating startup report with all valid plugins."""
         ConfigSchemaRegistry.register("test-plugin", MockConfigSchema)
-        mock_config = self._create_mock_config(
-            {"test-plugin": {"api_key": "secret"}}
-        )
+        mock_config = self._create_mock_config({"test-plugin": {"api_key": "secret"}})
 
         mock_plugin = MagicMock()
         mock_plugin.metadata.return_value.name = "test-plugin"

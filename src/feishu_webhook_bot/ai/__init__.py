@@ -13,9 +13,18 @@ This package provides AI-powered features including:
 """
 
 from .agent import AIAgent, AIResponse
-from .config import AIConfig, ConversationPersistenceConfig, MCPConfig, ModelProviderConfig, MultiAgentConfig, StreamingConfig
-from .conversation import ConversationManager, ConversationState
 from .commands import CommandHandler, CommandResult
+from .config import (
+    AIConfig,
+    ConversationPersistenceConfig,
+    MCPConfig,
+    ModelProviderConfig,
+    MultiAgentConfig,
+    SearchProviderConfig,
+    StreamingConfig,
+    WebSearchConfig,
+)
+from .conversation import ConversationManager, ConversationState
 from .conversation_store import ConversationRecord, MessageRecord, PersistentConversationManager
 from .exceptions import (
     AIError,
@@ -36,7 +45,8 @@ from .multi_agent import (
     ResponseAgent,
     SearchAgent,
     SpecializedAgent,
-)
+)  # noqa: This imports from multi_agent/ directory
+from .persona import PersonaConfig, PersonaManager
 from .retry import CircuitBreaker, retry_with_exponential_backoff
 from .task_integration import AITaskExecutor, AITaskResult, execute_ai_task_action
 from .tools import ToolRegistry
@@ -48,7 +58,9 @@ __all__ = [
     "ConversationPersistenceConfig",
     "MCPConfig",
     "MultiAgentConfig",
+    "SearchProviderConfig",
     "StreamingConfig",
+    "WebSearchConfig",
     "ModelProviderConfig",
     "ConversationManager",
     "ConversationState",
@@ -57,6 +69,8 @@ __all__ = [
     "PersistentConversationManager",
     "ConversationRecord",
     "MessageRecord",
+    "PersonaConfig",
+    "PersonaManager",
     "ToolRegistry",
     "MCPClient",
     "AgentOrchestrator",

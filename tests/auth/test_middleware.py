@@ -29,7 +29,6 @@ from feishu_webhook_bot.auth.middleware import (
     setup_auth_middleware,
 )
 
-
 # ==============================================================================
 # get_current_user_from_token Tests
 # ==============================================================================
@@ -50,9 +49,7 @@ class TestGetCurrentUserFromToken:
         mock_auth_service = MagicMock()
         mock_auth_service.get_user_by_email.return_value = mock_user
 
-        with patch(
-            "feishu_webhook_bot.auth.middleware.decode_access_token"
-        ) as mock_decode:
+        with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
             mock_decode.return_value = {"sub": "test@example.com"}
 
             result = get_current_user_from_token(mock_credentials, mock_auth_service)
@@ -66,9 +63,7 @@ class TestGetCurrentUserFromToken:
 
         mock_auth_service = MagicMock()
 
-        with patch(
-            "feishu_webhook_bot.auth.middleware.decode_access_token"
-        ) as mock_decode:
+        with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
             mock_decode.return_value = None
 
             with pytest.raises(HTTPException) as exc_info:
@@ -84,9 +79,7 @@ class TestGetCurrentUserFromToken:
 
         mock_auth_service = MagicMock()
 
-        with patch(
-            "feishu_webhook_bot.auth.middleware.decode_access_token"
-        ) as mock_decode:
+        with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
             mock_decode.return_value = {"other": "data"}
 
             with pytest.raises(HTTPException) as exc_info:
@@ -103,9 +96,7 @@ class TestGetCurrentUserFromToken:
         mock_auth_service = MagicMock()
         mock_auth_service.get_user_by_email.return_value = None
 
-        with patch(
-            "feishu_webhook_bot.auth.middleware.decode_access_token"
-        ) as mock_decode:
+        with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
             mock_decode.return_value = {"sub": "nonexistent@example.com"}
 
             with pytest.raises(HTTPException) as exc_info:
@@ -125,9 +116,7 @@ class TestGetCurrentUserFromToken:
         mock_auth_service = MagicMock()
         mock_auth_service.get_user_by_email.return_value = mock_user
 
-        with patch(
-            "feishu_webhook_bot.auth.middleware.decode_access_token"
-        ) as mock_decode:
+        with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
             mock_decode.return_value = {"sub": "inactive@example.com"}
 
             with pytest.raises(HTTPException) as exc_info:
@@ -150,9 +139,7 @@ class TestRequireAuth:
         with patch("feishu_webhook_bot.auth.middleware.app") as mock_app:
             mock_app.storage.user = {"authenticated": True, "token": "valid_token"}
 
-            with patch(
-                "feishu_webhook_bot.auth.middleware.decode_access_token"
-            ) as mock_decode:
+            with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
                 mock_decode.return_value = {"sub": "test@example.com"}
 
                 @require_auth
@@ -168,6 +155,7 @@ class TestRequireAuth:
             mock_app.storage.user = {"authenticated": False}
 
             with patch("feishu_webhook_bot.auth.middleware.ui") as mock_ui:
+
                 @require_auth
                 def protected_page():
                     return "success"
@@ -182,12 +170,11 @@ class TestRequireAuth:
         with patch("feishu_webhook_bot.auth.middleware.app") as mock_app:
             mock_app.storage.user = {"authenticated": True, "token": "expired_token"}
 
-            with patch(
-                "feishu_webhook_bot.auth.middleware.decode_access_token"
-            ) as mock_decode:
+            with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
                 mock_decode.return_value = None
 
                 with patch("feishu_webhook_bot.auth.middleware.ui") as mock_ui:
+
                     @require_auth
                     def protected_page():
                         return "success"
@@ -204,6 +191,7 @@ class TestRequireAuth:
             del mock_app.storage.user
 
             with patch("feishu_webhook_bot.auth.middleware.ui") as mock_ui:
+
                 @require_auth
                 def protected_page():
                     return "success"
@@ -322,9 +310,7 @@ class TestAuthMiddleware:
 
         mock_call_next = AsyncMock(return_value="response")
 
-        with patch(
-            "feishu_webhook_bot.auth.middleware.decode_access_token"
-        ) as mock_decode:
+        with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
             mock_decode.return_value = {"sub": "test@example.com"}
 
             result = await middleware(mock_request, mock_call_next)
@@ -344,9 +330,7 @@ class TestAuthMiddleware:
 
         mock_call_next = AsyncMock(return_value="response")
 
-        with patch(
-            "feishu_webhook_bot.auth.middleware.decode_access_token"
-        ) as mock_decode:
+        with patch("feishu_webhook_bot.auth.middleware.decode_access_token") as mock_decode:
             mock_decode.return_value = None
 
             result = await middleware(mock_request, mock_call_next)

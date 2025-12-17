@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from feishu_webhook_bot.plugins.config_schema import (
     ConfigSchemaBuilder,
@@ -286,6 +283,7 @@ class TestPluginConfigSchema:
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
+
         # Create a concrete schema class for testing
         class TestSchema(PluginConfigSchema):
             @classmethod

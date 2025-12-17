@@ -67,9 +67,7 @@ class TestFeishuMessageParser:
                     "chat_type": "group",
                     "message_type": "text",
                     "content": json.dumps({"text": "Hello @bot"}),
-                    "mentions": [
-                        {"key": "@_user_1", "id": {"open_id": "ou_bot_123"}}
-                    ],
+                    "mentions": [{"key": "@_user_1", "id": {"open_id": "ou_bot_123"}}],
                 },
             },
         }

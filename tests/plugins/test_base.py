@@ -13,14 +13,13 @@ Tests cover:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
 from feishu_webhook_bot.core.config import BotConfig, PluginConfig, PluginSettingsConfig
 from feishu_webhook_bot.core.provider import BaseProvider, ProviderConfig
 from feishu_webhook_bot.plugins.base import BasePlugin, PluginMetadata
-
 
 # ==============================================================================
 # Test Fixtures
@@ -45,7 +44,9 @@ class MockProvider(BaseProvider):
     def send_card(self, card: dict, target: str) -> Any:
         return Mock(success=True)
 
-    def send_rich_text(self, title: str, content: list, target: str, language: str = "zh_cn") -> Any:
+    def send_rich_text(
+        self, title: str, content: list, target: str, language: str = "zh_cn"
+    ) -> Any:
         return Mock(success=True)
 
     def send_image(self, image_key: str, target: str) -> Any:
@@ -621,7 +622,9 @@ class TestPluginStateIsolation:
 class TestPluginIntegration:
     """Integration tests for plugin base class."""
 
-    def test_full_lifecycle_with_providers(self, config_with_plugin_settings, mock_client, mock_providers):
+    def test_full_lifecycle_with_providers(
+        self, config_with_plugin_settings, mock_client, mock_providers
+    ):
         """Test full plugin lifecycle with providers."""
         plugin = TrackingPlugin(config_with_plugin_settings, mock_client, mock_providers)
 
@@ -648,7 +651,9 @@ class TestPluginIntegration:
         """Test plugin accessing configuration during lifecycle."""
 
         class ConfigAwarePlugin(BasePlugin):
-            def __init__(self, config: BotConfig, client: Any = None, providers: dict | None = None):
+            def __init__(
+                self, config: BotConfig, client: Any = None, providers: dict | None = None
+            ):
                 super().__init__(config, client, providers)
                 self.loaded_api_key: str | None = None
                 self.loaded_threshold: int | None = None

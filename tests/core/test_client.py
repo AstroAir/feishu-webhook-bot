@@ -211,10 +211,18 @@ class TestCardBuilder:
             CardBuilder()
             .add_column_set(
                 columns=[
-                    {"tag": "column", "width": "weighted", "weight": 1,
-                     "elements": [{"tag": "markdown", "content": "Left"}]},
-                    {"tag": "column", "width": "weighted", "weight": 1,
-                     "elements": [{"tag": "markdown", "content": "Right"}]},
+                    {
+                        "tag": "column",
+                        "width": "weighted",
+                        "weight": 1,
+                        "elements": [{"tag": "markdown", "content": "Left"}],
+                    },
+                    {
+                        "tag": "column",
+                        "width": "weighted",
+                        "weight": 1,
+                        "elements": [{"tag": "markdown", "content": "Right"}],
+                    },
                 ],
                 flex_mode="bisect",
             )

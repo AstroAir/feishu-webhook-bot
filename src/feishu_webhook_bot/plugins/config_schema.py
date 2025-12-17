@@ -7,9 +7,10 @@ using Pydantic models with extended metadata support.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, get_type_hints
+from typing import TYPE_CHECKING, Any, ClassVar, get_type_hints
 
 from pydantic import BaseModel, ValidationError
 from pydantic_core import PydanticUndefined
@@ -119,9 +120,8 @@ class PluginConfigField:
         elif self.field_type in (FieldType.STRING, FieldType.SECRET):
             if not isinstance(value, str):
                 return False, f"Field '{self.name}' must be a string"
-            if self.pattern:
-                if not re.match(self.pattern, value):
-                    return False, f"Field '{self.name}' must match pattern: {self.pattern}"
+            if self.pattern and not re.match(self.pattern, value):
+                return False, f"Field '{self.name}' must match pattern: {self.pattern}"
 
         elif self.field_type == FieldType.URL:
             if not isinstance(value, str):
@@ -599,7 +599,9 @@ class ConfigSchemaBuilder:
 
         # Set class variables
         model._plugin_name = self.plugin_name
-        model._field_groups = self._groups if self._groups else {"General": [f.name for f in self._fields]}
+        model._field_groups = (
+            self._groups if self._groups else {"General": [f.name for f in self._fields]}
+        )
 
         return model
 

@@ -319,13 +319,13 @@ def demo_web_search_tool() -> None:
     - Caches results to reduce API calls
     - Configurable result count
     - Returns structured search results
-    
+
     Usage in AIConfig:
         config = AIConfig(
             web_search_enabled=True,
             web_search_cache_ttl=3600,  # 1 hour cache
         )
-    
+
     The AI agent can then use web search automatically:
         "Search the web for Python async best practices"
     """)
@@ -384,7 +384,7 @@ def demo_execution_context() -> None:
     }
 
     result = get_user_info("user_789", context=context)
-    print(f"\nResult with context:")
+    print("\nResult with context:")
     for key, value in result.items():
         print(f"  {key}: {value}")
 
@@ -477,18 +477,18 @@ def demo_tool_metadata() -> None:
         sort_by: str = "relevance",
     ) -> list[dict]:
         '''Search for products in the catalog.
-        
+
         Args:
             query: Search query string
             category: Optional category filter
             max_results: Maximum number of results (default: 10)
             sort_by: Sort order (relevance, price, rating)
-        
+
         Returns:
             List of matching products
         '''
         ...
-    
+
     Extracted metadata:
     - Name: search_products
     - Description: Search for products in the catalog

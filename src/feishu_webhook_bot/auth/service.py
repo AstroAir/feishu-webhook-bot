@@ -151,7 +151,7 @@ class AuthService:
             if user.is_locked():
                 logger.warning(f"Login attempt on locked account: {login}")
                 raise AuthenticationError(
-                    "Account is locked due to too many failed attempts. " "Please try again later."
+                    "Account is locked due to too many failed attempts. Please try again later."
                 )
 
             # Check if account is active

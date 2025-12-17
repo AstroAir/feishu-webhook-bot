@@ -21,7 +21,6 @@ from feishu_webhook_bot.core.templates import (
     TemplateRenderError,
 )
 
-
 # ==============================================================================
 # RenderedTemplate Tests
 # ==============================================================================
@@ -332,18 +331,20 @@ class TestTemplateIntegration:
 
     def test_complex_card_template(self):
         """Test rendering complex card template."""
-        card_content = json.dumps({
-            "header": {
-                "title": {"tag": "plain_text", "content": "$title"},
-                "template": "blue",
-            },
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {"tag": "plain_text", "content": "$body"},
+        card_content = json.dumps(
+            {
+                "header": {
+                    "title": {"tag": "plain_text", "content": "$title"},
+                    "template": "blue",
                 },
-            ],
-        })
+                "elements": [
+                    {
+                        "tag": "div",
+                        "text": {"tag": "plain_text", "content": "$body"},
+                    },
+                ],
+            }
+        )
 
         templates = [
             TemplateConfig(

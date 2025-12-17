@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import contextlib
+import threading
+import time
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from ..core.config import BotConfig, TaskDefinitionConfig
@@ -11,11 +14,23 @@ from ..core.logger import get_logger
 from ..core.provider import BaseProvider
 from ..core.templates import TemplateRegistry
 from .executor import TaskExecutor
+from .persistence import TaskExecutionStore
 
 if TYPE_CHECKING:
     from ..ai.agent import AIAgent
 
 logger = get_logger("task.manager")
+
+
+class TaskExecutionStatus(Enum):
+    """Task execution status for dependency tracking."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    WAITING_DEPENDENCY = "waiting_dependency"
 
 
 class TaskManager:
@@ -30,6 +45,7 @@ class TaskManager:
         ai_agent: AIAgent | None = None,
         providers: dict[str, BaseProvider] | None = None,
         template_registry: TemplateRegistry | None = None,
+        execution_store: TaskExecutionStore | None = None,
     ):
         """Initialize task manager.
 
@@ -55,17 +71,38 @@ class TaskManager:
         self._retry_counts: dict[str, int] = {}  # Track retry attempts per task
         self._execution_history: list[dict[str, Any]] = []
         self._max_history: int = 100
+        # Execution persistence
+        self._execution_store = execution_store
+        # Dependency tracking
+        self._task_status: dict[str, TaskExecutionStatus] = {}
+        self._last_execution_result: dict[str, dict[str, Any]] = {}
+        self._dependency_lock = threading.Lock()
+        # Task groups
+        self._task_groups: dict[str, set[str]] = {}  # group_name -> set of task_names
 
     def start(self) -> None:
         """Start task manager and register all tasks."""
         logger.info("Starting task manager...")
 
+        # Build task groups index
+        self._build_task_groups()
+
         # Load tasks from configuration
         for task in self.config.tasks:
             if task.enabled:
                 self._register_task(task)
+                self._task_status[task.name] = TaskExecutionStatus.PENDING
 
         logger.info(f"Registered {len(self._registered_jobs)} tasks")
+
+    def _build_task_groups(self) -> None:
+        """Build task groups index from task configurations."""
+        self._task_groups.clear()
+        for task in self.config.tasks:
+            if task.group:
+                if task.group not in self._task_groups:
+                    self._task_groups[task.group] = set()
+                self._task_groups[task.group].add(task.name)
 
     def stop(self) -> None:
         """Stop task manager and unregister all tasks."""
@@ -142,6 +179,82 @@ class TaskManager:
         except Exception as e:
             logger.error(f"Failed to register task '{task.name}': {e}", exc_info=True)
 
+    def _check_dependencies(self, task: TaskDefinitionConfig) -> tuple[bool, str]:
+        """Check if task dependencies are satisfied.
+
+        Args:
+            task: Task definition to check
+
+        Returns:
+            Tuple of (can_execute, reason)
+        """
+        # Check depends_on (must have completed successfully)
+        for dep_name in task.depends_on:
+            with self._dependency_lock:
+                dep_status = self._task_status.get(dep_name)
+
+            if dep_status is None:
+                return False, f"Dependency '{dep_name}' not found"
+
+            if dep_status == TaskExecutionStatus.RUNNING:
+                return False, f"Dependency '{dep_name}' is still running"
+
+            if dep_status == TaskExecutionStatus.FAILED and task.skip_if_dependency_failed:
+                return False, f"Dependency '{dep_name}' failed"
+
+            if dep_status == TaskExecutionStatus.PENDING:
+                return False, f"Dependency '{dep_name}' has not run yet"
+
+            if dep_status == TaskExecutionStatus.SKIPPED and task.skip_if_dependency_failed:
+                return False, f"Dependency '{dep_name}' was skipped"
+
+        # Check run_after (must have completed, success or failure)
+        for dep_name in task.run_after:
+            with self._dependency_lock:
+                dep_status = self._task_status.get(dep_name)
+
+            if dep_status is None:
+                return False, f"Run-after task '{dep_name}' not found"
+
+            if dep_status in (TaskExecutionStatus.PENDING, TaskExecutionStatus.RUNNING):
+                return False, f"Run-after task '{dep_name}' has not completed yet"
+
+        return True, "All dependencies satisfied"
+
+    def _wait_for_dependencies(
+        self, task: TaskDefinitionConfig, timeout: float | None = None
+    ) -> tuple[bool, str]:
+        """Wait for task dependencies to be satisfied.
+
+        Args:
+            task: Task definition
+            timeout: Maximum time to wait (uses task.dependency_timeout if None)
+
+        Returns:
+            Tuple of (dependencies_satisfied, reason)
+        """
+        wait_timeout = timeout if timeout is not None else task.dependency_timeout
+        start_time = time.time()
+        poll_interval = 1.0  # Check every second
+
+        while True:
+            can_execute, reason = self._check_dependencies(task)
+            if can_execute:
+                return True, reason
+
+            # Check if any dependency failed and we should skip
+            is_failure = "failed" in reason.lower() or "skipped" in reason.lower()
+            if is_failure and task.skip_if_dependency_failed:
+                return False, reason
+
+            # Check timeout
+            elapsed = time.time() - start_time
+            if elapsed >= wait_timeout:
+                return False, f"Dependency wait timeout after {elapsed:.1f}s: {reason}"
+
+            # Wait before next check
+            time.sleep(poll_interval)
+
     def _execute_task(self, task_name: str) -> None:
         """Execute a task by name.
 
@@ -162,12 +275,39 @@ class TaskManager:
             )
             return
 
+        # Check dependencies
+        has_dependencies = task.depends_on or task.run_after
+        if has_dependencies:
+            with self._dependency_lock:
+                self._task_status[task_name] = TaskExecutionStatus.WAITING_DEPENDENCY
+
+            can_execute, reason = self._check_dependencies(task)
+            if not can_execute:
+                # For scheduled tasks, we don't wait - just skip this run
+                logger.info(f"Task {task_name} skipped due to unmet dependencies: {reason}")
+                with self._dependency_lock:
+                    self._task_status[task_name] = TaskExecutionStatus.SKIPPED
+                return
+
         # Increment execution count
         self._execution_counts[task_name] = current_count + 1
+
+        # Update status to running
+        with self._dependency_lock:
+            self._task_status[task_name] = TaskExecutionStatus.RUNNING
 
         try:
             # Build execution context
             context = self._build_context(task)
+
+            # Add dependency results to context if available
+            if has_dependencies:
+                dep_results = {}
+                for dep_name in task.depends_on + task.run_after:
+                    if dep_name in self._last_execution_result:
+                        dep_results[dep_name] = self._last_execution_result[dep_name]
+                if dep_results:
+                    context["dependency_results"] = dep_results
 
             # Create executor
             executor = TaskExecutor(
@@ -184,6 +324,15 @@ class TaskManager:
             logger.info(f"Executing task: {task_name}")
             result = executor.execute()
 
+            # Update status based on result
+            with self._dependency_lock:
+                if result["success"]:
+                    self._task_status[task_name] = TaskExecutionStatus.SUCCESS
+                else:
+                    self._task_status[task_name] = TaskExecutionStatus.FAILED
+                # Store result for dependent tasks
+                self._last_execution_result[task_name] = result
+
             # Log result
             if result["success"]:
                 logger.info(f"Task {task_name} completed successfully in {result['duration']:.2f}s")
@@ -199,12 +348,55 @@ class TaskManager:
             if not result["success"] and task.error_handling.retry_on_failure:
                 self._schedule_retry(task, result)
 
+            # Trigger dependent tasks if this task succeeded
+            if result["success"]:
+                self._trigger_dependent_tasks(task_name)
+
         except Exception as e:
             logger.error(f"Error executing task {task_name}: {e}", exc_info=True)
+            with self._dependency_lock:
+                self._task_status[task_name] = TaskExecutionStatus.FAILED
 
         finally:
             # Decrement execution count
             self._execution_counts[task_name] = max(0, self._execution_counts[task_name] - 1)
+
+    def _trigger_dependent_tasks(self, completed_task_name: str) -> None:
+        """Trigger tasks that depend on the completed task.
+
+        Args:
+            completed_task_name: Name of the task that just completed
+        """
+        for task_name, task in self._task_instances.items():
+            if not task.enabled:
+                continue
+
+            # Check if this task depends on the completed task
+            is_dependent = (
+                completed_task_name in task.depends_on or completed_task_name in task.run_after
+            )
+            if not is_dependent:
+                continue
+
+            # Check if all dependencies are now satisfied
+            can_execute, _ = self._check_dependencies(task)
+            if can_execute:
+                # Check if task is waiting for dependencies
+                with self._dependency_lock:
+                    status = self._task_status.get(task_name)
+                if status == TaskExecutionStatus.WAITING_DEPENDENCY:
+                    logger.info(
+                        f"Dependencies satisfied for task {task_name}, triggering execution"
+                    )
+                    # Execute in a separate thread to avoid blocking
+                    import threading
+
+                    thread = threading.Thread(
+                        target=self._execute_task,
+                        args=(task_name,),
+                        daemon=True,
+                    )
+                    thread.start()
 
     def _build_context(self, task: TaskDefinitionConfig) -> dict[str, Any]:
         """Build execution context for a task.
@@ -243,9 +435,7 @@ class TaskManager:
         max_retries = error_config.max_retries
 
         if retry_count >= max_retries:
-            logger.warning(
-                f"Task {task_name} exceeded max retries ({max_retries}), giving up"
-            )
+            logger.warning(f"Task {task_name} exceeded max retries ({max_retries}), giving up")
             self._retry_counts[task_name] = 0  # Reset for next scheduled run
             self._handle_final_failure(task, result)
             return
@@ -259,8 +449,7 @@ class TaskManager:
         self._retry_counts[task_name] = retry_count + 1
 
         logger.info(
-            f"Scheduling retry {retry_count + 1}/{max_retries} "
-            f"for task {task_name} in {delay:.1f}s"
+            f"Scheduling retry {retry_count + 1}/{max_retries} for task {task_name} in {delay:.1f}s"
         )
 
         # Schedule one-time retry job
@@ -280,9 +469,7 @@ class TaskManager:
                 replace_existing=True,
             )
 
-    def _handle_final_failure(
-        self, task: TaskDefinitionConfig, result: dict[str, Any]
-    ) -> None:
+    def _handle_final_failure(self, task: TaskDefinitionConfig, result: dict[str, Any]) -> None:
         """Handle task that failed all retry attempts.
 
         Args:
@@ -317,9 +504,7 @@ class TaskManager:
         webhook_name = error_handling.notification_webhook
 
         if not webhook_name:
-            logger.warning(
-                f"No notification webhook configured for task {task.name}"
-            )
+            logger.warning(f"No notification webhook configured for task {task.name}")
             return
 
         # Try providers first, then legacy clients
@@ -422,9 +607,7 @@ class TaskManager:
         self.stop()
         self.start()
 
-    def _record_execution(
-        self, task_name: str, result: dict[str, Any]
-    ) -> None:
+    def _record_execution(self, task_name: str, result: dict[str, Any]) -> None:
         """Record task execution to history.
 
         Args:
@@ -445,26 +628,89 @@ class TaskManager:
 
         # Trim history if needed
         if len(self._execution_history) > self._max_history:
-            self._execution_history = self._execution_history[-self._max_history:]
+            self._execution_history = self._execution_history[-self._max_history :]
+
+        # Persist to database if store is available
+        if self._execution_store:
+            try:
+                self._execution_store.record_execution(task_name, result)
+            except Exception as e:
+                logger.warning(f"Failed to persist execution record: {e}")
 
     def get_execution_history(
         self,
         task_name: str | None = None,
         limit: int = 20,
+        from_database: bool = False,
     ) -> list[dict[str, Any]]:
         """Get task execution history.
 
         Args:
             task_name: Optional filter by task name
             limit: Maximum number of entries to return
+            from_database: If True and store available, query from database
 
         Returns:
             List of execution history entries (newest first)
         """
+        # Use database if requested and available
+        if from_database and self._execution_store:
+            return self._execution_store.get_execution_history(task_name=task_name, limit=limit)
+
+        # Fall back to in-memory history
         history = self._execution_history
         if task_name:
             history = [h for h in history if h.get("task_name") == task_name]
         return list(reversed(history[-limit:]))
+
+    def get_persistent_task_status(self, task_name: str) -> dict[str, Any] | None:
+        """Get persistent task status from database.
+
+        Args:
+            task_name: Name of the task
+
+        Returns:
+            Task status from database or None if not available
+        """
+        if not self._execution_store:
+            return None
+        return self._execution_store.get_task_status(task_name)
+
+    def get_task_statistics(self, task_name: str | None = None, days: int = 7) -> dict[str, Any]:
+        """Get task execution statistics.
+
+        Args:
+            task_name: Optional filter by task name
+            days: Number of days to include
+
+        Returns:
+            Statistics dictionary
+        """
+        if self._execution_store:
+            return self._execution_store.get_task_statistics(task_name, days)
+
+        # Fall back to in-memory calculation
+        history = self._execution_history
+        if task_name:
+            history = [h for h in history if h.get("task_name") == task_name]
+
+        total = len(history)
+        successful = sum(1 for h in history if h.get("success"))
+        failed = total - successful
+        success_rate = (successful / total * 100) if total > 0 else 0
+
+        durations = [h.get("duration", 0) for h in history if h.get("duration")]
+        avg_duration = sum(durations) / len(durations) if durations else 0
+
+        return {
+            "period_days": days,
+            "total_executions": total,
+            "successful_executions": successful,
+            "failed_executions": failed,
+            "success_rate": round(success_rate, 2),
+            "average_duration": round(avg_duration, 3),
+            "daily_statistics": [],  # Not available for in-memory
+        }
 
     def enable_task(self, task_name: str) -> bool:
         """Enable a task.
@@ -691,9 +937,7 @@ class TaskManager:
         self._record_execution(task_name, result)
         return result
 
-    def update_task_config(
-        self, task_name: str, updates: dict[str, Any]
-    ) -> dict[str, Any]:
+    def update_task_config(self, task_name: str, updates: dict[str, Any]) -> dict[str, Any]:
         """Update task configuration at runtime.
 
         Args:
@@ -789,3 +1033,303 @@ class TaskManager:
             "failed_executions": total_runs - successful_runs,
             "overall_success_rate": round(success_rate, 1),
         }
+
+    # =========================================================================
+    # Task Group Management
+    # =========================================================================
+
+    def get_task_groups(self) -> dict[str, list[str]]:
+        """Get all task groups and their members.
+
+        Returns:
+            Dictionary mapping group names to list of task names
+        """
+        return {group: list(tasks) for group, tasks in self._task_groups.items()}
+
+    def get_tasks_by_group(self, group_name: str) -> list[TaskDefinitionConfig]:
+        """Get all tasks in a specific group.
+
+        Args:
+            group_name: Name of the group
+
+        Returns:
+            List of task configurations in the group
+        """
+        task_names = self._task_groups.get(group_name, set())
+        return [self._task_instances[name] for name in task_names if name in self._task_instances]
+
+    def get_tasks_by_tag(self, tag: str) -> list[TaskDefinitionConfig]:
+        """Get all tasks with a specific tag.
+
+        Args:
+            tag: Tag to filter by
+
+        Returns:
+            List of task configurations with the tag
+        """
+        return [task for task in self._task_instances.values() if tag in task.tags]
+
+    def run_group(self, group_name: str, force: bool = False) -> dict[str, Any]:
+        """Run all tasks in a group.
+
+        Args:
+            group_name: Name of the group to run
+            force: If True, bypass concurrent execution limits
+
+        Returns:
+            Dictionary with results for each task
+        """
+        tasks = self.get_tasks_by_group(group_name)
+        if not tasks:
+            return {"error": f"Group not found or empty: {group_name}"}
+
+        results = {}
+        for task in tasks:
+            if task.enabled:
+                results[task.name] = self.execute_task_now(task.name, force=force)
+        return results
+
+    def enable_group(self, group_name: str) -> dict[str, bool]:
+        """Enable all tasks in a group.
+
+        Args:
+            group_name: Name of the group
+
+        Returns:
+            Dictionary mapping task names to success status
+        """
+        tasks = self.get_tasks_by_group(group_name)
+        return {task.name: self.enable_task(task.name) for task in tasks}
+
+    def disable_group(self, group_name: str) -> dict[str, bool]:
+        """Disable all tasks in a group.
+
+        Args:
+            group_name: Name of the group
+
+        Returns:
+            Dictionary mapping task names to success status
+        """
+        tasks = self.get_tasks_by_group(group_name)
+        return {task.name: self.disable_task(task.name) for task in tasks}
+
+    # =========================================================================
+    # Dependency Status Management
+    # =========================================================================
+
+    def get_task_dependency_status(self, task_name: str) -> dict[str, Any]:
+        """Get dependency status for a task.
+
+        Args:
+            task_name: Name of the task
+
+        Returns:
+            Dictionary with dependency information
+        """
+        task = self._task_instances.get(task_name)
+        if not task:
+            return {"error": f"Task not found: {task_name}"}
+
+        deps_status = {}
+        for dep_name in task.depends_on:
+            with self._dependency_lock:
+                status = self._task_status.get(dep_name, TaskExecutionStatus.PENDING)
+            deps_status[dep_name] = {
+                "status": status.value,
+                "required": True,
+                "last_result": self._last_execution_result.get(dep_name),
+            }
+
+        for dep_name in task.run_after:
+            with self._dependency_lock:
+                status = self._task_status.get(dep_name, TaskExecutionStatus.PENDING)
+            deps_status[dep_name] = {
+                "status": status.value,
+                "required": False,  # run_after doesn't require success
+                "last_result": self._last_execution_result.get(dep_name),
+            }
+
+        can_execute, reason = self._check_dependencies(task)
+
+        return {
+            "task_name": task_name,
+            "dependencies": deps_status,
+            "can_execute": can_execute,
+            "reason": reason,
+            "dependency_timeout": task.dependency_timeout,
+            "skip_if_dependency_failed": task.skip_if_dependency_failed,
+        }
+
+    def reset_task_status(self, task_name: str) -> bool:
+        """Reset a task's execution status to PENDING.
+
+        Args:
+            task_name: Name of the task to reset
+
+        Returns:
+            True if reset successful, False if task not found
+        """
+        if task_name not in self._task_instances:
+            return False
+
+        with self._dependency_lock:
+            self._task_status[task_name] = TaskExecutionStatus.PENDING
+            if task_name in self._last_execution_result:
+                del self._last_execution_result[task_name]
+
+        logger.info(f"Reset task status: {task_name}")
+        return True
+
+    def reset_all_task_statuses(self) -> None:
+        """Reset all task statuses to PENDING."""
+        with self._dependency_lock:
+            for task_name in self._task_instances:
+                self._task_status[task_name] = TaskExecutionStatus.PENDING
+            self._last_execution_result.clear()
+
+        logger.info("Reset all task statuses")
+
+    def get_all_task_statuses(self) -> dict[str, str]:
+        """Get execution status for all tasks.
+
+        Returns:
+            Dictionary mapping task names to status values
+        """
+        with self._dependency_lock:
+            return {name: status.value for name, status in self._task_status.items()}
+
+    # =========================================================================
+    # Task Chain / Workflow Execution
+    # =========================================================================
+
+    def run_task_chain(
+        self,
+        task_names: list[str],
+        stop_on_failure: bool = True,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run a chain of tasks sequentially.
+
+        Args:
+            task_names: List of task names to run in order
+            stop_on_failure: If True, stop chain on first failure
+            context: Optional shared context passed to all tasks
+
+        Returns:
+            Dictionary with chain execution results
+        """
+        chain_results: dict[str, Any] = {
+            "chain": task_names,
+            "results": {},
+            "completed": [],
+            "failed": [],
+            "skipped": [],
+            "success": True,
+        }
+
+        shared_context = context or {}
+
+        for task_name in task_names:
+            task = self._task_instances.get(task_name)
+            if not task:
+                chain_results["skipped"].append(task_name)
+                chain_results["results"][task_name] = {
+                    "success": False,
+                    "error": "Task not found",
+                }
+                if stop_on_failure:
+                    chain_results["success"] = False
+                    break
+                continue
+
+            # Build context with shared data and previous results
+            task_context = self._build_context(task)
+            task_context.update(shared_context)
+            task_context["chain_results"] = chain_results["results"]
+
+            # Execute task
+            executor = TaskExecutor(
+                task=task,
+                context=task_context,
+                plugin_manager=self.plugin_manager,
+                clients=self.clients,
+                ai_agent=self.ai_agent,
+                providers=self.providers,
+                template_registry=self.template_registry,
+            )
+
+            result = executor.execute()
+            chain_results["results"][task_name] = result
+            self._record_execution(task_name, result)
+
+            if result["success"]:
+                chain_results["completed"].append(task_name)
+                # Update shared context with task output if available
+                if "output" in result:
+                    shared_context[f"{task_name}_output"] = result["output"]
+            else:
+                chain_results["failed"].append(task_name)
+                chain_results["success"] = False
+                if stop_on_failure:
+                    # Mark remaining tasks as skipped
+                    remaining_idx = task_names.index(task_name) + 1
+                    chain_results["skipped"].extend(task_names[remaining_idx:])
+                    break
+
+        return chain_results
+
+    def run_parallel_tasks(
+        self,
+        task_names: list[str],
+        max_workers: int = 4,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        """Run multiple tasks in parallel.
+
+        Args:
+            task_names: List of task names to run
+            max_workers: Maximum number of concurrent workers
+            timeout: Optional timeout for the entire operation
+
+        Returns:
+            Dictionary with parallel execution results
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        results: dict[str, Any] = {
+            "tasks": task_names,
+            "results": {},
+            "completed": [],
+            "failed": [],
+            "timed_out": [],
+        }
+
+        def execute_task(name: str) -> tuple[str, dict[str, Any]]:
+            return name, self.execute_task_now(name, force=True)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(execute_task, name): name for name in task_names}
+
+            for future in as_completed(futures, timeout=timeout):
+                task_name = futures[future]
+                try:
+                    _, result = future.result()
+                    results["results"][task_name] = result
+                    if result["success"]:
+                        results["completed"].append(task_name)
+                    else:
+                        results["failed"].append(task_name)
+                except TimeoutError:
+                    results["timed_out"].append(task_name)
+                    results["results"][task_name] = {
+                        "success": False,
+                        "error": "Execution timed out",
+                    }
+                except Exception as e:
+                    results["failed"].append(task_name)
+                    results["results"][task_name] = {
+                        "success": False,
+                        "error": str(e),
+                    }
+
+        return results

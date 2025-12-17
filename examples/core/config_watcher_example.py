@@ -60,9 +60,7 @@ def demo_basic_config_watcher() -> None:
 
         def on_config_reload(new_config: BotConfig) -> None:
             """Callback when config is reloaded."""
-            reload_events.append(
-                {"time": time.time(), "webhooks": len(new_config.webhooks)}
-            )
+            reload_events.append({"time": time.time(), "webhooks": len(new_config.webhooks)})
             print(f"  Config reloaded! Webhooks: {len(new_config.webhooks)}")
 
         # Create config watcher
@@ -125,9 +123,7 @@ def demo_config_file_handler() -> None:
 
         # Create configuration
         config_data = {
-            "webhooks": [
-                {"url": "https://example.com/webhook", "name": "test"}
-            ],
+            "webhooks": [{"url": "https://example.com/webhook", "name": "test"}],
         }
 
         with open(config_path, "w") as f:
@@ -179,20 +175,17 @@ def demo_validation_before_reload() -> None:
 
         # Create valid configuration
         valid_config = {
-            "webhooks": [
-                {"url": "https://example.com/webhook", "name": "test"}
-            ],
+            "webhooks": [{"url": "https://example.com/webhook", "name": "test"}],
         }
 
         with open(config_path, "w") as f:
             yaml.dump(valid_config, f)
 
         reload_success = [0]
-        reload_failed = [0]
 
         def on_reload(config: BotConfig) -> None:
             reload_success[0] += 1
-            print(f"  Reload successful!")
+            print("  Reload successful!")
 
         # Create watcher
         watcher = ConfigWatcher(
@@ -205,9 +198,7 @@ def demo_validation_before_reload() -> None:
 
         # Test 1: Valid modification
         print("\n--- Test 1: Valid configuration change ---")
-        valid_config["webhooks"].append(
-            {"url": "https://example.com/webhook2", "name": "test2"}
-        )
+        valid_config["webhooks"].append({"url": "https://example.com/webhook2", "name": "test2"})
         with open(config_path, "w") as f:
             yaml.dump(valid_config, f)
         time.sleep(1)
@@ -288,7 +279,7 @@ def demo_debouncing() -> None:
 
         watcher.stop()
 
-        print(f"\nTotal changes made: 5")
+        print("\nTotal changes made: 5")
         print(f"Total reloads triggered: {reload_count[0]}")
         print("(Debouncing should reduce the number of reloads)")
 
@@ -310,9 +301,7 @@ def demo_multiple_watchers() -> None:
         for name in ["main", "plugins", "ai"]:
             config_path = Path(tmpdir) / f"{name}_config.yaml"
             config_data = {
-                "webhooks": [
-                    {"url": f"https://example.com/{name}", "name": name}
-                ],
+                "webhooks": [{"url": f"https://example.com/{name}", "name": name}],
             }
             with open(config_path, "w") as f:
                 yaml.dump(config_data, f)
@@ -343,9 +332,7 @@ def demo_multiple_watchers() -> None:
         print("\n--- Modifying configurations ---")
         for name, config_path in configs.items():
             config_data = {
-                "webhooks": [
-                    {"url": f"https://example.com/{name}_updated", "name": f"{name}_v2"}
-                ],
+                "webhooks": [{"url": f"https://example.com/{name}_updated", "name": f"{name}_v2"}],
             }
             with open(config_path, "w") as f:
                 yaml.dump(config_data, f)
@@ -401,9 +388,7 @@ def demo_error_recovery() -> None:
 
         # 1. Valid change
         print("\n1. Valid change")
-        valid_config["webhooks"].append(
-            {"url": "https://example.com/webhook2", "name": "test2"}
-        )
+        valid_config["webhooks"].append({"url": "https://example.com/webhook2", "name": "test2"})
         with open(config_path, "w") as f:
             yaml.dump(valid_config, f)
         time.sleep(1)
@@ -422,16 +407,14 @@ def demo_error_recovery() -> None:
 
         # 4. Another valid change
         print("\n4. Another valid change")
-        valid_config["webhooks"].append(
-            {"url": "https://example.com/webhook3", "name": "test3"}
-        )
+        valid_config["webhooks"].append({"url": "https://example.com/webhook3", "name": "test3"})
         with open(config_path, "w") as f:
             yaml.dump(valid_config, f)
         time.sleep(1)
 
         watcher.stop()
 
-        print(f"\n--- Reload History ---")
+        print("\n--- Reload History ---")
         for status, webhooks in reload_history:
             print(f"  {status}: {webhooks} webhooks")
 
@@ -491,7 +474,7 @@ def demo_real_world_pattern() -> None:
 
                 self.config = new_config
 
-                print(f"  Configuration updated:")
+                print("  Configuration updated:")
                 print(f"    Webhooks: {old_webhooks} -> {new_webhooks}")
 
                 # Apply changes (in real bot, would update components)
@@ -512,9 +495,7 @@ def demo_real_world_pattern() -> None:
                 "running": self._running,
                 "config_loaded": self.config is not None,
                 "webhooks": len(self.config.webhooks) if self.config else 0,
-                "watcher_active": (
-                    self.watcher.is_running if self.watcher else False
-                ),
+                "watcher_active": (self.watcher.is_running if self.watcher else False),
             }
 
     # Use the bot
@@ -542,9 +523,7 @@ def demo_real_world_pattern() -> None:
 
         # Add a webhook
         print("\nAdding a webhook...")
-        config_data["webhooks"].append(
-            {"url": "https://example.com/webhook2", "name": "secondary"}
-        )
+        config_data["webhooks"].append({"url": "https://example.com/webhook2", "name": "secondary"})
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
 

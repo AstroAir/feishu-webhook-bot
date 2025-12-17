@@ -39,16 +39,12 @@ def demo_basic_structure() -> None:
                     "title": "Message Title",
                     "content": [
                         # Each inner list is a paragraph
-                        [
-                            {"tag": "text", "text": "First paragraph content."}
-                        ],
-                        [
-                            {"tag": "text", "text": "Second paragraph content."}
-                        ],
-                    ]
+                        [{"tag": "text", "text": "First paragraph content."}],
+                        [{"tag": "text", "text": "Second paragraph content."}],
+                    ],
                 }
             }
-        }
+        },
     }
 
     print("Basic rich text structure:")
@@ -258,22 +254,22 @@ def demo_multi_language() -> None:
                     "title": "系统通知",
                     "content": [
                         [{"tag": "text", "text": "系统将于今晚进行维护。"}],
-                    ]
+                    ],
                 },
                 "en_us": {
                     "title": "System Notice",
                     "content": [
                         [{"tag": "text", "text": "System maintenance tonight."}],
-                    ]
+                    ],
                 },
                 "ja_jp": {
                     "title": "システム通知",
                     "content": [
                         [{"tag": "text", "text": "今夜システムメンテナンスを行います。"}],
-                    ]
-                }
+                    ],
+                },
             }
-        }
+        },
     }
 
     print("Multi-language rich text:")
@@ -298,19 +294,23 @@ def demo_common_templates() -> None:
     def create_notification(title: str, message: str, link: str | None = None) -> dict:
         content = [[{"tag": "text", "text": message}]]
         if link:
-            content.append([
-                {"tag": "text", "text": "Details: "},
-                {"tag": "a", "text": "View", "href": link},
-            ])
+            content.append(
+                [
+                    {"tag": "text", "text": "Details: "},
+                    {"tag": "a", "text": "View", "href": link},
+                ]
+            )
         return {"title": title, "content": content}
 
     # Template 2: Alert with mention
     def create_alert(message: str, mention_all: bool = False) -> dict:
         content = []
         if mention_all:
-            content.append([
-                {"tag": "at", "user_id": "all", "user_name": "All"},
-            ])
+            content.append(
+                [
+                    {"tag": "at", "user_id": "all", "user_name": "All"},
+                ]
+            )
         content.append([{"tag": "text", "text": message}])
         return {"title": "⚠️ Alert", "content": content}
 
@@ -318,19 +318,23 @@ def demo_common_templates() -> None:
     def create_report(title: str, sections: list[tuple[str, str]]) -> dict:
         content = []
         for section_title, section_content in sections:
-            content.append([
-                {"tag": "text", "text": section_title, "style": ["bold"]},
-            ])
-            content.append([
-                {"tag": "text", "text": section_content},
-            ])
+            content.append(
+                [
+                    {"tag": "text", "text": section_title, "style": ["bold"]},
+                ]
+            )
+            content.append(
+                [
+                    {"tag": "text", "text": section_content},
+                ]
+            )
         return {"title": title, "content": content}
 
     print("Template 1 - Notification:")
     notification = create_notification(
         "Build Complete",
         "Your build has finished successfully.",
-        "https://ci.example.com/build/123"
+        "https://ci.example.com/build/123",
     )
     print_json(notification)
 
@@ -339,11 +343,14 @@ def demo_common_templates() -> None:
     print_json(alert)
 
     print("\nTemplate 3 - Report:")
-    report = create_report("Daily Summary", [
-        ("Users:", "1,234 active users today"),
-        ("Revenue:", "$12,345 total revenue"),
-        ("Issues:", "3 new issues reported"),
-    ])
+    report = create_report(
+        "Daily Summary",
+        [
+            ("Users:", "1,234 active users today"),
+            ("Revenue:", "$12,345 total revenue"),
+            ("Issues:", "3 new issues reported"),
+        ],
+    )
     print_json(report)
 
 
@@ -378,20 +385,24 @@ def demo_rich_text_builder() -> None:
 
         def add_link(self, text: str, href: str) -> "RichTextBuilder":
             """Add link element."""
-            self._current_paragraph.append({
-                "tag": "a",
-                "text": text,
-                "href": href,
-            })
+            self._current_paragraph.append(
+                {
+                    "tag": "a",
+                    "text": text,
+                    "href": href,
+                }
+            )
             return self
 
         def add_mention(self, user_id: str, user_name: str) -> "RichTextBuilder":
             """Add mention element."""
-            self._current_paragraph.append({
-                "tag": "at",
-                "user_id": user_id,
-                "user_name": user_name,
-            })
+            self._current_paragraph.append(
+                {
+                    "tag": "at",
+                    "user_id": user_id,
+                    "user_name": user_name,
+                }
+            )
             return self
 
         def mention_all(self) -> "RichTextBuilder":

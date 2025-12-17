@@ -18,7 +18,13 @@ from pathlib import Path
 import yaml
 
 from feishu_webhook_bot import FeishuBot
-from feishu_webhook_bot.core import BotConfig, LoggingConfig, WebhookConfig, get_logger, setup_logging
+from feishu_webhook_bot.core import (
+    BotConfig,
+    LoggingConfig,
+    WebhookConfig,
+    get_logger,
+    setup_logging,
+)
 
 # Setup logging
 setup_logging(LoggingConfig(level="INFO"))
@@ -60,7 +66,7 @@ def demo_create_bot_from_code() -> None:
 
     # Create bot
     bot = FeishuBot(config)
-    print(f"\nFeishuBot created")
+    print("\nFeishuBot created")
     print(f"  Client available: {bot.client is not None}")
 
 
@@ -91,9 +97,7 @@ def demo_create_bot_from_yaml() -> None:
         },
     }
 
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yaml", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(config_data, f)
         config_path = f.name
 
@@ -102,7 +106,7 @@ def demo_create_bot_from_yaml() -> None:
     # Create bot from config file
     try:
         bot = FeishuBot.from_config(config_path)
-        print(f"\nBot created from config file")
+        print("\nBot created from config file")
         print(f"  Webhooks: {len(bot.config.webhooks)}")
     finally:
         # Cleanup
@@ -149,9 +153,7 @@ def demo_sending_messages() -> None:
         return
 
     # Create bot
-    config = BotConfig(
-        webhooks=[WebhookConfig(url=webhook_url, name="default")]
-    )
+    config = BotConfig(webhooks=[WebhookConfig(url=webhook_url, name="default")])
     bot = FeishuBot(config)
 
     # Send text message
@@ -224,7 +226,7 @@ def demo_using_scheduler() -> None:
 
     print("\n1. Interval-based scheduling:")
     print("""   from feishu_webhook_bot import job
-   
+
    @job(trigger='interval', minutes=30)
    def send_status_update():
        bot.client.send_text("Status: All systems operational")
@@ -238,7 +240,7 @@ def demo_using_scheduler() -> None:
 
     print("\n3. One-time scheduling:")
     print("""   from datetime import datetime, timedelta
-   
+
    run_time = datetime.now() + timedelta(hours=1)
    scheduler.add_job(
        send_reminder,
@@ -250,13 +252,13 @@ def demo_using_scheduler() -> None:
     print("\n4. Managing jobs:")
     print("""   # List all jobs
    jobs = scheduler.get_jobs()
-   
+
    # Pause a job
    scheduler.pause_job(job_id)
-   
+
    # Resume a job
    scheduler.resume_job(job_id)
-   
+
    # Remove a job
    scheduler.remove_job(job_id)
 """)
@@ -282,10 +284,10 @@ class MyPlugin(BasePlugin):
             version="1.0.0",
             description="My custom plugin"
         )
-    
+
     def on_load(self) -> None:
         self.logger.info("Plugin loaded!")
-    
+
     def on_enable(self) -> None:
         # Register scheduled jobs
         self.register_job(
@@ -293,10 +295,10 @@ class MyPlugin(BasePlugin):
             trigger='cron',
             hour=9
         )
-    
+
     def daily_task(self) -> None:
         self.client.send_text("Daily task executed!")
-    
+
     def on_event(self, event: dict) -> None:
         # Handle incoming events
         if event.get("type") == "message":
@@ -308,7 +310,7 @@ class MyPlugin(BasePlugin):
    plugins:
      enabled: true
      plugin_dir: "./plugins"
-   
+
    # Or programmatically
    bot.plugin_manager.load_plugin("path/to/plugin.py")
 """)
@@ -332,7 +334,7 @@ def handle_message(event: dict) -> None:
     message = event.get("message", {})
     content = message.get("content", "")
     sender = event.get("sender", {}).get("sender_id", {})
-    
+
     # Process the message
     if "help" in content.lower():
         bot.client.send_text("Available commands: /status, /help")

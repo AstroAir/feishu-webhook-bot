@@ -105,7 +105,7 @@ def demo_signed_webhooks() -> None:
     print(f"  Secret: {'*' * len(config.secret) if config.secret else 'None'}")
 
     # Create provider
-    provider = FeishuProvider(config)
+    FeishuProvider(config)
 
     print("\nNote: When a secret is configured, the provider will:")
     print("  1. Generate a timestamp")
@@ -139,7 +139,7 @@ def demo_send_text() -> None:
     print("Sending text message...")
     result = provider.send_text("Hello from Feishu Provider Example!", target=webhook_url)
 
-    print(f"\nResult:")
+    print("\nResult:")
     print(f"  Success: {result.success}")
     print(f"  Message ID: {result.message_id}")
     if result.error:
@@ -307,7 +307,7 @@ def demo_circuit_breaker_integration() -> None:
 
     # Create provider with circuit breaker
     config = FeishuProviderConfig(name="cb_demo", url=webhook_url)
-    provider = FeishuProvider(config, circuit_breaker_config=cb_config)
+    FeishuProvider(config, circuit_breaker_config=cb_config)
 
     print("\nProvider created with circuit breaker protection")
     print("The circuit breaker will:")
@@ -336,7 +336,7 @@ def demo_message_tracking() -> None:
 
     # Create provider with tracker
     config = FeishuProviderConfig(name="tracked_demo", url=webhook_url)
-    provider = FeishuProvider(config, message_tracker=tracker)
+    FeishuProvider(config, message_tracker=tracker)
 
     print("Provider created with message tracking")
     print("\nMessage tracking provides:")
@@ -348,6 +348,7 @@ def demo_message_tracking() -> None:
     # Simulate tracking (without actual sending)
     print("\n--- Simulating message tracking ---")
     import uuid
+
     msg_id = str(uuid.uuid4())
     tracker.track(
         message_id=msg_id,
@@ -384,7 +385,7 @@ def demo_generic_message() -> None:
     )
 
     config = FeishuProviderConfig(name="generic_demo", url=webhook_url)
-    provider = FeishuProvider(config)
+    FeishuProvider(config)
 
     # Create different message types
     messages = [
@@ -399,9 +400,7 @@ def demo_generic_message() -> None:
         Message(
             type=MessageType.CARD,
             content={
-                "elements": [
-                    {"tag": "div", "text": {"tag": "plain_text", "content": "Card"}}
-                ]
+                "elements": [{"tag": "div", "text": {"tag": "plain_text", "content": "Card"}}]
             },
         ),
         Message(type=MessageType.IMAGE, content="img_v2_xxx"),
@@ -446,17 +445,17 @@ def demo_error_handling() -> None:
 def send_with_retry(provider, message, target, max_retries=3):
     for attempt in range(max_retries):
         result = provider.send_text(message, target)
-        
+
         if result.success:
             return result
-        
+
         if "rate limit" in (result.error or "").lower():
             time.sleep(2 ** attempt)  # Exponential backoff
             continue
-        
+
         # Non-retryable error
         break
-    
+
     return result
 """
     )
@@ -568,7 +567,7 @@ def demo_real_world_pattern() -> None:
         "https://open.feishu.cn/open-apis/bot/v2/hook/demo",
     )
 
-    service = FeishuNotificationService(webhook_url)
+    FeishuNotificationService(webhook_url)
 
     print("FeishuNotificationService created")
     print("\nUsage examples:")

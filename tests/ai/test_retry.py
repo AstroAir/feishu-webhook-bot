@@ -11,13 +11,11 @@ from __future__ import annotations
 
 import asyncio
 import time
-from unittest.mock import Mock
 
 import pytest
 
 from feishu_webhook_bot.ai.exceptions import AIServiceUnavailableError
 from feishu_webhook_bot.ai.retry import CircuitBreaker, retry_with_exponential_backoff
-
 
 # ==============================================================================
 # CircuitBreaker Tests
@@ -46,7 +44,7 @@ class TestCircuitBreakerCreation:
 
         assert cb.failure_threshold == 10
         assert cb.recovery_timeout == 120.0
-        assert cb.expected_exception == ValueError
+        assert cb.expected_exception is ValueError
 
 
 class TestCircuitBreakerStateTransitions:
@@ -391,7 +389,6 @@ class TestRetryBackoffCalculation:
 
     def test_exponential_backoff_increases(self):
         """Test delay increases exponentially."""
-        delays = []
         call_count = 0
 
         @retry_with_exponential_backoff(
@@ -495,6 +492,7 @@ class TestCircuitBreakerAdvanced:
 
         # Wait for recovery
         import time
+
         time.sleep(0.02)
 
         # Successful call should reset
@@ -512,6 +510,7 @@ class TestCircuitBreakerAdvanced:
             cb.call(lambda: (_ for _ in ()).throw(Exception("fail")))
 
         import time
+
         time.sleep(0.02)
 
         # Failure in half-open should reopen
@@ -576,6 +575,7 @@ class TestRetryDecoratorAdvanced:
 
     def test_retry_preserves_function_metadata(self):
         """Test retry decorator preserves function metadata."""
+
         @retry_with_exponential_backoff()
         def my_function():
             """My docstring."""
@@ -716,6 +716,7 @@ class TestRetryEdgeCases:
             cb.call(lambda: (_ for _ in ()).throw(Exception("fail")))
 
         import time
+
         time.sleep(0.01)
 
         # Should be able to recover quickly
@@ -729,7 +730,7 @@ class TestRetryEdgeCases:
         @retry_with_exponential_backoff(
             max_retries=2,
             base_delay=1000.0,  # Very high
-            max_delay=0.001,    # But capped very low
+            max_delay=0.001,  # But capped very low
             jitter=False,
         )
         def high_base():

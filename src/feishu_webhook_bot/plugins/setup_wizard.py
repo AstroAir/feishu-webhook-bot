@@ -87,9 +87,10 @@ class PluginSetupWizard:
 
             if self.manifest:
                 self._show_plugin_info()
-                if not self._check_dependencies():
-                    if not self._confirm("Continue anyway?", default=False):
-                        return {}
+                if not self._check_dependencies() and not self._confirm(
+                    "Continue anyway?", default=False
+                ):
+                    return {}
                 self._show_permissions()
 
             self._collect_configuration()
@@ -212,9 +213,8 @@ class PluginSetupWizard:
                 field_def = fields[field_name]
 
                 # Check field dependencies
-                if field_def.depends_on:
-                    if not self.new_config.get(field_def.depends_on):
-                        continue
+                if field_def.depends_on and not self.new_config.get(field_def.depends_on):
+                    continue
 
                 value = self._prompt_field(field_def)
                 if value is not None:
@@ -252,9 +252,7 @@ class PluginSetupWizard:
         if field_def.field_type == FieldType.CHOICE and field_def.choices:
             self._print(f"    Options: {', '.join(str(c) for c in field_def.choices)}")
             while True:
-                value = self._prompt(
-                    prompt_text, default=str(current) if current else None
-                )
+                value = self._prompt(prompt_text, default=str(current) if current else None)
                 if value in [str(c) for c in field_def.choices]:
                     return value
                 self._print("[red]Invalid choice. Please select from the options above.[/]")
@@ -317,9 +315,7 @@ class PluginSetupWizard:
 
         # Default: string prompt
         while True:
-            value = self._prompt(
-                prompt_text, default=str(current) if current is not None else None
-            )
+            value = self._prompt(prompt_text, default=str(current) if current is not None else None)
 
             if not value:
                 if field_def.required:
@@ -347,20 +343,14 @@ class PluginSetupWizard:
 
             for name, value in self.new_config.items():
                 field_def = fields.get(name)
-                if field_def and field_def.sensitive:
-                    display_value = "********"
-                else:
-                    display_value = str(value)
+                display_value = "********" if field_def and field_def.sensitive else str(value)
                 table.add_row(name, display_value)
 
             self.console.print(table)
         else:
             for name, value in self.new_config.items():
                 field_def = fields.get(name)
-                if field_def and field_def.sensitive:
-                    display_value = "********"
-                else:
-                    display_value = str(value)
+                display_value = "********" if field_def and field_def.sensitive else str(value)
                 print(f"  {name}: {display_value}")
 
     def _print(self, message: str) -> None:
@@ -378,9 +368,7 @@ class PluginSetupWizard:
             plain = re.sub(r"\[/?[^\]]+\]", "", message)
             print(plain)
 
-    def _prompt(
-        self, message: str, default: str | None = None, password: bool = False
-    ) -> str:
+    def _prompt(self, message: str, default: str | None = None, password: bool = False) -> str:
         """Prompt user for input.
 
         Args:

@@ -411,9 +411,7 @@ class FeishuProvider(BaseProvider, HTTPProviderMixin):
         def _validate_feishu_response(result: dict[str, Any]) -> None:
             """Validate Feishu API response."""
             if result.get("code") != 0:
-                raise ValueError(
-                    f"Feishu API error: {result.get('msg', 'Unknown error')}"
-                )
+                raise ValueError(f"Feishu API error: {result.get('msg', 'Unknown error')}")
 
         return self._http_request_with_retry(
             client=self._client,

@@ -233,14 +233,14 @@ class ConfigUpdater:
 
         if self._yaml is not None:
             # Use ruamel.yaml
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 config = self._yaml.load(f)
                 return config if config else {}
         else:
             # Fallback to PyYAML
             import yaml
 
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 config = yaml.safe_load(f)
                 return config if config else {}
 
@@ -334,9 +334,7 @@ class ConfigUpdater:
         except ImportError:
             return template
 
-    def generate_template_string(
-        self, plugin_name: str, schema: type[PluginConfigSchema]
-    ) -> str:
+    def generate_template_string(self, plugin_name: str, schema: type[PluginConfigSchema]) -> str:
         """Generate a YAML template string for a plugin.
 
         This is useful for displaying to users without modifying the config file.

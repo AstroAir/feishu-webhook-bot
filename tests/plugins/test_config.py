@@ -3,7 +3,6 @@
 import pytest
 
 from feishu_webhook_bot.core.config import BotConfig, PluginConfig
-
 from tests.mocks import MockPlugin
 
 

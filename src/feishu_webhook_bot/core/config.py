@@ -173,12 +173,32 @@ class AutomationTriggerConfig(BaseModel):
 class AutomationActionConfig(BaseModel):
     """Action executed when an automation rule fires."""
 
-    type: Literal["send_text", "send_template", "http_request"] = Field(
-        ..., description="Automation action type"
-    )
+    type: Literal[
+        "send_text",
+        "send_template",
+        "http_request",
+        "plugin_method",
+        "python_code",
+        "ai_chat",
+        "ai_query",
+        "conditional",
+        "loop",
+        "set_variable",
+        "delay",
+        "notify",
+        "log",
+        "parallel",
+        "chain_rule",
+    ] = Field(..., description="Automation action type")
+
+    # Common fields
     text: str | None = Field(default=None, description="Text payload to send")
     template: str | None = Field(
         default=None, description="Template name to render for this action"
+    )
+    targets: list[str] = Field(
+        default_factory=list,
+        description="Target specs to send to (e.g., 'provider:target' or legacy name)",
     )
     webhooks: list[str] = Field(default_factory=list, description="Target webhook names")
     context: dict[str, Any] = Field(
@@ -188,6 +208,77 @@ class AutomationActionConfig(BaseModel):
         default=None, description="HTTP request configuration for external calls"
     )
 
+    # Plugin method fields
+    plugin_name: str | None = Field(default=None, description="Plugin name for plugin_method")
+    method_name: str | None = Field(default=None, description="Method name for plugin_method")
+    parameters: dict[str, Any] = Field(
+        default_factory=dict, description="Parameters to pass to method"
+    )
+
+    # Python code fields
+    code: str | None = Field(default=None, description="Python code for python_code action")
+
+    # AI action fields
+    prompt: str | None = Field(default=None, description="Prompt for AI actions")
+    ai_user_id: str | None = Field(default=None, description="User ID for AI conversation context")
+    ai_system_prompt: str | None = Field(
+        default=None, description="Override system prompt for AI action"
+    )
+    ai_temperature: float | None = Field(
+        default=None, ge=0.0, le=2.0, description="Override temperature for AI action"
+    )
+    ai_max_tokens: int | None = Field(
+        default=None, ge=1, description="Override max tokens for AI action"
+    )
+    structured_output: bool = Field(default=False, description="Parse AI response as JSON")
+
+    # Conditional fields
+    condition: str | None = Field(
+        default=None, description="Condition expression for conditional action"
+    )
+    then_actions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Actions to execute if condition is true"
+    )
+    else_actions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Actions to execute if condition is false"
+    )
+
+    # Loop fields
+    items: list[Any] | str | None = Field(
+        default=None, description="Items to iterate over for loop action"
+    )
+    item_var: str = Field(default="item", description="Variable name for current item")
+    index_var: str = Field(default="index", description="Variable name for current index")
+    actions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Actions to execute in loop/parallel"
+    )
+    max_iterations: int = Field(default=100, description="Maximum loop iterations")
+    break_on_error: bool = Field(default=False, description="Stop loop on first error")
+
+    # Set variable fields
+    variable_name: str | None = Field(default=None, description="Variable name to set")
+    variable_value: Any | None = Field(default=None, description="Value to set")
+    expression: str | None = Field(default=None, description="Expression to evaluate as value")
+
+    # Delay fields
+    delay_seconds: float = Field(default=0, description="Seconds to delay")
+    delay_milliseconds: float = Field(default=0, description="Milliseconds to delay")
+
+    # Notify fields
+    channel: str = Field(default="webhook", description="Notification channel")
+    message: str | None = Field(default=None, description="Notification message")
+    level: str = Field(default="info", description="Notification level")
+
+    # Chain rule fields
+    rule_name: str | None = Field(default=None, description="Rule name for chain_rule")
+
+    # Parallel fields
+    max_concurrent: int = Field(default=10, description="Maximum concurrent executions")
+    fail_fast: bool = Field(default=False, description="Stop all on first failure")
+
+    # Result storage
+    save_as: str | None = Field(default=None, description="Save result to context with this key")
+
     @model_validator(mode="after")
     def validate_action(self) -> AutomationActionConfig:
         if self.type == "send_text" and not (self.text or self.template):
@@ -196,6 +287,18 @@ class AutomationActionConfig(BaseModel):
             raise ValueError("send_template action requires a template name")
         if self.type == "http_request" and self.request is None:
             raise ValueError("http_request action requires request configuration")
+        if self.type == "plugin_method" and not (self.plugin_name and self.method_name):
+            raise ValueError("plugin_method requires plugin_name and method_name")
+        if self.type == "python_code" and not self.code:
+            raise ValueError("python_code action requires code")
+        if self.type in ("ai_chat", "ai_query") and not self.prompt:
+            raise ValueError(f"{self.type} action requires prompt")
+        if self.type == "conditional" and not self.condition:
+            raise ValueError("conditional action requires condition")
+        if self.type == "set_variable" and not self.variable_name:
+            raise ValueError("set_variable action requires variable_name")
+        if self.type == "chain_rule" and not self.rule_name:
+            raise ValueError("chain_rule action requires rule_name")
         return self
 
 
@@ -210,6 +313,10 @@ class AutomationRule(BaseModel):
     )
     actions: list[AutomationActionConfig] = Field(
         default_factory=list, description="Actions executed when the rule fires"
+    )
+    default_targets: list[str] = Field(
+        default_factory=list,
+        description="Fallback targets for actions (e.g., 'provider:target' or legacy webhook/provider name)",
     )
     default_webhooks: list[str] = Field(
         default_factory=list, description="Fallback webhook names for actions"
@@ -307,6 +414,10 @@ class TaskActionConfig(BaseModel):
     parameters: dict[str, Any] = Field(
         default_factory=dict, description="Parameters to pass to the action"
     )
+    targets: list[str] = Field(
+        default_factory=list,
+        description="Target specs to send to (e.g., 'provider:target' or legacy webhook/provider name)",
+    )
     webhooks: list[str] = Field(default_factory=list, description="Target webhooks")
 
 
@@ -328,10 +439,27 @@ class TaskDefinitionConfig(BaseModel):
 
     # Dependencies
     depends_on: list[str] = Field(
-        default_factory=list, description="List of task names this task depends on"
+        default_factory=list,
+        description="List of task names this task depends on (must have completed successfully)",
     )
     run_after: list[str] = Field(
-        default_factory=list, description="Tasks that must complete before this one"
+        default_factory=list,
+        description="Tasks that must complete (success or failure) before this one",
+    )
+    dependency_timeout: float = Field(
+        default=300.0,
+        ge=0.0,
+        description="Maximum time to wait for dependencies (seconds)",
+    )
+    skip_if_dependency_failed: bool = Field(
+        default=True,
+        description="Skip this task if any dependency in depends_on failed",
+    )
+
+    # Grouping and tags
+    group: str | None = Field(default=None, description="Task group name for organization")
+    tags: list[str] = Field(
+        default_factory=list, description="Tags for filtering and categorization"
     )
 
     # Parameters and conditions
@@ -435,12 +563,8 @@ class MessageQueueConfig(BaseModel):
     max_batch_size: int = Field(
         default=10, ge=1, description="Maximum messages to process in one batch"
     )
-    retry_delay: float = Field(
-        default=5.0, ge=0.0, description="Base delay for retries in seconds"
-    )
-    max_retries: int = Field(
-        default=3, ge=0, description="Maximum retry attempts per message"
-    )
+    retry_delay: float = Field(default=5.0, ge=0.0, description="Base delay for retries in seconds")
+    max_retries: int = Field(default=3, ge=0, description="Maximum retry attempts per message")
 
 
 class MessageTrackingConfig(BaseModel):
@@ -465,18 +589,13 @@ class FeishuAPIConfig(BaseModel):
     app_id: str | None = Field(default=None, description="Feishu application ID")
     app_secret: str | None = Field(default=None, description="Feishu application secret")
     enable_oauth: bool = Field(default=False, description="Enable OAuth flow")
-    oauth_redirect_uri: str | None = Field(
-        default=None, description="OAuth redirect URI"
-    )
+    oauth_redirect_uri: str | None = Field(default=None, description="OAuth redirect URI")
 
     @model_validator(mode="after")
-    def validate_api_config(self) -> "FeishuAPIConfig":
+    def validate_api_config(self) -> FeishuAPIConfig:
         """Validate that required fields are set when enabled."""
-        if self.enabled:
-            if not self.app_id or not self.app_secret:
-                raise ValueError(
-                    "Feishu API requires 'app_id' and 'app_secret' when enabled"
-                )
+        if self.enabled and (not self.app_id or not self.app_secret):
+            raise ValueError("Feishu API requires 'app_id' and 'app_secret' when enabled")
         return self
 
 
@@ -522,16 +641,12 @@ class ProviderConfigBase(BaseModel):
     circuit_breaker: CircuitBreakerPolicyConfig | None = Field(
         default=None, description="Circuit breaker configuration"
     )
-    message_tracking: bool = Field(
-        default=False, description="Enable message delivery tracking"
-    )
+    message_tracking: bool = Field(default=False, description="Enable message delivery tracking")
 
     # Feishu-specific fields
     webhook_url: str | None = Field(default=None, description="Feishu webhook URL")
     secret: str | None = Field(default=None, description="Feishu webhook signing secret")
-    headers: dict[str, str] = Field(
-        default_factory=dict, description="Extra HTTP headers"
-    )
+    headers: dict[str, str] = Field(default_factory=dict, description="Extra HTTP headers")
 
     # Napcat/QQ-specific fields
     http_url: str | None = Field(default=None, description="Napcat OneBot11 HTTP API URL")
@@ -539,9 +654,7 @@ class ProviderConfigBase(BaseModel):
     default_target: str | None = Field(
         default=None, description="Default target for messages (e.g., 'group:123456')"
     )
-    bot_qq: str | None = Field(
-        default=None, description="Bot's QQ number for @mention detection"
-    )
+    bot_qq: str | None = Field(default=None, description="Bot's QQ number for @mention detection")
 
     # Feishu API configuration (nested)
     api: FeishuAPIConfig | None = Field(
@@ -549,14 +662,13 @@ class ProviderConfigBase(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_provider_config(self) -> "ProviderConfigBase":
+    def validate_provider_config(self) -> ProviderConfigBase:
         """Validate provider-specific required fields."""
         if self.provider_type == "feishu":
             if not self.webhook_url:
                 raise ValueError("Feishu provider requires 'webhook_url'")
-        elif self.provider_type == "napcat":
-            if not self.http_url:
-                raise ValueError("Napcat provider requires 'http_url'")
+        elif self.provider_type == "napcat" and not self.http_url:
+            raise ValueError("Napcat provider requires 'http_url'")
         return self
 
 
@@ -672,12 +784,21 @@ class HTTPClientConfig(BaseModel):
 
 
 class EventServerConfig(BaseModel):
-    """Configuration for the optional Feishu event ingestion server."""
+    """Configuration for the multi-platform event ingestion server.
+
+    Supports both Feishu and QQ (OneBot11) event callbacks.
+    """
 
     enabled: bool = Field(default=False, description="Enable inbound event server")
     host: str = Field(default="0.0.0.0", description="Bind host")
     port: int = Field(default=8000, description="Bind port")
-    path: str = Field(default="/feishu/events", description="Event webhook path")
+    auto_start: bool = Field(
+        default=True,
+        description="Automatically start server when bot starts",
+    )
+
+    # Feishu event configuration
+    feishu_path: str = Field(default="/feishu/events", description="Feishu event webhook path")
     verification_token: str | None = Field(
         default=None,
         description="Feishu verification token to validate inbound requests",
@@ -686,10 +807,23 @@ class EventServerConfig(BaseModel):
         default=None,
         description="Feishu encrypt/signature secret for verifying requests",
     )
-    auto_start: bool = Field(
-        default=True,
-        description="Automatically start server when bot starts",
+
+    # QQ/OneBot11 event configuration
+    qq_path: str = Field(default="/qq/events", description="QQ OneBot11 event webhook path")
+    qq_access_token: str | None = Field(
+        default=None,
+        description="QQ/OneBot11 access token for request validation",
     )
+    qq_bot_id: str | None = Field(
+        default=None,
+        description="Bot's QQ number for @mention detection",
+    )
+
+    # Legacy alias for backward compatibility
+    @property
+    def path(self) -> str:
+        """Backward compatible path property (returns feishu_path)."""
+        return self.feishu_path
 
 
 class AuthConfig(BaseModel):
@@ -749,12 +883,8 @@ class MessageBridgeRuleConfig(BaseModel):
     include_sender_info: bool = Field(
         default=True, description="Include sender name/ID in forwarded message"
     )
-    message_prefix: str = Field(
-        default="", description="Prefix to add to forwarded messages"
-    )
-    message_suffix: str = Field(
-        default="", description="Suffix to add to forwarded messages"
-    )
+    message_prefix: str = Field(default="", description="Prefix to add to forwarded messages")
+    message_suffix: str = Field(default="", description="Suffix to add to forwarded messages")
     forward_images: bool = Field(default=True, description="Forward image messages")
     forward_at_mentions: bool = Field(default=False, description="Forward @mentions")
 
@@ -795,9 +925,7 @@ class MessageBridgeConfig(BaseModel):
     rate_limit_per_minute: int = Field(
         default=60, ge=1, description="Maximum messages to forward per minute per rule"
     )
-    retry_on_failure: bool = Field(
-        default=True, description="Retry forwarding on failure"
-    )
+    retry_on_failure: bool = Field(default=True, description="Retry forwarding on failure")
     max_retries: int = Field(default=3, ge=0, description="Maximum retry attempts")
 
 

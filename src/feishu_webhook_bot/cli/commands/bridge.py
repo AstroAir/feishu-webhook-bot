@@ -142,13 +142,9 @@ def _cmd_bridge_enable(args: argparse.Namespace) -> int:
         for rule in bridge_cfg.rules:
             if rule.name == args.rule_name:
                 if rule.enabled:
-                    console.print(
-                        f"[yellow]Rule '{args.rule_name}' is already enabled.[/]"
-                    )
+                    console.print(f"[yellow]Rule '{args.rule_name}' is already enabled.[/]")
                 else:
-                    console.print(
-                        f"[green]Rule '{args.rule_name}' would be enabled.[/]"
-                    )
+                    console.print(f"[green]Rule '{args.rule_name}' would be enabled.[/]")
                     console.print("[dim]Note: Changes require config file update.[/]")
                 return 0
 
@@ -180,13 +176,9 @@ def _cmd_bridge_disable(args: argparse.Namespace) -> int:
         for rule in bridge_cfg.rules:
             if rule.name == args.rule_name:
                 if not rule.enabled:
-                    console.print(
-                        f"[yellow]Rule '{args.rule_name}' is already disabled.[/]"
-                    )
+                    console.print(f"[yellow]Rule '{args.rule_name}' is already disabled.[/]")
                 else:
-                    console.print(
-                        f"[green]Rule '{args.rule_name}' would be disabled.[/]"
-                    )
+                    console.print(f"[green]Rule '{args.rule_name}' would be disabled.[/]")
                     console.print("[dim]Note: Changes require config file update.[/]")
                 return 0
 

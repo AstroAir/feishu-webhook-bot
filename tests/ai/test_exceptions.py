@@ -26,7 +26,6 @@ from feishu_webhook_bot.ai.exceptions import (
     ToolExecutionError,
 )
 
-
 # ==============================================================================
 # AIError Tests
 # ==============================================================================
@@ -288,6 +287,7 @@ class TestExceptionHierarchy:
 
     def test_can_catch_all_with_ai_error(self):
         """Test all exceptions can be caught with AIError."""
+
         def raise_service_unavailable():
             raise AIServiceUnavailableError()
 

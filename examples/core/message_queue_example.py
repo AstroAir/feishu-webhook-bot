@@ -141,7 +141,7 @@ async def demo_basic_queue_operations() -> None:
         max_retries=3,
     )
 
-    print(f"Queue created with batch size: 5, max retries: 3")
+    print("Queue created with batch size: 5, max retries: 3")
     print(f"Initial queue size: {len(queue)}")
 
     # Enqueue messages
@@ -162,7 +162,7 @@ async def demo_basic_queue_operations() -> None:
     print("\n--- Processing queue ---")
     results = await queue.process_queue()
 
-    print(f"\nProcessing results:")
+    print("\nProcessing results:")
     print(f"  Sent: {results['sent']}")
     print(f"  Failed: {results['failed']}")
     print(f"  Retried: {results['retried']}")
@@ -174,7 +174,7 @@ async def demo_basic_queue_operations() -> None:
 
     # Get queue statistics
     stats = queue.get_queue_stats()
-    print(f"\nQueue statistics:")
+    print("\nQueue statistics:")
     for key, value in stats.items():
         print(f"  {key}: {value}")
 
@@ -218,7 +218,7 @@ async def demo_batch_processing() -> None:
     print("\n--- Processing queue in batches ---")
     results = await queue.process_queue()
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Total processed: {results['processed']}")
     print(f"  Batches: {results['batch_count']}")
     print(f"  Expected batches: {(len(messages) + 2) // 3}")  # Ceiling division
@@ -271,9 +271,11 @@ async def demo_retry_mechanism() -> None:
         total_sent += results["sent"]
         total_failed += results["failed"]
         total_retried += results["retried"]
-        print(f"  Sent: {results['sent']}, Failed: {results['failed']}, Retried: {results['retried']}")
+        print(
+            f"  Sent: {results['sent']}, Failed: {results['failed']}, Retried: {results['retried']}"
+        )
 
-    print(f"\n--- Final Summary ---")
+    print("\n--- Final Summary ---")
     print(f"Total sent: {total_sent}")
     print(f"Total failed (exceeded retries): {total_failed}")
     print(f"Total retry attempts: {total_retried}")
@@ -310,13 +312,13 @@ async def demo_queued_message_features() -> None:
 
     # Test retry logic
     print("\n--- Retry backoff calculation ---")
-    for i in range(5):
+    for _i in range(5):
         delay = msg.get_retry_delay()
         is_retryable = msg.is_retryable()
         print(f"  Retry {msg.retry_count}: delay = {delay}s, retryable = {is_retryable}")
         msg.increment_retry()
 
-    print(f"\nAfter max retries:")
+    print("\nAfter max retries:")
     print(f"  Retry count: {msg.retry_count}")
     print(f"  Is retryable: {msg.is_retryable()}")
 
@@ -355,9 +357,7 @@ async def demo_message_types() -> None:
     # Card message
     card_content = {
         "config": {"wide_screen_mode": True},
-        "elements": [
-            {"tag": "div", "text": {"content": "Card content", "tag": "plain_text"}}
-        ],
+        "elements": [{"tag": "div", "text": {"content": "Card content", "tag": "plain_text"}}],
     }
     await queue.enqueue(
         QueuedMessage(
@@ -403,7 +403,7 @@ async def demo_message_types() -> None:
 
     # Check sent messages
     sent = provider.get_sent_messages()
-    print(f"\nSent messages:")
+    print("\nSent messages:")
     for msg in sent:
         print(f"  - Type: {msg['type']}, Target: {msg['target']}")
 
@@ -459,7 +459,9 @@ async def demo_queue_monitoring() -> None:
         if len(queue) == 0:
             break
         results = await queue.process_queue()
-        print(f"Round {round_num + 1}: sent={results['sent']}, failed={results['failed']}, retried={results['retried']}")
+        print(
+            f"Round {round_num + 1}: sent={results['sent']}, failed={results['failed']}, retried={results['retried']}"
+        )
 
     # Final stats
     print("\nFinal queue statistics:")
@@ -509,7 +511,7 @@ async def demo_queue_clear() -> None:
 
     # Stats after clear
     stats = queue.get_queue_stats()
-    print(f"\nStatistics after clear:")
+    print("\nStatistics after clear:")
     print(f"  current_size: {stats['current_size']}")
     print(f"  total_enqueued: {stats['total_enqueued']}")
 

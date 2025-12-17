@@ -208,9 +208,7 @@ def _cmd_ai_stats(args: argparse.Namespace) -> int:
             info_lines.append(f"[bold]System Prompt:[/] {prompt_preview}")
 
         console.print("\n".join(info_lines))
-        console.print(
-            "\n[yellow]Note: Runtime usage statistics available when bot is running.[/]"
-        )
+        console.print("\n[yellow]Note: Runtime usage statistics available when bot is running.[/]")
 
         return 0
 
@@ -304,9 +302,7 @@ def _cmd_ai_mcp(args: argparse.Namespace) -> int:
             table.add_row(server.name, transport, str(endpoint), "[yellow]Configured[/]")
 
         console.print(table)
-        console.print(
-            "\n[yellow]Note: MCP servers connect at runtime when AI agent starts.[/]"
-        )
+        console.print("\n[yellow]Note: MCP servers connect at runtime when AI agent starts.[/]")
 
         return 0
 
@@ -342,17 +338,13 @@ def _cmd_ai_test(args: argparse.Namespace) -> int:
                 f"[bold]API Key:[/] {'Configured' if config.ai.api_key else 'Not set'}"
             )
             info_lines.append(f"[bold]Temperature:[/] {config.ai.temperature}")
-            info_lines.append(
-                f"[bold]Max Tokens:[/] {config.ai.max_tokens or 'Default'}"
-            )
+            info_lines.append(f"[bold]Max Tokens:[/] {config.ai.max_tokens or 'Default'}")
             info_lines.append(f"[bold]Tools Enabled:[/] {config.ai.tools_enabled}")
             info_lines.append(f"[bold]Web Search:[/] {config.ai.web_search_enabled}")
             info_lines.append(f"[bold]Streaming:[/] {config.ai.streaming.enabled}")
 
             if config.ai.mcp and config.ai.mcp.enabled:
-                info_lines.append(
-                    f"[bold]MCP Servers:[/] {len(config.ai.mcp.servers)} configured"
-                )
+                info_lines.append(f"[bold]MCP Servers:[/] {len(config.ai.mcp.servers)} configured")
 
             if config.ai.multi_agent and config.ai.multi_agent.enabled:
                 info_lines.append(
@@ -489,15 +481,11 @@ def _cmd_ai_conv_list(args: argparse.Namespace) -> int:
         # Note: This shows config info since runtime data needs bot running
         console.print("[yellow]Note: Active conversations are tracked at runtime.[/]")
         console.print("Start the bot to track and list active conversations.")
-        console.print(
-            f"\nConversation timeout: {config.ai.conversation_timeout_minutes} minutes"
-        )
+        console.print(f"\nConversation timeout: {config.ai.conversation_timeout_minutes} minutes")
         console.print(f"Max conversation turns: {config.ai.max_conversation_turns}")
 
         if config.ai.conversation_persistence:
-            console.print(
-                f"Persistence: {config.ai.conversation_persistence.storage_type}"
-            )
+            console.print(f"Persistence: {config.ai.conversation_persistence.storage_type}")
 
         return 0
 
@@ -513,9 +501,7 @@ def _cmd_ai_conv_export(args: argparse.Namespace) -> int:
 
     console.print(f"\n[bold]Export Conversation: {args.user_id}[/]\n")
     console.print("[yellow]Note: Conversation export requires bot runtime context.[/]")
-    console.print(
-        "Use the WebUI or API to export conversations while bot is running."
-    )
+    console.print("Use the WebUI or API to export conversations while bot is running.")
 
     if args.output:
         console.print(f"Output file: {args.output}")
@@ -539,16 +525,10 @@ def _cmd_ai_conv_import(args: argparse.Namespace) -> int:
         console.print(f"\n[bold]Import Conversation from: {args.file}[/]\n")
         console.print(f"User ID: {data.get('user_id', 'Unknown')}")
         console.print(f"Messages: {data.get('message_count', 0)}")
-        console.print(
-            f"Total Tokens: {data.get('input_tokens', 0) + data.get('output_tokens', 0)}"
-        )
+        console.print(f"Total Tokens: {data.get('input_tokens', 0) + data.get('output_tokens', 0)}")
 
-        console.print(
-            "\n[yellow]Note: Conversation import requires bot runtime context.[/]"
-        )
-        console.print(
-            "Use the WebUI or API to import conversations while bot is running."
-        )
+        console.print("\n[yellow]Note: Conversation import requires bot runtime context.[/]")
+        console.print("Use the WebUI or API to import conversations while bot is running.")
 
         return 0
 
@@ -567,9 +547,7 @@ def _cmd_ai_conv_delete(args: argparse.Namespace) -> int:
 
     console.print(f"\n[bold]Delete Conversation: {args.user_id}[/]\n")
     console.print("[yellow]Note: Conversation deletion requires bot runtime context.[/]")
-    console.print(
-        "Use the WebUI or API to delete conversations while bot is running."
-    )
+    console.print("Use the WebUI or API to delete conversations while bot is running.")
 
     return 0
 
@@ -580,9 +558,7 @@ def _cmd_ai_conv_details(args: argparse.Namespace) -> int:
 
     console.print(f"\n[bold]Conversation Details: {args.user_id}[/]\n")
     console.print("[yellow]Note: Conversation details require bot runtime context.[/]")
-    console.print(
-        "Use the WebUI or API to view conversation details while bot is running."
-    )
+    console.print("Use the WebUI or API to view conversation details while bot is running.")
 
     return 0
 
@@ -636,9 +612,7 @@ def _cmd_ai_ma_status(args: argparse.Namespace) -> int:
             f"[bold]Timeout:[/] {ma_config.timeout_seconds}s",
         ]
 
-        console.print(
-            Panel("\n".join(info_lines), title="Multi-Agent Configuration")
-        )
+        console.print(Panel("\n".join(info_lines), title="Multi-Agent Configuration"))
 
         if ma_config.enabled:
             console.print("\n[bold]Default Agents:[/]")

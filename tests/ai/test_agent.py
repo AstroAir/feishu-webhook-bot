@@ -20,7 +20,6 @@ from feishu_webhook_bot.ai.config import AIConfig
 from feishu_webhook_bot.ai.conversation import ConversationManager
 from feishu_webhook_bot.ai.tools import ToolRegistry
 
-
 # ==============================================================================
 # AIResponse Tests
 # ==============================================================================
@@ -120,8 +119,9 @@ class TestAIAgentDependencies:
 class TestAIAgentInitialization:
     """Tests for AIAgent initialization."""
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_creation_default_config(self, mock_agent_class):
+    def test_agent_creation_default_config(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent creation with default configuration."""
         config = AIConfig()
 
@@ -134,8 +134,9 @@ class TestAIAgentInitialization:
         assert agent.orchestrator is not None
         assert agent.circuit_breaker is not None
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_metrics_initialized(self, mock_agent_class):
+    def test_agent_metrics_initialized(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent metrics are initialized."""
         config = AIConfig()
 
@@ -148,8 +149,9 @@ class TestAIAgentInitialization:
         assert agent._metrics["total_input_tokens"] == 0
         assert agent._metrics["total_output_tokens"] == 0
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_custom_model(self, mock_agent_class):
+    def test_agent_with_custom_model(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with custom model."""
         config = AIConfig(model="anthropic:claude-3-opus")
 
@@ -157,8 +159,9 @@ class TestAIAgentInitialization:
 
         assert agent.config.model == "anthropic:claude-3-opus"
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_streaming_enabled(self, mock_agent_class):
+    def test_agent_with_streaming_enabled(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with streaming enabled."""
         config = AIConfig()
         config.streaming.enabled = True
@@ -167,8 +170,9 @@ class TestAIAgentInitialization:
 
         assert agent.config.streaming.enabled is True
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_mcp_enabled(self, mock_agent_class):
+    def test_agent_with_mcp_enabled(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with MCP enabled."""
         config = AIConfig()
         config.mcp.enabled = True
@@ -186,8 +190,9 @@ class TestAIAgentInitialization:
 class TestAIAgentAPIKeyHandling:
     """Tests for AIAgent API key handling."""
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_get_env_var_name_openai(self, mock_agent_class):
+    def test_get_env_var_name_openai(self, mock_agent_class, mock_planner_agent):
         """Test environment variable name for OpenAI."""
         config = AIConfig(model="openai:gpt-4")
         agent = AIAgent(config)
@@ -196,8 +201,9 @@ class TestAIAgentAPIKeyHandling:
 
         assert env_var == "OPENAI_API_KEY"
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_get_env_var_name_anthropic(self, mock_agent_class):
+    def test_get_env_var_name_anthropic(self, mock_agent_class, mock_planner_agent):
         """Test environment variable name for Anthropic."""
         config = AIConfig(model="anthropic:claude-3")
         agent = AIAgent(config)
@@ -206,8 +212,9 @@ class TestAIAgentAPIKeyHandling:
 
         assert env_var == "ANTHROPIC_API_KEY"
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_get_env_var_name_google(self, mock_agent_class):
+    def test_get_env_var_name_google(self, mock_agent_class, mock_planner_agent):
         """Test environment variable name for Google."""
         config = AIConfig(model="google:gemini-pro")
         agent = AIAgent(config)
@@ -216,8 +223,9 @@ class TestAIAgentAPIKeyHandling:
 
         assert env_var == "GOOGLE_API_KEY"
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_get_env_var_name_unknown_provider(self, mock_agent_class):
+    def test_get_env_var_name_unknown_provider(self, mock_agent_class, mock_planner_agent):
         """Test environment variable name for unknown provider."""
         config = AIConfig(model="custom:model")
         agent = AIAgent(config)
@@ -235,8 +243,9 @@ class TestAIAgentAPIKeyHandling:
 class TestAIAgentToolRegistration:
     """Tests for AIAgent tool registration."""
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_register_custom_tool(self, mock_agent_class):
+    def test_register_custom_tool(self, mock_agent_class, mock_planner_agent):
         """Test registering a custom tool."""
         config = AIConfig()
         agent = AIAgent(config)
@@ -249,8 +258,9 @@ class TestAIAgentToolRegistration:
 
         assert "custom_tool" in agent.tool_registry._tools
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_register_tool_with_custom_name(self, mock_agent_class):
+    def test_register_tool_with_custom_name(self, mock_agent_class, mock_planner_agent):
         """Test registering a tool with custom name."""
         config = AIConfig()
         agent = AIAgent(config)
@@ -263,8 +273,9 @@ class TestAIAgentToolRegistration:
 
         assert "custom_name" in agent.tool_registry._tools
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_register_tool_with_custom_description(self, mock_agent_class):
+    def test_register_tool_with_custom_description(self, mock_agent_class, mock_planner_agent):
         """Test registering a tool with custom description."""
         config = AIConfig()
         agent = AIAgent(config)
@@ -277,8 +288,9 @@ class TestAIAgentToolRegistration:
         # Tool is registered in the registry
         assert "my_func" in agent.tool_registry._tools
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_register_tools_from_module(self, mock_agent_class):
+    def test_register_tools_from_module(self, mock_agent_class, mock_planner_agent):
         """Test registering tools from a module."""
         config = AIConfig()
         agent = AIAgent(config)
@@ -309,8 +321,9 @@ class TestAIAgentToolRegistration:
 class TestAIAgentMetrics:
     """Tests for AIAgent metrics tracking."""
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_metrics_initialized(self, mock_agent_class):
+    def test_metrics_initialized(self, mock_agent_class, mock_planner_agent):
         """Test metrics are initialized correctly."""
         config = AIConfig()
         agent = AIAgent(config)
@@ -320,8 +333,9 @@ class TestAIAgentMetrics:
         assert agent._metrics["failed_requests"] == 0
         assert agent._metrics["total_response_time"] == 0.0
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_metrics_can_be_modified(self, mock_agent_class):
+    def test_metrics_can_be_modified(self, mock_agent_class, mock_planner_agent):
         """Test metrics can be modified."""
         config = AIConfig()
         agent = AIAgent(config)
@@ -342,8 +356,9 @@ class TestAIAgentMetrics:
 class TestAIAgentConfiguration:
     """Tests for AIAgent configuration options."""
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_tools_disabled(self, mock_agent_class):
+    def test_agent_with_tools_disabled(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with tools disabled."""
         config = AIConfig(tools_enabled=False)
 
@@ -351,8 +366,9 @@ class TestAIAgentConfiguration:
 
         assert agent.config.tools_enabled is False
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_web_search_disabled(self, mock_agent_class):
+    def test_agent_with_web_search_disabled(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with web search disabled."""
         config = AIConfig(web_search_enabled=False)
 
@@ -360,8 +376,9 @@ class TestAIAgentConfiguration:
 
         assert agent.config.web_search_enabled is False
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_structured_output_disabled(self, mock_agent_class):
+    def test_agent_with_structured_output_disabled(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with structured output disabled."""
         config = AIConfig(structured_output_enabled=False)
 
@@ -369,8 +386,9 @@ class TestAIAgentConfiguration:
 
         assert agent.config.structured_output_enabled is False
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_output_validators_disabled(self, mock_agent_class):
+    def test_agent_with_output_validators_disabled(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with output validators disabled."""
         config = AIConfig(output_validators_enabled=False)
 
@@ -378,8 +396,9 @@ class TestAIAgentConfiguration:
 
         assert agent.config.output_validators_enabled is False
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_custom_system_prompt(self, mock_agent_class):
+    def test_agent_with_custom_system_prompt(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with custom system prompt."""
         custom_prompt = "You are a helpful assistant specialized in Python."
         config = AIConfig(system_prompt=custom_prompt)
@@ -388,8 +407,9 @@ class TestAIAgentConfiguration:
 
         assert agent.config.system_prompt == custom_prompt
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
-    def test_agent_with_custom_timeout(self, mock_agent_class):
+    def test_agent_with_custom_timeout(self, mock_agent_class, mock_planner_agent):
         """Test AIAgent with custom conversation timeout."""
         config = AIConfig(conversation_timeout_minutes=60)
 
@@ -406,9 +426,10 @@ class TestAIAgentConfiguration:
 class TestAIAgentConversation:
     """Tests for AIAgent conversation management."""
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
     @pytest.mark.anyio
-    async def test_get_conversation_state(self, mock_agent_class):
+    async def test_get_conversation_state(self, mock_agent_class, mock_planner_agent):
         """Test getting conversation state for a user."""
         config = AIConfig()
         agent = AIAgent(config)
@@ -418,9 +439,10 @@ class TestAIAgentConversation:
         assert state.user_id == "user123"
         assert state.messages == []
 
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
     @patch("feishu_webhook_bot.ai.agent.Agent")
     @pytest.mark.anyio
-    async def test_clear_conversation(self, mock_agent_class):
+    async def test_clear_conversation(self, mock_agent_class, mock_planner_agent):
         """Test clearing a conversation."""
         config = AIConfig()
         agent = AIAgent(config)

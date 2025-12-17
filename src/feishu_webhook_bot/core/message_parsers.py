@@ -102,10 +102,7 @@ class FeishuMessageParser:
             return True
 
         # Check for legacy v1.0 schema
-        if payload.get("type") == "message":
-            return True
-
-        return False
+        return payload.get("type") == "message"
 
     def parse(self, payload: dict[str, Any]) -> IncomingMessage | None:
         """Parse Feishu event payload into IncomingMessage.
@@ -342,7 +339,7 @@ class FeishuMessageParser:
         texts = []
 
         # Post has localized content
-        for lang, post_content in content.items():
+        for _lang, post_content in content.items():
             if isinstance(post_content, dict):
                 # Process paragraphs
                 for paragraph in post_content.get("content", []):
@@ -528,6 +525,13 @@ class QQMessageParser:
         mentions = self._extract_mentions(message_data)
         is_at_bot = self._is_at_bot(message_data)
 
+        # Extract reply reference
+        reply_to = self._extract_reply(message_data)
+
+        # Extract media content
+        images = self._extract_images(message_data)
+        faces = self._extract_faces(message_data)
+
         # Timestamp
         time_val = payload.get("time")
         timestamp = datetime.fromtimestamp(time_val) if time_val else datetime.now()
@@ -542,7 +546,7 @@ class QQMessageParser:
             content=content,
             mentions=mentions,
             is_at_bot=is_at_bot,
-            reply_to=None,
+            reply_to=reply_to,
             thread_id=None,
             timestamp=timestamp,
             raw_content=message_data,
@@ -551,6 +555,8 @@ class QQMessageParser:
                 "self_id": payload.get("self_id"),
                 "raw_message": payload.get("raw_message", ""),
                 "sender": sender,
+                "images": images,
+                "faces": faces,
             },
         )
 
@@ -626,8 +632,111 @@ class QQMessageParser:
         mentions = self._extract_mentions(message)
         return self.bot_qq in mentions or "all" in mentions
 
+    def _extract_reply(self, message: list[dict[str, Any]] | str) -> str | None:
+        """Extract reply message ID from message segments.
+
+        Args:
+            message: Message segments or raw CQ string.
+
+        Returns:
+            Reply message ID if present, None otherwise.
+        """
+        if isinstance(message, str):
+            # Parse CQ codes: [CQ:reply,id=123456]
+            match = re.search(r"\[CQ:reply,id=(\d+)\]", message)
+            if match:
+                return match.group(1)
+            return None
+
+        if not isinstance(message, list):
+            return None
+
+        for segment in message:
+            if isinstance(segment, dict) and segment.get("type") == "reply":
+                reply_id = segment.get("data", {}).get("id")
+                if reply_id:
+                    return str(reply_id)
+
+        return None
+
+    def _extract_images(self, message: list[dict[str, Any]] | str) -> list[dict[str, Any]]:
+        """Extract image information from message segments.
+
+        Args:
+            message: Message segments or raw CQ string.
+
+        Returns:
+            List of image data dicts with file, url, etc.
+        """
+        images = []
+
+        if isinstance(message, str):
+            # Parse CQ codes: [CQ:image,file=xxx,url=xxx]
+            for match in re.finditer(r"\[CQ:image,([^\]]+)\]", message):
+                params = self._parse_cq_params(match.group(1))
+                if params:
+                    images.append(params)
+            return images
+
+        if not isinstance(message, list):
+            return images
+
+        for segment in message:
+            if isinstance(segment, dict) and segment.get("type") == "image":
+                data = segment.get("data", {})
+                if data:
+                    images.append(data)
+
+        return images
+
+    def _extract_faces(self, message: list[dict[str, Any]] | str) -> list[int]:
+        """Extract face (emoji) IDs from message segments.
+
+        Args:
+            message: Message segments or raw CQ string.
+
+        Returns:
+            List of face IDs.
+        """
+        faces = []
+
+        if isinstance(message, str):
+            # Parse CQ codes: [CQ:face,id=123]
+            for match in re.finditer(r"\[CQ:face,id=(\d+)\]", message):
+                faces.append(int(match.group(1)))
+            return faces
+
+        if not isinstance(message, list):
+            return faces
+
+        for segment in message:
+            if isinstance(segment, dict) and segment.get("type") == "face":
+                face_id = segment.get("data", {}).get("id")
+                if face_id is not None:
+                    faces.append(int(face_id))
+
+        return faces
+
+    @staticmethod
+    def _parse_cq_params(params_str: str) -> dict[str, str]:
+        """Parse CQ code parameters string.
+
+        Args:
+            params_str: Parameters string like "file=xxx,url=xxx"
+
+        Returns:
+            Dict of parameter name to value.
+        """
+        result = {}
+        for part in params_str.split(","):
+            if "=" in part:
+                key, value = part.split("=", 1)
+                result[key.strip()] = value.strip()
+        return result
+
 
 # Factory functions for convenient parser creation
+
 
 def create_feishu_parser(bot_open_id: str | None = None) -> FeishuMessageParser:
     """Create a configured Feishu message parser.

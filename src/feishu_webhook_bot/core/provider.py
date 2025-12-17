@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -17,6 +18,7 @@ logger = get_logger(__name__)
 
 class MessageType(str, Enum):
     """Universal message types supported across providers."""
+
     TEXT = "text"
     RICH_TEXT = "rich_text"
     CARD = "card"
@@ -33,6 +35,7 @@ class MessageType(str, Enum):
 @dataclass
 class Message:
     """Universal message representation."""
+
     type: MessageType
     content: Any
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -41,6 +44,7 @@ class Message:
 @dataclass
 class SendResult:
     """Result of a message send operation."""
+
     success: bool
     message_id: str | None = None
     error: str | None = None
@@ -142,8 +146,13 @@ class BaseProvider(ABC):
 
     def get_capabilities(self) -> dict[str, bool]:
         return {
-            "text": True, "rich_text": True, "card": True, "image": True,
-            "file": False, "audio": False, "video": False,
+            "text": True,
+            "rich_text": True,
+            "card": True,
+            "image": True,
+            "file": False,
+            "audio": False,
+            "video": False,
         }
 
     def __repr__(self) -> str:
@@ -211,10 +220,8 @@ class ProviderRegistry:
 
     def clear(self) -> None:
         for p in self._providers.values():
-            try:
+            with contextlib.suppress(Exception):
                 p.disconnect()
-            except Exception:
-                pass
         self._providers.clear()
         self._default = None
 

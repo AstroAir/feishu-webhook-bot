@@ -61,13 +61,56 @@ plugins:
   reload_delay: 1.0      # Delay in seconds before reloading after file change
 
   # Plugin-specific settings (optional)
-  # plugin_settings:
-  #   - plugin_name: "system-monitor"
-  #     enabled: true
-  #     priority: 10
-  #     settings:
-  #       cpu_threshold: 80
-  #       memory_threshold: 85
+  plugin_settings:
+    # RSS Subscription Plugin with Daily Report
+    - plugin_name: "rss-subscription"
+      enabled: true
+      priority: 10
+      settings:
+        # Feed Management
+        feeds:
+          - name: "Hacker News"
+            url: "https://hnrss.org/frontpage"
+            check_interval_minutes: 30
+            enabled: true
+            max_entries: 10
+            tags: ["tech", "news"]
+          - name: "GitHub Trending"
+            url: "https://rsshub.app/github/trending/daily/all"
+            check_interval_minutes: 60
+            enabled: true
+            max_entries: 10
+            tags: ["github", "opensource"]
+        default_check_interval_minutes: 30
+        # AI Processing
+        ai_enabled: true
+        ai_summarization: true
+        ai_classification: true
+        ai_keyword_extraction: false
+        ai_max_summary_length: 150
+        # Aggregation
+        aggregation_enabled: true
+        aggregation_max_entries: 5
+        aggregation_window_minutes: 5
+        # Notifications
+        webhook_name: "default"
+        card_template: "detailed"  # minimal, compact, detailed, full
+        # Storage
+        history_days: 7
+        # Daily Report
+        daily_report_enabled: true
+        daily_report_time: "09:00"
+        daily_report_ai_summary: true
+        daily_report_max_entries: 20
+        daily_report_include_trends: true
+
+    # Example: System Monitor Plugin
+    # - plugin_name: "system-monitor"
+    #   enabled: true
+    #   priority: 10
+    #   settings:
+    #     cpu_threshold: 80
+    #     memory_threshold: 85
 
 # ==============================================================================
 # Logging Configuration
@@ -91,6 +134,25 @@ http:
     backoff_seconds: 1.0
     backoff_multiplier: 2.0
     max_backoff_seconds: 30.0
+
+ai:
+  enabled: false
+  model: "openai:gpt-4o"
+  api_key: "${OPENAI_API_KEY:}"
+  system_prompt: "You are a helpful AI assistant integrated with Feishu. Provide clear, concise, and accurate responses to user queries."
+  default_persona: "default"
+  personas:
+    default:
+      display_name: "Default"
+      description: "General-purpose assistant"
+      prompt: ""
+      prompt_mode: "append"
+    developer:
+      display_name: "Developer"
+      description: "Software engineering assistant"
+      prompt: "You are a senior software engineer. Provide precise, actionable guidance with minimal fluff."
+      prompt_mode: "append"
+      temperature: 0.2
 
 # ==============================================================================
 # Templates
@@ -122,11 +184,11 @@ templates:
     engine: "format"
     content: |
       🚨 **Alert: {title}**
-      
+
       **Severity:** {severity}
       **Time:** {timestamp}
       **Details:** {details}
-      
+
       {action_required}
 
   - name: "task_complete"
@@ -134,7 +196,7 @@ templates:
     engine: "format"
     content: |
       ✅ **Task Completed**
-      
+
       **Task:** {task_name}
       **Duration:** {duration}
       **Status:** {status}

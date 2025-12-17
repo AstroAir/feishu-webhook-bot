@@ -37,7 +37,6 @@ from feishu_webhook_bot.core.config import (
     WebhookConfig,
 )
 
-
 # ==============================================================================
 # RetryPolicyConfig Tests
 # ==============================================================================
@@ -551,9 +550,7 @@ scheduler:
 logging:
   level: DEBUG
 """
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             config_path = f.name
 
@@ -574,9 +571,7 @@ logging:
 
     def test_from_yaml_invalid_yaml(self):
         """Test loading invalid YAML raises error."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("invalid: yaml: [")
             config_path = f.name
 
@@ -653,9 +648,7 @@ event_server:
   enabled: true
   port: 9000
 """
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             config_path = f.name
 

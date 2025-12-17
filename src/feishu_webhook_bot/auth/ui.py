@@ -181,9 +181,7 @@ class AuthUI:
             ui.button(
                 "Create Account",
                 on_click=handle_register,
-            ).props(
-                "unelevated color=primary"
-            ).classes("w-full q-mt-md").bind_enabled_from(
+            ).props("unelevated color=primary").classes("w-full q-mt-md").bind_enabled_from(
                 loading, "value", backward=lambda x: not x
             )
 

@@ -23,7 +23,7 @@ class TestNapcatProviderConfig:
 
         assert config.name == "test-napcat"
         assert config.http_url == "http://127.0.0.1:3000"
-        assert config.provider_type == "qq_napcat"
+        assert config.provider_type == "napcat"
         assert config.access_token is None
 
     def test_create_config_with_token(self) -> None:
@@ -215,7 +215,11 @@ class TestNapcatProvider:
         assert caps["rich_text"] is True
         assert caps["card"] is False
         assert caps["image"] is True
-        assert caps["file"] is False
+        assert caps["file"] is True
+        assert caps["audio"] is True
+        assert caps["video"] is True
+        assert caps["forward"] is True
+        assert caps["poke"] is True
 
     def test_convert_rich_text_to_segments(self) -> None:
         """Test converting rich text to OneBot segments."""
@@ -371,4 +375,208 @@ class TestNapcatProvider:
                 [{"type": "text", "data": {"text": "Hello"}}],
             )
 
+        provider.disconnect()
+
+
+class TestNapcatProviderOneBot11APIs:
+    """Tests for OneBot11 API methods."""
+
+    @patch.object(NapcatProvider, "_make_http_request")
+    def test_delete_msg(self, mock_request: MagicMock) -> None:
+        """Test deleting a message."""
+        mock_request.return_value = {"status": "ok", "data": None}
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        result = provider.delete_msg(12345)
+
+        assert result is True
+        mock_request.assert_called_once()
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_make_http_request")
+    def test_delete_msg_failure(self, mock_request: MagicMock) -> None:
+        """Test deleting a message failure."""
+        mock_request.side_effect = Exception("API error")
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        result = provider.delete_msg(12345)
+
+        assert result is False
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_make_http_request")
+    def test_get_login_info(self, mock_request: MagicMock) -> None:
+        """Test getting login info."""
+        mock_request.return_value = {
+            "status": "ok",
+            "data": {"user_id": 123456789, "nickname": "TestBot"},
+        }
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        info = provider.get_login_info()
+
+        assert info["user_id"] == 123456789
+        assert info["nickname"] == "TestBot"
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_make_http_request")
+    def test_get_stranger_info(self, mock_request: MagicMock) -> None:
+        """Test getting stranger info."""
+        mock_request.return_value = {
+            "status": "ok",
+            "data": {
+                "user_id": 123456789,
+                "nickname": "TestUser",
+                "sex": "male",
+                "age": 25,
+            },
+        }
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        user = provider.get_stranger_info(123456789)
+
+        assert user is not None
+        assert user.user_id == 123456789
+        assert user.nickname == "TestUser"
+        assert user.sex == "male"
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_make_http_request")
+    def test_get_group_info(self, mock_request: MagicMock) -> None:
+        """Test getting group info."""
+        mock_request.return_value = {
+            "status": "ok",
+            "data": {
+                "group_id": 987654321,
+                "group_name": "Test Group",
+                "member_count": 100,
+                "max_member_count": 500,
+            },
+        }
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        group = provider.get_group_info(987654321)
+
+        assert group is not None
+        assert group.group_id == 987654321
+        assert group.group_name == "Test Group"
+        assert group.member_count == 100
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_make_http_request")
+    def test_set_group_ban(self, mock_request: MagicMock) -> None:
+        """Test banning a group member."""
+        mock_request.return_value = {"status": "ok", "data": None}
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        result = provider.set_group_ban(987654321, 123456789, duration=60)
+
+        assert result is True
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_make_http_request")
+    def test_send_poke(self, mock_request: MagicMock) -> None:
+        """Test sending poke."""
+        mock_request.return_value = {"status": "ok", "data": None}
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        result = provider.send_poke(123456789, group_id=987654321)
+
+        assert result is True
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_http_request_with_retry")
+    def test_send_audio(self, mock_request: MagicMock) -> None:
+        """Test sending audio message."""
+        mock_request.return_value = {"status": "ok", "data": {"message_id": 12345}}
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+        provider._circuit_breaker.call = lambda fn, *args: fn(*args)
+
+        result = provider.send_audio("audio.mp3", "group:123456")
+
+        assert result.success is True
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_http_request_with_retry")
+    def test_send_video(self, mock_request: MagicMock) -> None:
+        """Test sending video message."""
+        mock_request.return_value = {"status": "ok", "data": {"message_id": 12345}}
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+        provider._circuit_breaker.call = lambda fn, *args: fn(*args)
+
+        result = provider.send_video("video.mp4", "group:123456")
+
+        assert result.success is True
+        provider.disconnect()
+
+    @patch.object(NapcatProvider, "_http_request_with_retry")
+    def test_send_reply(self, mock_request: MagicMock) -> None:
+        """Test sending reply message."""
+        mock_request.return_value = {"status": "ok", "data": {"message_id": 12345}}
+
+        config = NapcatProviderConfig(
+            name="test-napcat",
+            http_url="http://127.0.0.1:3000",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+        provider._circuit_breaker.call = lambda fn, *args: fn(*args)
+
+        result = provider.send_reply(99999, "Reply text", "group:123456")
+
+        assert result.success is True
         provider.disconnect()

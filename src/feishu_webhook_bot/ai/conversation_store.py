@@ -11,7 +11,17 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    inspect,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Session, relationship
 
 from ..core.logger import get_logger
@@ -38,6 +48,7 @@ class ConversationRecord(Base):
         summary: Optional conversation summary
         total_tokens: Total tokens used in conversation
         message_count: Total number of messages
+        active_persona_id: Active persona ID
         messages: Related message records
     """
 
@@ -48,10 +59,13 @@ class ConversationRecord(Base):
     platform = Column(String(50), nullable=False)
     chat_id = Column(String(255), index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    last_activity = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    last_activity = Column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
     summary = Column(Text, nullable=True)
     total_tokens = Column(Integer, default=0)
     message_count = Column(Integer, default=0)
+    active_persona_id = Column(String(255), nullable=True)
 
     messages = relationship(
         "MessageRecord",
@@ -72,6 +86,7 @@ class ConversationRecord(Base):
             "summary": self.summary,
             "total_tokens": self.total_tokens,
             "message_count": self.message_count,
+            "active_persona_id": self.active_persona_id,
         }
 
 
@@ -172,12 +187,35 @@ class PersistentConversationManager:
             db_url = f"sqlite:///{data_path / 'conversations.db'}"
 
         try:
-            self.engine = create_engine(db_url, echo=echo, connect_args={"check_same_thread": False})
+            self.engine = create_engine(
+                db_url, echo=echo, connect_args={"check_same_thread": False}
+            )
             Base.metadata.create_all(self.engine)
+            self._ensure_schema()
             logger.info("Initialized conversation store with database: %s", db_url)
         except Exception as exc:
             logger.error("Failed to initialize conversation store: %s", exc, exc_info=True)
             raise ValueError(f"Failed to initialize conversation database: {str(exc)}") from exc
+
+    def _ensure_schema(self) -> None:
+        inspector = inspect(self.engine)
+        try:
+            conv_cols = {col["name"] for col in inspector.get_columns("conversations")}
+        except Exception:
+            return
+
+        if "active_persona_id" not in conv_cols:
+            if self.engine.dialect.name == "sqlite":
+                with self.engine.begin() as connection:
+                    connection.execute(
+                        text("ALTER TABLE conversations ADD COLUMN active_persona_id VARCHAR(255)")
+                    )
+            else:
+                logger.warning(
+                    "Conversation store schema missing active_persona_id; "
+                    "automatic migration not supported for dialect %s",
+                    self.engine.dialect.name,
+                )
 
     def get_session(self) -> Session:
         """Get a database session.
@@ -185,7 +223,50 @@ class PersistentConversationManager:
         Returns:
             SQLAlchemy Session instance
         """
-        return Session(self.engine)
+        return Session(self.engine, expire_on_commit=False)
+
+    def get_active_persona_id(self, user_key: str) -> str | None:
+        conv = self.get_conversation_by_user(user_key)
+        return conv.active_persona_id if conv else None
+
+    def set_active_persona_id(
+        self,
+        user_key: str,
+        persona_id: str | None,
+        platform: str | None = None,
+        chat_id: str | None = None,
+    ) -> None:
+        if platform is None:
+            platform = user_key.split(":", 1)[0] if ":" in user_key else ""
+
+        session = self.get_session()
+        try:
+            conv = session.query(ConversationRecord).filter_by(user_key=user_key).first()
+            if conv is None:
+                conv = ConversationRecord(
+                    user_key=user_key,
+                    platform=platform or "",
+                    chat_id=chat_id,
+                    created_at=datetime.now(UTC),
+                    last_activity=datetime.now(UTC),
+                )
+                session.add(conv)
+                session.flush()
+
+            conv.active_persona_id = persona_id
+            conv.last_activity = datetime.now(UTC)
+            session.commit()
+            session.close()
+        except Exception as exc:
+            session.rollback()
+            session.close()
+            logger.error(
+                "Failed to set active persona for user %s: %s",
+                user_key,
+                exc,
+                exc_info=True,
+            )
+            raise
 
     def get_or_create(
         self,
@@ -193,51 +274,47 @@ class PersistentConversationManager:
         platform: str,
         chat_id: str | None = None,
     ) -> ConversationRecord:
-        """Get existing conversation or create new one.
-
-        Args:
-            user_key: Unique user identifier (platform:chat_type:sender_id)
-            platform: Platform name (feishu, qq)
-            chat_id: Chat/group ID
-
-        Returns:
-            ConversationRecord instance
-        """
         session = self.get_session()
         try:
-            # Try to find existing conversation
-            conv = session.query(ConversationRecord).filter_by(user_key=user_key).first()
+            conv = (
+                session.query(ConversationRecord)
+                .filter_by(user_key=user_key)
+                .order_by(ConversationRecord.last_activity.desc())
+                .first()
+            )
 
-            if conv is not None:
-                logger.debug("Retrieved existing conversation for user: %s", user_key)
+            if conv is None:
+                conv = ConversationRecord(
+                    user_key=user_key,
+                    platform=platform,
+                    chat_id=chat_id,
+                    created_at=datetime.now(UTC),
+                    last_activity=datetime.now(UTC),
+                )
+                session.add(conv)
+                session.commit()
                 session.close()
                 return conv
 
-            # Create new conversation
-            conv = ConversationRecord(
-                user_key=user_key,
-                platform=platform,
-                chat_id=chat_id,
-                created_at=datetime.now(UTC),
-                last_activity=datetime.now(UTC),
-            )
-            session.add(conv)
+            if chat_id is not None and conv.chat_id != chat_id:
+                conv.chat_id = chat_id
+            if platform and conv.platform != platform:
+                conv.platform = platform
+
+            conv.last_activity = datetime.now(UTC)
             session.commit()
-            conv_id = conv.id
-            session.close()
-
-            logger.info("Created new conversation for user: %s (id=%d)", user_key, conv_id)
-
-            # Retrieve the created conversation
-            session = self.get_session()
-            conv = session.query(ConversationRecord).filter_by(id=conv_id).first()
             session.close()
             return conv
 
         except Exception as exc:
             session.rollback()
             session.close()
-            logger.error("Failed to get or create conversation: %s", exc, exc_info=True)
+            logger.error(
+                "Failed to get or create conversation for user %s: %s",
+                user_key,
+                exc,
+                exc_info=True,
+            )
             raise
 
     def save_message(
@@ -385,7 +462,9 @@ class PersistentConversationManager:
                 .first()
             )
 
-            logger.debug("Retrieved conversation for user: %s (found=%s)", user_key, conv is not None)
+            logger.debug(
+                "Retrieved conversation for user: %s (found=%s)", user_key, conv is not None
+            )
 
             session.close()
             return conv
@@ -536,9 +615,7 @@ class PersistentConversationManager:
 
             session.commit()
 
-            logger.info(
-                "Cleaned up %d conversations older than %d days", count, days
-            )
+            logger.info("Cleaned up %d conversations older than %d days", count, days)
 
             session.close()
             return count
@@ -610,14 +687,12 @@ class PersistentConversationManager:
                 raise ValueError("Missing 'conversation' key in import data")
 
             # Check if conversation already exists
-            existing = session.query(ConversationRecord).filter_by(
-                user_key=conv_data["user_key"]
-            ).first()
+            existing = (
+                session.query(ConversationRecord).filter_by(user_key=conv_data["user_key"]).first()
+            )
 
             if existing:
-                logger.warning(
-                    "Conversation already exists for user: %s", conv_data["user_key"]
-                )
+                logger.warning("Conversation already exists for user: %s", conv_data["user_key"])
                 session.close()
                 return existing
 
@@ -627,6 +702,7 @@ class PersistentConversationManager:
                 platform=conv_data["platform"],
                 chat_id=conv_data.get("chat_id"),
                 summary=conv_data.get("summary"),
+                active_persona_id=conv_data.get("active_persona_id"),
                 total_tokens=conv_data.get("total_tokens", 0),
                 message_count=conv_data.get("message_count", 0),
             )
@@ -647,7 +723,9 @@ class PersistentConversationManager:
                     role=msg_data["role"],
                     content=msg_data["content"],
                     tokens=msg_data.get("tokens", 0),
-                    metadata_json=json.dumps(msg_data.get("metadata")) if msg_data.get("metadata") else None,
+                    metadata_json=json.dumps(msg_data.get("metadata"))
+                    if msg_data.get("metadata")
+                    else None,
                 )
 
                 if "timestamp" in msg_data:

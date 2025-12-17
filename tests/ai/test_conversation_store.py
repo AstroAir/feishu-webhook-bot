@@ -20,6 +20,7 @@ from feishu_webhook_bot.ai.conversation_store import (
 def temp_db_dir() -> Path:
     """Create a temporary directory for the database."""
     import shutil
+
     tmpdir = Path(tempfile.mkdtemp())
     yield tmpdir
     # Cleanup with retry for Windows file locking issues
@@ -43,10 +44,9 @@ class TestConversationStore:
 
     def test_init_creates_tables(self, temp_db_dir: Path) -> None:
         """Test that initialization creates database tables."""
-        manager = PersistentConversationManager(
-            db_url=f"sqlite:///{temp_db_dir / 'test.db'}"
-        )
+        manager = PersistentConversationManager(db_url=f"sqlite:///{temp_db_dir / 'test.db'}")
         from sqlalchemy import inspect
+
         inspector = inspect(manager.engine)
         tables = inspector.get_table_names()
         assert "conversations" in tables
@@ -91,9 +91,7 @@ class TestConversationStore:
         conv = manager.get_or_create("user123", "feishu", "chat456")
 
         metadata = {"tool": "search", "query": "test"}
-        msg = manager.save_message(
-            conv.id, "tool", "result", tokens=5, metadata=metadata
-        )
+        msg = manager.save_message(conv.id, "tool", "result", tokens=5, metadata=metadata)
 
         assert msg.get_metadata() == metadata
 
@@ -203,9 +201,7 @@ class TestConversationStore:
         # Manually set last_activity to old date
         session = manager.get_session()
         old_date = datetime.now(UTC) - timedelta(days=40)
-        session.query(ConversationRecord).filter_by(id=conv.id).update(
-            {"last_activity": old_date}
-        )
+        session.query(ConversationRecord).filter_by(id=conv.id).update({"last_activity": old_date})
         session.commit()
         session.close()
 
@@ -220,7 +216,7 @@ class TestConversationStore:
         self, manager: PersistentConversationManager
     ) -> None:
         """Test that cleanup doesn't remove recent conversations."""
-        conv = manager.get_or_create("user123", "feishu", "chat456")
+        manager.get_or_create("user123", "feishu", "chat456")
 
         count = manager.cleanup_old_conversations(days=30)
 
@@ -231,12 +227,14 @@ class TestConversationStore:
     def test_export_conversation(self, manager: PersistentConversationManager) -> None:
         """Test exporting conversation."""
         conv = manager.get_or_create("user123", "feishu", "chat456")
+        manager.set_active_persona_id("user123", "developer", platform="feishu")
         manager.save_message(conv.id, "user", "Hello", tokens=10)
         manager.save_message(conv.id, "assistant", "Hi", tokens=15)
 
         data = manager.export_conversation(conv.id)
 
         assert data["conversation"]["user_key"] == "user123"
+        assert data["conversation"]["active_persona_id"] == "developer"
         assert len(data["messages"]) == 2
         assert data["messages"][0]["content"] == "Hello"
 
@@ -248,6 +246,7 @@ class TestConversationStore:
                 "platform": "qq",
                 "chat_id": "chat789",
                 "summary": None,
+                "active_persona_id": "developer",
                 "total_tokens": 100,
                 "message_count": 2,
                 "created_at": datetime.now(UTC).isoformat(),
@@ -275,9 +274,23 @@ class TestConversationStore:
 
         assert imported_conv.user_key == "user456"
         assert imported_conv.platform == "qq"
+        assert imported_conv.active_persona_id == "developer"
 
         history = manager.load_history(imported_conv.id)
         assert len(history) == 2
+
+    def test_set_and_get_active_persona_id(self, manager: PersistentConversationManager) -> None:
+        user_key = "feishu:group:user123"
+        manager.get_or_create(user_key, "feishu", "chat456")
+
+        assert manager.get_active_persona_id(user_key) is None
+
+        manager.set_active_persona_id(user_key, "developer", platform="feishu", chat_id="chat456")
+        assert manager.get_active_persona_id(user_key) == "developer"
+
+        conv = manager.get_conversation_by_user(user_key)
+        assert conv is not None
+        assert conv.active_persona_id == "developer"
 
     def test_import_duplicate_conversation(self, manager: PersistentConversationManager) -> None:
         """Test that importing duplicate conversation returns existing."""
@@ -393,10 +406,7 @@ class TestConversationStoreThreadSafety:
                 results.append(False)
                 print(f"Error: {e}")
 
-        threads = [
-            threading.Thread(target=create_and_save, args=(f"user{i}",))
-            for i in range(5)
-        ]
+        threads = [threading.Thread(target=create_and_save, args=(f"user{i}",)) for i in range(5)]
 
         for thread in threads:
             thread.start()

@@ -438,6 +438,7 @@ class TestMessageQueue:
 
     async def test_queue_thread_safety(self, message_queue: MessageQueue) -> None:
         """Test concurrent enqueue/dequeue operations."""
+
         async def enqueue_task(count: int) -> None:
             for i in range(count):
                 msg = QueuedMessage(

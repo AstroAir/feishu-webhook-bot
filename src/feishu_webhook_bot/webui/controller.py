@@ -195,12 +195,14 @@ class BotController:
             return []
         tasks = []
         for task_cfg in self.bot.config.tasks:
-            tasks.append({
-                "name": task_cfg.name,
-                "description": task_cfg.description or "",
-                "enabled": True,
-                "next_run": "N/A",
-            })
+            tasks.append(
+                {
+                    "name": task_cfg.name,
+                    "description": task_cfg.description or "",
+                    "enabled": True,
+                    "next_run": "N/A",
+                }
+            )
         return tasks
 
     def get_automation_rules(self) -> list[dict[str, Any]]:
@@ -209,12 +211,14 @@ class BotController:
             return []
         rules = []
         for auto_cfg in self.bot.config.automations:
-            rules.append({
-                "name": auto_cfg.name,
-                "trigger": auto_cfg.trigger if hasattr(auto_cfg, "trigger") else "event",
-                "enabled": True,
-                "status": "Ready",
-            })
+            rules.append(
+                {
+                    "name": auto_cfg.name,
+                    "trigger": auto_cfg.trigger if hasattr(auto_cfg, "trigger") else "event",
+                    "enabled": True,
+                    "status": "Ready",
+                }
+            )
         return rules
 
     def get_provider_list(self) -> list[dict[str, Any]]:
@@ -223,11 +227,13 @@ class BotController:
             return []
         providers = []
         for name, provider in self.bot.providers.items():
-            providers.append({
-                "name": name,
-                "type": provider.__class__.__name__,
-                "status": "Connected",
-            })
+            providers.append(
+                {
+                    "name": name,
+                    "type": provider.__class__.__name__,
+                    "status": "Connected",
+                }
+            )
         return providers
 
     def get_message_provider_list(self) -> list[dict[str, Any]]:
@@ -236,18 +242,20 @@ class BotController:
             cfg = self.load_config()
             providers = []
             for p in cfg.providers or []:
-                providers.append({
-                    "name": p.name,
-                    "provider_type": p.provider_type,
-                    "enabled": p.enabled,
-                    "webhook_url": getattr(p, "webhook_url", None),
-                    "http_url": getattr(p, "http_url", None),
-                    "secret": getattr(p, "secret", None),
-                    "access_token": getattr(p, "access_token", None),
-                    "bot_qq": getattr(p, "bot_qq", None),
-                    "default_target": getattr(p, "default_target", None),
-                    "timeout": p.timeout,
-                })
+                providers.append(
+                    {
+                        "name": p.name,
+                        "provider_type": p.provider_type,
+                        "enabled": p.enabled,
+                        "webhook_url": getattr(p, "webhook_url", None),
+                        "http_url": getattr(p, "http_url", None),
+                        "secret": getattr(p, "secret", None),
+                        "access_token": getattr(p, "access_token", None),
+                        "bot_qq": getattr(p, "bot_qq", None),
+                        "default_target": getattr(p, "default_target", None),
+                        "timeout": p.timeout,
+                    }
+                )
             return providers
         except Exception:
             return []
@@ -315,7 +323,7 @@ class BotController:
 
         users = []
         try:
-            auth_service = AuthService()
+            AuthService()
             from ..auth.database import DatabaseManager
 
             db_manager = DatabaseManager()
@@ -324,12 +332,14 @@ class BotController:
 
                 user_objs = session.query(User).all()
                 for user in user_objs:
-                    users.append({
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                        "status": "Active" if not user.locked else "Locked",
-                    })
+                    users.append(
+                        {
+                            "id": user.id,
+                            "username": user.username,
+                            "email": user.email,
+                            "status": "Active" if not user.locked else "Locked",
+                        }
+                    )
         except Exception:
             pass
         return users
@@ -346,7 +356,9 @@ class BotController:
         try:
             return {
                 "running": getattr(self.bot.event_server, "running", False),
-                "host": self.bot.config.event_server.host if self.bot.config.event_server else "N/A",
+                "host": self.bot.config.event_server.host
+                if self.bot.config.event_server
+                else "N/A",
                 "port": self.bot.config.event_server.port if self.bot.config.event_server else 0,
                 "recent_events": [],
             }
@@ -385,9 +397,15 @@ class BotController:
                         "actions_count": len(task.actions) if task.actions else 0,
                         "conditions_count": len(task.conditions) if task.conditions else 0,
                         "error_handling": {
-                            "retry_on_failure": task.error_handling.retry_on_failure if task.error_handling else False,
-                            "max_retries": task.error_handling.max_retries if task.error_handling else 0,
-                            "on_failure_action": task.error_handling.on_failure_action if task.error_handling else "log",
+                            "retry_on_failure": task.error_handling.retry_on_failure
+                            if task.error_handling
+                            else False,
+                            "max_retries": task.error_handling.max_retries
+                            if task.error_handling
+                            else 0,
+                            "on_failure_action": task.error_handling.on_failure_action
+                            if task.error_handling
+                            else "log",
                         },
                         "status": {"registered": False, "next_run": None},
                         "recent_history": [],
@@ -455,13 +473,15 @@ class BotController:
         """Get detailed info about task parameters."""
         params = []
         for param in task.parameters:
-            params.append({
-                "name": param.name,
-                "type": param.type,
-                "default": param.default,
-                "required": param.required,
-                "description": param.description,
-            })
+            params.append(
+                {
+                    "name": param.name,
+                    "type": param.type,
+                    "default": param.default,
+                    "required": param.required,
+                    "description": param.description,
+                }
+            )
         return params
 
     def _get_available_plugin_methods(self) -> list[dict[str, Any]]:
@@ -478,19 +498,30 @@ class BotController:
                 method = getattr(plugin, method_name, None)
                 if callable(method) and not method_name.startswith("on_"):
                     # Skip lifecycle methods
-                    if method_name in ("metadata", "register_job", "cleanup_jobs",
-                                       "get_config_value", "get_all_config",
-                                       "validate_config", "get_missing_config",
-                                       "get_manifest", "handle_event"):
+                    if method_name in (
+                        "metadata",
+                        "register_job",
+                        "cleanup_jobs",
+                        "get_config_value",
+                        "get_all_config",
+                        "validate_config",
+                        "get_missing_config",
+                        "get_manifest",
+                        "handle_event",
+                    ):
                         continue
-                    methods.append({
-                        "plugin": plugin_name,
-                        "method": method_name,
-                        "full_name": f"{plugin_name}.{method_name}",
-                    })
+                    methods.append(
+                        {
+                            "plugin": plugin_name,
+                            "method": method_name,
+                            "full_name": f"{plugin_name}.{method_name}",
+                        }
+                    )
         return methods
 
-    def get_task_history(self, task_name: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+    def get_task_history(
+        self, task_name: str | None = None, limit: int = 20
+    ) -> list[dict[str, Any]]:
         """Get task execution history.
 
         Args:
@@ -763,28 +794,30 @@ class BotController:
         for tpl in templates:
             tpl_info = {
                 "name": tpl.name if hasattr(tpl, "name") else tpl.get("name", ""),
-                "description": tpl.description if hasattr(tpl, "description") else tpl.get(
-                    "description", ""
-                ),
+                "description": tpl.description
+                if hasattr(tpl, "description")
+                else tpl.get("description", ""),
                 "parameters": [],
             }
-            params = tpl.parameters if hasattr(tpl, "parameters") else tpl.get(
-                "parameters", []
-            )
+            params = tpl.parameters if hasattr(tpl, "parameters") else tpl.get("parameters", [])
             for param in params:
-                tpl_info["parameters"].append({
-                    "name": param.name if hasattr(param, "name") else param.get("name", ""),
-                    "type": param.type if hasattr(param, "type") else param.get("type", "string"),
-                    "required": param.required if hasattr(param, "required") else param.get(
-                        "required", False
-                    ),
-                    "default": param.default if hasattr(param, "default") else param.get(
-                        "default", None
-                    ),
-                    "description": param.description if hasattr(param, "description") else param.get(
-                        "description", ""
-                    ),
-                })
+                tpl_info["parameters"].append(
+                    {
+                        "name": param.name if hasattr(param, "name") else param.get("name", ""),
+                        "type": param.type
+                        if hasattr(param, "type")
+                        else param.get("type", "string"),
+                        "required": param.required
+                        if hasattr(param, "required")
+                        else param.get("required", False),
+                        "default": param.default
+                        if hasattr(param, "default")
+                        else param.get("default", None),
+                        "description": param.description
+                        if hasattr(param, "description")
+                        else param.get("description", ""),
+                    }
+                )
             result.append(tpl_info)
         return result
 
@@ -826,9 +859,7 @@ class BotController:
             from ..tasks.templates import TaskTemplateEngine
 
             engine = TaskTemplateEngine([template])
-            new_task = engine.create_task_from_template(
-                template_name, task_name, params or {}
-            )
+            new_task = engine.create_task_from_template(template_name, task_name, params or {})
 
             # Add to config
             self.bot.config.tasks.append(new_task)
@@ -924,17 +955,26 @@ class BotController:
                 continue
             method = getattr(plugin, method_name, None)
             if callable(method):
-                if method_name in ("metadata", "register_job", "cleanup_jobs",
-                                   "get_config_value", "get_all_config",
-                                   "validate_config", "get_missing_config",
-                                   "get_manifest", "handle_event"):
+                if method_name in (
+                    "metadata",
+                    "register_job",
+                    "cleanup_jobs",
+                    "get_config_value",
+                    "get_all_config",
+                    "validate_config",
+                    "get_missing_config",
+                    "get_manifest",
+                    "handle_event",
+                ):
                     continue
                 # Try to get docstring
                 doc = method.__doc__ or ""
-                methods.append({
-                    "name": method_name,
-                    "description": doc.split("\n")[0] if doc else "",
-                })
+                methods.append(
+                    {
+                        "name": method_name,
+                        "description": doc.split("\n")[0] if doc else "",
+                    }
+                )
 
         return {
             "name": metadata.name,
@@ -1011,7 +1051,9 @@ class BotController:
             actions.append(action_info)
         return actions
 
-    def get_automation_history(self, rule_name: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+    def get_automation_history(
+        self, rule_name: str | None = None, limit: int = 20
+    ) -> list[dict[str, Any]]:
         """Get automation execution history.
 
         Args:
@@ -1025,7 +1067,9 @@ class BotController:
             return []
         return self.bot.automation_engine.get_execution_history(rule_name, limit)
 
-    def trigger_automation(self, rule_name: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
+    def trigger_automation(
+        self, rule_name: str, context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Manually trigger an automation rule.
 
         Args:
@@ -1158,9 +1202,7 @@ class BotController:
             "success_rate": round(success_rate, 1),
         }
 
-    def update_automation_config(
-        self, rule_name: str, updates: dict[str, Any]
-    ) -> dict[str, Any]:
+    def update_automation_config(self, rule_name: str, updates: dict[str, Any]) -> dict[str, Any]:
         """Update automation rule configuration at runtime.
 
         Args:
@@ -1210,6 +1252,127 @@ class BotController:
 
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def create_automation_rule(self, rule_data: dict[str, Any]) -> bool:
+        """Create a new automation rule.
+
+        Args:
+            rule_data: Dictionary containing rule configuration
+
+        Returns:
+            True if rule was created successfully, False otherwise
+        """
+        if not self.bot or not self.bot.config:
+            return False
+
+        try:
+            from ..core.config import (
+                AutomationActionConfig,
+                AutomationRule,
+                AutomationScheduleConfig,
+                AutomationTriggerConfig,
+                EventTriggerConfig,
+            )
+
+            # Build trigger config
+            trigger_type = rule_data.get("trigger_type", "schedule")
+            trigger_config_data = rule_data.get("trigger_config", {})
+
+            trigger_config: dict[str, Any] = {"type": trigger_type}
+
+            if trigger_type == "schedule":
+                mode = trigger_config_data.get("mode", "interval")
+                arguments = {}
+                if mode == "interval":
+                    arguments["minutes"] = trigger_config_data.get("minutes", 60)
+                else:
+                    arguments["cron"] = trigger_config_data.get("cron", "0 * * * *")
+                trigger_config["schedule"] = AutomationScheduleConfig(
+                    mode=mode, arguments=arguments
+                )
+            elif trigger_type == "event":
+                trigger_config["event"] = EventTriggerConfig(
+                    event_type=trigger_config_data.get("event_type", "")
+                )
+
+            # Build actions
+            actions = []
+            for action_data in rule_data.get("actions", []):
+                action = AutomationActionConfig.model_validate(action_data)
+                actions.append(action)
+
+            # Create rule
+            rule = AutomationRule(
+                name=rule_data.get("name", ""),
+                description=rule_data.get("description"),
+                enabled=rule_data.get("enabled", True),
+                trigger=AutomationTriggerConfig(**trigger_config),
+                actions=actions,
+            )
+
+            # Add to config
+            self.bot.config.automations.append(rule)
+
+            # Register with engine if available
+            if self.bot.automation_engine:
+                self.bot.automation_engine._rules.append(rule)
+                if rule.enabled and rule.trigger.type == "schedule":
+                    self.bot.automation_engine._register_schedule(rule)
+
+            return True
+
+        except Exception as e:
+            log.error(f"Failed to create automation rule: {e}", exc_info=True)
+            return False
+
+    def delete_automation_rule(self, rule_name: str) -> bool:
+        """Delete an automation rule.
+
+        Args:
+            rule_name: Name of the rule to delete
+
+        Returns:
+            True if rule was deleted successfully, False otherwise
+        """
+        if not self.bot or not self.bot.config:
+            return False
+
+        try:
+            # Remove from config
+            self.bot.config.automations = [
+                r for r in self.bot.config.automations if r.name != rule_name
+            ]
+
+            # Remove from engine
+            if self.bot.automation_engine:
+                self.bot.automation_engine._rules = [
+                    r for r in self.bot.automation_engine._rules if r.name != rule_name
+                ]
+                # Remove scheduled job if exists
+                job_id = f"automation.{rule_name}"
+                if job_id in self.bot.automation_engine._registered_jobs:
+                    with suppress(Exception):
+                        self.bot.scheduler.remove_job(job_id)
+                    self.bot.automation_engine._registered_jobs.discard(job_id)
+
+            return True
+
+        except Exception as e:
+            log.error(f"Failed to delete automation rule: {e}", exc_info=True)
+            return False
+
+    def get_workflow_templates(self) -> list[dict[str, Any]]:
+        """Get available workflow templates.
+
+        Returns:
+            List of workflow template information
+        """
+        try:
+            from ..automation.workflow import BUILTIN_TEMPLATES
+
+            return BUILTIN_TEMPLATES
+        except Exception:
+            return []
 
     # =========================================================================
     # Scheduler Management Methods
@@ -1305,10 +1468,16 @@ class BotController:
         try:
             jobs = self.bot.scheduler.get_jobs()
             return {
-                "running": self.bot.scheduler._scheduler.running if self.bot.scheduler._scheduler else False,
-                "timezone": str(self.bot.scheduler.config.timezone) if self.bot.scheduler.config else "N/A",
+                "running": self.bot.scheduler._scheduler.running
+                if self.bot.scheduler._scheduler
+                else False,
+                "timezone": str(self.bot.scheduler.config.timezone)
+                if self.bot.scheduler.config
+                else "N/A",
                 "job_count": len(jobs),
-                "job_store_type": self.bot.scheduler.config.job_store_type if self.bot.scheduler.config else "memory",
+                "job_store_type": self.bot.scheduler.config.job_store_type
+                if self.bot.scheduler.config
+                else "memory",
             }
         except Exception:
             return {
@@ -1333,16 +1502,20 @@ class BotController:
             conv_manager = self.bot.ai_agent.conversation_manager
             conversations = []
             for user_id, conv in conv_manager._conversations.items():
-                conversations.append({
-                    "user_id": user_id,
-                    "message_count": conv.message_count,
-                    "input_tokens": conv.input_tokens,
-                    "output_tokens": conv.output_tokens,
-                    "total_tokens": conv.input_tokens + conv.output_tokens,
-                    "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                    "last_activity": conv.last_activity.isoformat() if conv.last_activity else None,
-                    "has_summary": conv.summary is not None,
-                })
+                conversations.append(
+                    {
+                        "user_id": user_id,
+                        "message_count": conv.message_count,
+                        "input_tokens": conv.input_tokens,
+                        "output_tokens": conv.output_tokens,
+                        "total_tokens": conv.input_tokens + conv.output_tokens,
+                        "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                        "last_activity": conv.last_activity.isoformat()
+                        if conv.last_activity
+                        else None,
+                        "has_summary": conv.summary is not None,
+                    }
+                )
             return conversations
         except Exception as e:
             log.error(f"Error listing conversations: {e}")
@@ -1602,7 +1775,9 @@ class BotController:
             if self.bot.config.ai.mcp and self.bot.config.ai.mcp.enabled:
                 result["mcp_enabled"] = True
                 if self.bot.ai_agent.mcp_client and self.bot.ai_agent.mcp_client.is_started():
-                    result["mcp_servers_connected"] = self.bot.ai_agent.mcp_client.get_server_count()
+                    result["mcp_servers_connected"] = (
+                        self.bot.ai_agent.mcp_client.get_server_count()
+                    )
 
             if self.bot.config.ai.multi_agent and self.bot.config.ai.multi_agent.enabled:
                 result["multi_agent_enabled"] = True
@@ -1766,11 +1941,7 @@ class BotController:
             successful = metrics.get("successful_requests", 0)
             failed = metrics.get("failed_requests", 0)
             success_rate = (successful / total * 100) if total > 0 else 0
-            avg_time = (
-                metrics.get("total_response_time", 0) / successful
-                if successful > 0
-                else 0
-            )
+            avg_time = metrics.get("total_response_time", 0) / successful if successful > 0 else 0
 
             return {
                 "total_requests": total,
@@ -1780,8 +1951,423 @@ class BotController:
                 "average_response_time_seconds": round(avg_time, 3),
                 "total_input_tokens": metrics.get("total_input_tokens", 0),
                 "total_output_tokens": metrics.get("total_output_tokens", 0),
-                "total_tokens": metrics.get("total_input_tokens", 0) + metrics.get("total_output_tokens", 0),
+                "total_tokens": metrics.get("total_input_tokens", 0)
+                + metrics.get("total_output_tokens", 0),
             }
         except Exception as e:
             log.error(f"Error getting AI performance stats: {e}")
             return {"error": str(e)}
+
+    # =========================================================================
+    # Feishu Provider Methods
+    # =========================================================================
+
+    def send_card_to_provider(
+        self,
+        provider_name: str,
+        title: str,
+        content: str,
+        color: str = "blue",
+    ) -> bool:
+        """Send a card message via Feishu provider.
+
+        Args:
+            provider_name: Name of the Feishu provider
+            title: Card title
+            content: Card content
+            color: Card header color
+
+        Returns:
+            True if sent successfully
+        """
+        if not self.bot:
+            raise ValueError("Bot not running")
+
+        provider = self.bot.get_provider(provider_name)
+        if not provider:
+            raise ValueError(f"Provider not found: {provider_name}")
+
+        # Build Feishu interactive card
+        card = {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {"tag": "plain_text", "content": title},
+                "template": color,
+            },
+            "elements": [
+                {"tag": "markdown", "content": content},
+            ],
+        }
+
+        result = provider.send_card(card)
+        if not result.success:
+            raise ValueError(f"Send failed: {result.error}")
+        return True
+
+    def get_feishu_provider(self, provider_name: str) -> Any:
+        """Get a Feishu provider instance.
+
+        Args:
+            provider_name: Name of the provider
+
+        Returns:
+            Provider instance or None
+        """
+        if not self.bot:
+            return None
+        provider = self.bot.get_provider(provider_name)
+        if provider and "Feishu" in provider.__class__.__name__:
+            return provider
+        return None
+
+    # =========================================================================
+    # QQ/Napcat Provider Methods
+    # =========================================================================
+
+    def get_qq_provider(self, provider_name: str | None = None) -> Any:
+        """Get a QQ/Napcat provider instance.
+
+        Args:
+            provider_name: Name of the provider (optional, returns first QQ provider if None)
+
+        Returns:
+            NapcatProvider instance or None
+        """
+        if not self.bot:
+            return None
+
+        if provider_name:
+            provider = self.bot.get_provider(provider_name)
+            if provider and "Napcat" in provider.__class__.__name__:
+                return provider
+            return None
+
+        # Find first QQ provider
+        for _name, provider in self.bot.providers.items():
+            if "Napcat" in provider.__class__.__name__:
+                return provider
+        return None
+
+    def qq_get_login_info(self, provider_name: str | None = None) -> dict[str, Any]:
+        """Get QQ bot login information.
+
+        Args:
+            provider_name: Optional provider name
+
+        Returns:
+            Login info with user_id and nickname
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return {"error": "QQ provider not found"}
+        try:
+            return provider.get_login_info()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def qq_get_status(self, provider_name: str | None = None) -> dict[str, Any]:
+        """Get QQ bot running status.
+
+        Args:
+            provider_name: Optional provider name
+
+        Returns:
+            Status dict with online and good fields
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return {"online": False, "good": False, "error": "QQ provider not found"}
+        try:
+            return provider.get_status()
+        except Exception as e:
+            return {"online": False, "good": False, "error": str(e)}
+
+    def qq_get_version_info(self, provider_name: str | None = None) -> dict[str, Any]:
+        """Get QQ/OneBot implementation version info.
+
+        Args:
+            provider_name: Optional provider name
+
+        Returns:
+            Version info dict
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return {"error": "QQ provider not found"}
+        try:
+            return provider.get_version_info()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def qq_poke(
+        self,
+        user_id: int,
+        group_id: int | None = None,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Send poke (戳一戳).
+
+        Args:
+            user_id: Target QQ number
+            group_id: Group ID (None for private poke)
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.send_poke(user_id, group_id)
+
+    def qq_mute(
+        self,
+        group_id: int,
+        user_id: int,
+        duration: int = 1800,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Mute a group member.
+
+        Args:
+            group_id: Group number
+            user_id: Member to mute
+            duration: Mute duration in seconds (0 to unmute)
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_group_ban(group_id, user_id, duration)
+
+    def qq_kick(
+        self,
+        group_id: int,
+        user_id: int,
+        reject_add: bool = False,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Kick a member from group.
+
+        Args:
+            group_id: Group number
+            user_id: Member to kick
+            reject_add: Whether to reject future join requests
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_group_kick(group_id, user_id, reject_add)
+
+    def qq_get_group_info(
+        self,
+        group_id: int,
+        provider_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Get group information.
+
+        Args:
+            group_id: Group number
+            provider_name: Optional provider name
+
+        Returns:
+            Group info dict
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return {"error": "QQ provider not found"}
+        try:
+            info = provider.get_group_info(group_id)
+            if info:
+                return {
+                    "group_id": info.group_id,
+                    "group_name": info.group_name,
+                    "member_count": info.member_count,
+                    "max_member_count": info.max_member_count,
+                }
+            return {"error": "Group not found"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def qq_get_group_list(self, provider_name: str | None = None) -> list[dict[str, Any]]:
+        """Get bot's group list.
+
+        Args:
+            provider_name: Optional provider name
+
+        Returns:
+            List of group info dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            groups = provider.get_group_list()
+            return [
+                {
+                    "group_id": g.group_id,
+                    "group_name": g.group_name,
+                    "member_count": g.member_count,
+                }
+                for g in groups
+            ]
+        except Exception as e:
+            log.error(f"Error getting group list: {e}")
+            return []
+
+    def qq_get_friend_list(self, provider_name: str | None = None) -> list[dict[str, Any]]:
+        """Get bot's friend list.
+
+        Args:
+            provider_name: Optional provider name
+
+        Returns:
+            List of friend info dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            friends = provider.get_friend_list()
+            return [
+                {
+                    "user_id": f.user_id,
+                    "nickname": f.nickname,
+                    "remark": f.remark,
+                }
+                for f in friends
+            ]
+        except Exception as e:
+            log.error(f"Error getting friend list: {e}")
+            return []
+
+    def qq_get_group_member_list(
+        self,
+        group_id: int,
+        provider_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get group member list.
+
+        Args:
+            group_id: Group number
+            provider_name: Optional provider name
+
+        Returns:
+            List of member info dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            members = provider.get_group_member_list(group_id)
+            return [
+                {
+                    "user_id": m.user_id,
+                    "nickname": m.nickname,
+                    "card": m.card,
+                    "role": m.role,
+                }
+                for m in members
+            ]
+        except Exception as e:
+            log.error(f"Error getting member list: {e}")
+            return []
+
+    def qq_send_message(
+        self,
+        message: str,
+        target: str,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Send a QQ message.
+
+        Args:
+            message: Message content
+            target: Target in format "private:QQ号" or "group:群号"
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        result = provider.send_text(message, target)
+        if not result.success:
+            raise ValueError(f"Send failed: {result.error}")
+        return True
+
+    def qq_send_image(
+        self,
+        image_url: str,
+        target: str,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Send a QQ image message.
+
+        Args:
+            image_url: Image URL or file path
+            target: Target in format "private:QQ号" or "group:群号"
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        result = provider.send_image(image_url, target)
+        if not result.success:
+            raise ValueError(f"Send failed: {result.error}")
+        return True
+
+    def qq_set_group_whole_ban(
+        self,
+        group_id: int,
+        enable: bool = True,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Enable/disable whole group mute.
+
+        Args:
+            group_id: Group number
+            enable: Whether to enable mute
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_group_whole_ban(group_id, enable)
+
+    def qq_set_group_admin(
+        self,
+        group_id: int,
+        user_id: int,
+        enable: bool = True,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Set/unset group admin.
+
+        Args:
+            group_id: Group number
+            user_id: Member's QQ number
+            enable: Whether to set as admin
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_group_admin(group_id, user_id, enable)

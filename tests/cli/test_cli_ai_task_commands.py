@@ -1,7 +1,5 @@
 """Tests for AI and Task CLI commands (simplified version)."""
 
-import pytest
-
 from feishu_webhook_bot.cli import main
 
 

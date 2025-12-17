@@ -1,13 +1,26 @@
-"""QQ Napcat provider implementation based on OneBot11 protocol."""
+"""QQ Napcat provider implementation based on OneBot11 protocol.
+
+This module provides a comprehensive QQ bot implementation using the OneBot11 protocol,
+compatible with NapCatQQ, LLOneBot, Lagrange, and other OneBot11 implementations.
+
+Features:
+- Full OneBot11 API support (send/receive messages, group management, user info)
+- NapCat extended APIs (AI voice, poke, emoji reactions)
+- Async and sync message sending
+- Message forwarding and history retrieval
+- Group and friend management
+- Circuit breaker and retry support
+"""
 
 from __future__ import annotations
 
-import time
 import uuid
+from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 import httpx
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from ..core.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from ..core.logger import get_logger
@@ -18,28 +31,141 @@ from .base_http import HTTPProviderMixin
 logger = get_logger(__name__)
 
 
+# ==============================================================================
+# Data Models
+# ==============================================================================
+
+
+class OnlineStatus(int, Enum):
+    """QQ online status codes."""
+
+    ONLINE = 11  # 在线
+    AWAY = 31  # 离开
+    INVISIBLE = 41  # 隐身
+    BUSY = 50  # 忙碌
+    Q_ME = 60  # Q我吧
+    DO_NOT_DISTURB = 70  # 请勿打扰
+
+
+@dataclass
+class QQUserInfo:
+    """QQ user information."""
+
+    user_id: int
+    nickname: str
+    sex: str = "unknown"  # male, female, unknown
+    age: int = 0
+    remark: str = ""  # Friend remark name
+
+
+@dataclass
+class QQGroupInfo:
+    """QQ group information."""
+
+    group_id: int
+    group_name: str
+    member_count: int = 0
+    max_member_count: int = 0
+
+
+@dataclass
+class QQGroupMember:
+    """QQ group member information."""
+
+    group_id: int
+    user_id: int
+    nickname: str
+    card: str = ""  # Group card/nickname
+    sex: str = "unknown"
+    age: int = 0
+    role: str = "member"  # owner, admin, member
+    title: str = ""  # Special title
+    join_time: int = 0
+    last_sent_time: int = 0
+
+
+@dataclass
+class QQMessage:
+    """QQ message information."""
+
+    message_id: int
+    message_type: str  # private, group
+    sender_id: int
+    sender_nickname: str
+    content: list[dict[str, Any]]
+    time: int
+    group_id: int | None = None
+
+
+class OneBotResponse(BaseModel):
+    """OneBot API response model."""
+
+    status: str  # ok, failed, async
+    retcode: int = 0
+    data: Any = None
+    msg: str = ""
+    wording: str = ""
+
+
 class NapcatProviderConfig(ProviderConfig):
     """Configuration for QQ Napcat provider (OneBot11 protocol)."""
 
-    provider_type: str = Field(default="qq_napcat", description="Provider type")
-    http_url: str = Field(..., description="Napcat HTTP API base URL (e.g., http://127.0.0.1:3000)")
+    provider_type: str = Field(default="napcat", description="Provider type")
+    http_url: str = Field(
+        ...,
+        description="Napcat HTTP API base URL (e.g., http://127.0.0.1:3000)",
+    )
     access_token: str | None = Field(
-        default=None, description="Optional Napcat API access token for authentication"
+        default=None,
+        description="Optional Napcat API access token for authentication",
+    )
+    bot_qq: str | None = Field(
+        default=None,
+        description="Bot's QQ number for @mention detection",
+    )
+    enable_ai_voice: bool = Field(
+        default=False,
+        description="Enable NapCat AI voice features",
     )
 
 
 class NapcatProvider(BaseProvider, HTTPProviderMixin):
     """QQ Napcat message provider implementation.
 
-    Supports OneBot11 protocol for sending:
+    Supports OneBot11 protocol for:
     - Text messages (private and group)
     - Rich text messages (converted to CQ code format)
-    - Image messages (using CQ image format)
-    - Card messages are not supported by OneBot11
+    - Image, audio, video messages
+    - Forward messages and message history
+    - Group management (kick, ban, admin)
+    - User and group information queries
+    - NapCat extended APIs (AI voice, poke, emoji reactions)
 
     Target format:
     - Private message: "private:QQ号" (e.g., "private:123456789")
     - Group message: "group:群号" (e.g., "group:987654321")
+
+    Example:
+        ```python
+        from feishu_webhook_bot.providers import NapcatProvider, NapcatProviderConfig
+
+        config = NapcatProviderConfig(
+            http_url="http://127.0.0.1:3000",
+            access_token="your_token",
+            bot_qq="123456789",
+        )
+        provider = NapcatProvider(config)
+        provider.connect()
+
+        # Send message
+        result = provider.send_text("Hello!", "group:987654321")
+
+        # Get user info
+        user = provider.get_stranger_info(123456789)
+
+        # Group management
+        provider.set_group_ban(987654321, 123456789, duration=60)
+        ```
     """
 
     def __init__(
@@ -58,11 +184,13 @@ class NapcatProvider(BaseProvider, HTTPProviderMixin):
         super().__init__(config)
         self.config: NapcatProviderConfig = config
         self._client: httpx.Client | None = None
+        self._async_client: httpx.AsyncClient | None = None
         self._message_tracker = message_tracker
         self._circuit_breaker = CircuitBreaker(
-            f"qq_napcat_{config.name}",
+            f"napcat_{config.name}",
             circuit_breaker_config or CircuitBreakerConfig(),
         )
+        self._login_info: dict[str, Any] | None = None
 
     def connect(self) -> None:
         """Connect to Napcat API."""
@@ -502,7 +630,1092 @@ class NapcatProvider(BaseProvider, HTTPProviderMixin):
             "rich_text": True,
             "card": False,  # Not supported by OneBot11
             "image": True,
-            "file": False,
-            "audio": False,
-            "video": False,
+            "file": True,
+            "audio": True,
+            "video": True,
+            "forward": True,
+            "poke": True,
         }
+
+    # ==========================================================================
+    # OneBot11 Standard APIs - Message Operations
+    # ==========================================================================
+
+    def delete_msg(self, message_id: int) -> bool:
+        """Recall/delete a message.
+
+        Args:
+            message_id: Message ID to delete
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/delete_msg", {"message_id": message_id})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete message {message_id}: {e}")
+            return False
+
+    def get_msg(self, message_id: int) -> QQMessage | None:
+        """Get message details by ID.
+
+        Args:
+            message_id: Message ID
+
+        Returns:
+            QQMessage object or None if not found
+        """
+        try:
+            data = self._call_api("/get_msg", {"message_id": message_id})
+            if data:
+                return QQMessage(
+                    message_id=data.get("message_id", message_id),
+                    message_type=data.get("message_type", ""),
+                    sender_id=data.get("sender", {}).get("user_id", 0),
+                    sender_nickname=data.get("sender", {}).get("nickname", ""),
+                    content=data.get("message", []),
+                    time=data.get("time", 0),
+                    group_id=data.get("group_id"),
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to get message {message_id}: {e}")
+        return None
+
+    def send_like(self, user_id: int, times: int = 1) -> bool:
+        """Send likes to a user's profile.
+
+        Args:
+            user_id: Target QQ number
+            times: Number of likes (max 10 per day per user)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/send_like", {"user_id": user_id, "times": min(times, 10)})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to send like to {user_id}: {e}")
+            return False
+
+    def send_forward_msg(
+        self,
+        target: str,
+        messages: list[dict[str, Any]],
+    ) -> SendResult:
+        """Send a forward message (合并转发).
+
+        Args:
+            target: Target in format "private:QQ号" or "group:群号"
+            messages: List of message nodes
+
+        Returns:
+            SendResult with message ID
+        """
+        message_id = str(uuid.uuid4())
+        try:
+            user_id, group_id = self._parse_target(target)
+
+            payload: dict[str, Any] = {"messages": messages}
+            if user_id:
+                payload["message_type"] = "private"
+                payload["user_id"] = user_id
+            elif group_id:
+                payload["message_type"] = "group"
+                payload["group_id"] = group_id
+            else:
+                return SendResult.fail("Invalid target format")
+
+            result = self._call_api("/send_forward_msg", payload)
+            return SendResult.ok(str(result.get("message_id", message_id)), result)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    def get_forward_msg(self, forward_id: str) -> list[dict[str, Any]]:
+        """Get forward message content.
+
+        Args:
+            forward_id: Forward message ID
+
+        Returns:
+            List of message nodes
+        """
+        try:
+            data = self._call_api("/get_forward_msg", {"id": forward_id})
+            return data.get("message", []) if data else []
+        except Exception as e:
+            self.logger.error(f"Failed to get forward message: {e}")
+            return []
+
+    # ==========================================================================
+    # OneBot11 Standard APIs - User Information
+    # ==========================================================================
+
+    def get_login_info(self) -> dict[str, Any]:
+        """Get bot's login information.
+
+        Returns:
+            Dict with user_id and nickname
+        """
+        if self._login_info:
+            return self._login_info
+
+        try:
+            data = self._call_api("/get_login_info", {})
+            self._login_info = data or {}
+            return self._login_info
+        except Exception as e:
+            self.logger.error(f"Failed to get login info: {e}")
+            return {}
+
+    def get_stranger_info(self, user_id: int, no_cache: bool = False) -> QQUserInfo | None:
+        """Get stranger/user information.
+
+        Args:
+            user_id: QQ number
+            no_cache: Whether to bypass cache
+
+        Returns:
+            QQUserInfo object or None
+        """
+        try:
+            data = self._call_api(
+                "/get_stranger_info",
+                {"user_id": user_id, "no_cache": no_cache},
+            )
+            if data:
+                return QQUserInfo(
+                    user_id=data.get("user_id", user_id),
+                    nickname=data.get("nickname", ""),
+                    sex=data.get("sex", "unknown"),
+                    age=data.get("age", 0),
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to get stranger info for {user_id}: {e}")
+        return None
+
+    def get_friend_list(self) -> list[QQUserInfo]:
+        """Get bot's friend list.
+
+        Returns:
+            List of QQUserInfo objects
+        """
+        try:
+            data = self._call_api("/get_friend_list", {})
+            if data and isinstance(data, list):
+                return [
+                    QQUserInfo(
+                        user_id=f.get("user_id", 0),
+                        nickname=f.get("nickname", ""),
+                        remark=f.get("remark", ""),
+                    )
+                    for f in data
+                ]
+        except Exception as e:
+            self.logger.error(f"Failed to get friend list: {e}")
+        return []
+
+    # ==========================================================================
+    # OneBot11 Standard APIs - Group Information
+    # ==========================================================================
+
+    def get_group_info(self, group_id: int, no_cache: bool = False) -> QQGroupInfo | None:
+        """Get group information.
+
+        Args:
+            group_id: Group number
+            no_cache: Whether to bypass cache
+
+        Returns:
+            QQGroupInfo object or None
+        """
+        try:
+            data = self._call_api(
+                "/get_group_info",
+                {"group_id": group_id, "no_cache": no_cache},
+            )
+            if data:
+                return QQGroupInfo(
+                    group_id=data.get("group_id", group_id),
+                    group_name=data.get("group_name", ""),
+                    member_count=data.get("member_count", 0),
+                    max_member_count=data.get("max_member_count", 0),
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to get group info for {group_id}: {e}")
+        return None
+
+    def get_group_list(self) -> list[QQGroupInfo]:
+        """Get bot's group list.
+
+        Returns:
+            List of QQGroupInfo objects
+        """
+        try:
+            data = self._call_api("/get_group_list", {})
+            if data and isinstance(data, list):
+                return [
+                    QQGroupInfo(
+                        group_id=g.get("group_id", 0),
+                        group_name=g.get("group_name", ""),
+                        member_count=g.get("member_count", 0),
+                        max_member_count=g.get("max_member_count", 0),
+                    )
+                    for g in data
+                ]
+        except Exception as e:
+            self.logger.error(f"Failed to get group list: {e}")
+        return []
+
+    def get_group_member_info(
+        self,
+        group_id: int,
+        user_id: int,
+        no_cache: bool = False,
+    ) -> QQGroupMember | None:
+        """Get group member information.
+
+        Args:
+            group_id: Group number
+            user_id: Member's QQ number
+            no_cache: Whether to bypass cache
+
+        Returns:
+            QQGroupMember object or None
+        """
+        try:
+            data = self._call_api(
+                "/get_group_member_info",
+                {"group_id": group_id, "user_id": user_id, "no_cache": no_cache},
+            )
+            if data:
+                return QQGroupMember(
+                    group_id=data.get("group_id", group_id),
+                    user_id=data.get("user_id", user_id),
+                    nickname=data.get("nickname", ""),
+                    card=data.get("card", ""),
+                    sex=data.get("sex", "unknown"),
+                    age=data.get("age", 0),
+                    role=data.get("role", "member"),
+                    title=data.get("title", ""),
+                    join_time=data.get("join_time", 0),
+                    last_sent_time=data.get("last_sent_time", 0),
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to get member info: {e}")
+        return None
+
+    def get_group_member_list(self, group_id: int) -> list[QQGroupMember]:
+        """Get all members of a group.
+
+        Args:
+            group_id: Group number
+
+        Returns:
+            List of QQGroupMember objects
+        """
+        try:
+            data = self._call_api("/get_group_member_list", {"group_id": group_id})
+            if data and isinstance(data, list):
+                return [
+                    QQGroupMember(
+                        group_id=group_id,
+                        user_id=m.get("user_id", 0),
+                        nickname=m.get("nickname", ""),
+                        card=m.get("card", ""),
+                        role=m.get("role", "member"),
+                    )
+                    for m in data
+                ]
+        except Exception as e:
+            self.logger.error(f"Failed to get group member list: {e}")
+        return []
+
+    # ==========================================================================
+    # OneBot11 Standard APIs - Group Management
+    # ==========================================================================
+
+    def set_group_kick(
+        self,
+        group_id: int,
+        user_id: int,
+        reject_add_request: bool = False,
+    ) -> bool:
+        """Kick a member from group.
+
+        Args:
+            group_id: Group number
+            user_id: Member to kick
+            reject_add_request: Whether to reject future join requests
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_kick",
+                {
+                    "group_id": group_id,
+                    "user_id": user_id,
+                    "reject_add_request": reject_add_request,
+                },
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to kick user {user_id} from group {group_id}: {e}")
+            return False
+
+    def set_group_ban(
+        self,
+        group_id: int,
+        user_id: int,
+        duration: int = 1800,
+    ) -> bool:
+        """Ban/mute a group member.
+
+        Args:
+            group_id: Group number
+            user_id: Member to ban
+            duration: Ban duration in seconds (0 to unban)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_ban",
+                {"group_id": group_id, "user_id": user_id, "duration": duration},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to ban user {user_id}: {e}")
+            return False
+
+    def set_group_whole_ban(self, group_id: int, enable: bool = True) -> bool:
+        """Enable/disable whole group mute.
+
+        Args:
+            group_id: Group number
+            enable: Whether to enable mute
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_whole_ban",
+                {"group_id": group_id, "enable": enable},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set whole ban for group {group_id}: {e}")
+            return False
+
+    def set_group_admin(
+        self,
+        group_id: int,
+        user_id: int,
+        enable: bool = True,
+    ) -> bool:
+        """Set/unset group admin.
+
+        Args:
+            group_id: Group number
+            user_id: Member to set as admin
+            enable: Whether to set as admin
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_admin",
+                {"group_id": group_id, "user_id": user_id, "enable": enable},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set admin for user {user_id}: {e}")
+            return False
+
+    def set_group_card(self, group_id: int, user_id: int, card: str = "") -> bool:
+        """Set group member's card/nickname.
+
+        Args:
+            group_id: Group number
+            user_id: Member's QQ number
+            card: New card name (empty to clear)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_card",
+                {"group_id": group_id, "user_id": user_id, "card": card},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set card for user {user_id}: {e}")
+            return False
+
+    def set_group_name(self, group_id: int, group_name: str) -> bool:
+        """Set group name.
+
+        Args:
+            group_id: Group number
+            group_name: New group name
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_name",
+                {"group_id": group_id, "group_name": group_name},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set group name: {e}")
+            return False
+
+    def set_group_leave(self, group_id: int, is_dismiss: bool = False) -> bool:
+        """Leave a group.
+
+        Args:
+            group_id: Group number
+            is_dismiss: Whether to dismiss group (if owner)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_leave",
+                {"group_id": group_id, "is_dismiss": is_dismiss},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to leave group {group_id}: {e}")
+            return False
+
+    def set_group_special_title(
+        self,
+        group_id: int,
+        user_id: int,
+        special_title: str = "",
+        duration: int = -1,
+    ) -> bool:
+        """Set member's special title.
+
+        Args:
+            group_id: Group number
+            user_id: Member's QQ number
+            special_title: Special title (empty to clear)
+            duration: Duration in seconds (-1 for permanent)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_special_title",
+                {
+                    "group_id": group_id,
+                    "user_id": user_id,
+                    "special_title": special_title,
+                    "duration": duration,
+                },
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set special title: {e}")
+            return False
+
+    # ==========================================================================
+    # OneBot11 Standard APIs - Request Handling
+    # ==========================================================================
+
+    def set_friend_add_request(
+        self,
+        flag: str,
+        approve: bool = True,
+        remark: str = "",
+    ) -> bool:
+        """Handle friend add request.
+
+        Args:
+            flag: Request flag from event
+            approve: Whether to approve
+            remark: Friend remark (if approved)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_friend_add_request",
+                {"flag": flag, "approve": approve, "remark": remark},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to handle friend request: {e}")
+            return False
+
+    def set_group_add_request(
+        self,
+        flag: str,
+        sub_type: str,
+        approve: bool = True,
+        reason: str = "",
+    ) -> bool:
+        """Handle group add/invite request.
+
+        Args:
+            flag: Request flag from event
+            sub_type: "add" or "invite"
+            approve: Whether to approve
+            reason: Rejection reason (if not approved)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_add_request",
+                {
+                    "flag": flag,
+                    "sub_type": sub_type,
+                    "approve": approve,
+                    "reason": reason,
+                },
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to handle group request: {e}")
+            return False
+
+    # ==========================================================================
+    # OneBot11 Standard APIs - System
+    # ==========================================================================
+
+    def get_status(self) -> dict[str, Any]:
+        """Get bot running status.
+
+        Returns:
+            Status dict with online and good fields
+        """
+        try:
+            return self._call_api("/get_status", {}) or {}
+        except Exception as e:
+            self.logger.error(f"Failed to get status: {e}")
+            return {"online": False, "good": False}
+
+    def get_version_info(self) -> dict[str, Any]:
+        """Get OneBot implementation version info.
+
+        Returns:
+            Version info dict
+        """
+        try:
+            return self._call_api("/get_version_info", {}) or {}
+        except Exception as e:
+            self.logger.error(f"Failed to get version info: {e}")
+            return {}
+
+    def can_send_image(self) -> bool:
+        """Check if bot can send images.
+
+        Returns:
+            True if can send images
+        """
+        try:
+            data = self._call_api("/can_send_image", {})
+            return data.get("yes", False) if data else False
+        except Exception:
+            return False
+
+    def can_send_record(self) -> bool:
+        """Check if bot can send voice messages.
+
+        Returns:
+            True if can send voice
+        """
+        try:
+            data = self._call_api("/can_send_record", {})
+            return data.get("yes", False) if data else False
+        except Exception:
+            return False
+
+    # ==========================================================================
+    # NapCat Extended APIs
+    # ==========================================================================
+
+    def send_poke(self, user_id: int, group_id: int | None = None) -> bool:
+        """Send poke (戳一戳).
+
+        Args:
+            user_id: Target QQ number
+            group_id: Group ID (None for private poke)
+
+        Returns:
+            True if successful
+        """
+        try:
+            payload: dict[str, Any] = {"user_id": user_id}
+            if group_id:
+                payload["group_id"] = group_id
+            self._call_api("/send_poke", payload)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to send poke: {e}")
+            return False
+
+    def group_poke(self, group_id: int, user_id: int) -> bool:
+        """Send group poke (群聊戳一戳).
+
+        Args:
+            group_id: Group number
+            user_id: Target QQ number
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/group_poke", {"group_id": group_id, "user_id": user_id})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to send group poke: {e}")
+            return False
+
+    def friend_poke(self, user_id: int) -> bool:
+        """Send friend poke (私聊戳一戳).
+
+        Args:
+            user_id: Target QQ number
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/friend_poke", {"user_id": user_id})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to send friend poke: {e}")
+            return False
+
+    def set_msg_emoji_like(self, message_id: int, emoji_id: str) -> bool:
+        """React to a message with emoji.
+
+        Args:
+            message_id: Message ID
+            emoji_id: Emoji ID
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_msg_emoji_like",
+                {"message_id": message_id, "emoji_id": emoji_id},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set emoji reaction: {e}")
+            return False
+
+    def mark_msg_as_read(self, target: str) -> bool:
+        """Mark messages as read.
+
+        Args:
+            target: "private:QQ号" or "group:群号"
+
+        Returns:
+            True if successful
+        """
+        try:
+            user_id, group_id = self._parse_target(target)
+            if user_id:
+                self._call_api("/mark_private_msg_as_read", {"user_id": user_id})
+            elif group_id:
+                self._call_api("/mark_group_msg_as_read", {"group_id": group_id})
+            else:
+                return False
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to mark as read: {e}")
+            return False
+
+    def get_group_msg_history(
+        self,
+        group_id: int,
+        message_seq: int = 0,
+        count: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Get group message history.
+
+        Args:
+            group_id: Group number
+            message_seq: Starting message sequence (0 for latest)
+            count: Number of messages to retrieve
+
+        Returns:
+            List of message dicts
+        """
+        try:
+            data = self._call_api(
+                "/get_group_msg_history",
+                {"group_id": group_id, "message_seq": message_seq, "count": count},
+            )
+            return data.get("messages", []) if data else []
+        except Exception as e:
+            self.logger.error(f"Failed to get group history: {e}")
+            return []
+
+    def get_friend_msg_history(
+        self,
+        user_id: int,
+        message_seq: int = 0,
+        count: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Get private message history.
+
+        Args:
+            user_id: Friend's QQ number
+            message_seq: Starting message sequence (0 for latest)
+            count: Number of messages to retrieve
+
+        Returns:
+            List of message dicts
+        """
+        try:
+            data = self._call_api(
+                "/get_friend_msg_history",
+                {"user_id": user_id, "message_seq": message_seq, "count": count},
+            )
+            return data.get("messages", []) if data else []
+        except Exception as e:
+            self.logger.error(f"Failed to get friend history: {e}")
+            return []
+
+    def set_group_sign(self, group_id: int) -> bool:
+        """Sign in to group (群签到).
+
+        Args:
+            group_id: Group number
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/set_group_sign", {"group_id": str(group_id)})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to sign in group: {e}")
+            return False
+
+    def set_online_status(
+        self,
+        status: OnlineStatus | int,
+        ext_status: int = 0,
+        battery_status: int = 0,
+    ) -> bool:
+        """Set bot's online status.
+
+        Args:
+            status: Online status code
+            ext_status: Extended status
+            battery_status: Battery level
+
+        Returns:
+            True if successful
+        """
+        try:
+            status_val = status.value if isinstance(status, OnlineStatus) else status
+            self._call_api(
+                "/set_online_status",
+                {
+                    "status": status_val,
+                    "ext_status": ext_status,
+                    "battery_status": battery_status,
+                },
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set online status: {e}")
+            return False
+
+    def set_qq_avatar(self, file: str) -> bool:
+        """Set bot's QQ avatar.
+
+        Args:
+            file: Image file path or URL
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/set_qq_avatar", {"file": file})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set avatar: {e}")
+            return False
+
+    def get_file(self, file_id: str) -> dict[str, Any]:
+        """Get file information.
+
+        Args:
+            file_id: File ID
+
+        Returns:
+            File info dict with file, url, file_size, file_name
+        """
+        try:
+            return self._call_api("/get_file", {"file_id": file_id}) or {}
+        except Exception as e:
+            self.logger.error(f"Failed to get file: {e}")
+            return {}
+
+    def translate_en2zh(self, words: list[str]) -> list[str]:
+        """Translate English to Chinese (NapCat feature).
+
+        Args:
+            words: List of English words/phrases
+
+        Returns:
+            List of Chinese translations
+        """
+        try:
+            data = self._call_api("/translate_en2zh", {"words": words})
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            self.logger.error(f"Failed to translate: {e}")
+            return []
+
+    # ==========================================================================
+    # NapCat AI Voice APIs
+    # ==========================================================================
+
+    def get_ai_characters(self, group_id: int) -> list[dict[str, Any]]:
+        """Get available AI voice characters.
+
+        Args:
+            group_id: Group number (required for API)
+
+        Returns:
+            List of character info dicts
+        """
+        if not self.config.enable_ai_voice:
+            return []
+
+        try:
+            data = self._call_api("/get_ai_characters", {"group_id": group_id})
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            self.logger.error(f"Failed to get AI characters: {e}")
+            return []
+
+    def get_ai_record(
+        self,
+        character: str,
+        group_id: int,
+        text: str,
+    ) -> str:
+        """Convert text to AI voice.
+
+        Args:
+            character: AI character ID
+            group_id: Group number
+            text: Text to convert
+
+        Returns:
+            Voice file URL or empty string
+        """
+        if not self.config.enable_ai_voice:
+            return ""
+
+        try:
+            data = self._call_api(
+                "/get_ai_record",
+                {"character": character, "group_id": group_id, "text": text},
+            )
+            return data.get("data", "") if data else ""
+        except Exception as e:
+            self.logger.error(f"Failed to get AI record: {e}")
+            return ""
+
+    def send_group_ai_record(
+        self,
+        group_id: int,
+        character: str,
+        text: str,
+    ) -> SendResult:
+        """Send AI voice message to group.
+
+        Args:
+            group_id: Group number
+            character: AI character ID
+            text: Text to convert to voice
+
+        Returns:
+            SendResult with message ID
+        """
+        if not self.config.enable_ai_voice:
+            return SendResult.fail("AI voice not enabled")
+
+        try:
+            data = self._call_api(
+                "/send_group_ai_record",
+                {"group_id": group_id, "character": character, "text": text},
+            )
+            msg_id = data.get("message_id", "") if data else ""
+            return SendResult.ok(str(msg_id), data)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    # ==========================================================================
+    # Additional Message Types
+    # ==========================================================================
+
+    def send_file(self, file_path: str, target: str) -> SendResult:
+        """Send a file message.
+
+        Args:
+            file_path: File path or URL
+            target: Target in format "private:QQ号" or "group:群号"
+
+        Returns:
+            SendResult with status
+        """
+        message_id = str(uuid.uuid4())
+        try:
+            user_id, group_id = self._parse_target(target)
+            if not user_id and not group_id:
+                return SendResult.fail("Invalid target format")
+
+            message_segments = [{"type": "file", "data": {"file": file_path}}]
+            result = self._send_onebot_message(message_id, user_id, group_id, message_segments)
+            return SendResult.ok(message_id, result)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    def send_audio(self, audio_key: str, target: str) -> SendResult:
+        """Send an audio/voice message.
+
+        Args:
+            audio_key: Audio file path or URL
+            target: Target in format "private:QQ号" or "group:群号"
+
+        Returns:
+            SendResult with status
+        """
+        message_id = str(uuid.uuid4())
+        try:
+            user_id, group_id = self._parse_target(target)
+            if not user_id and not group_id:
+                return SendResult.fail("Invalid target format")
+
+            message_segments = [{"type": "record", "data": {"file": audio_key}}]
+            result = self._send_onebot_message(message_id, user_id, group_id, message_segments)
+            return SendResult.ok(message_id, result)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    def send_video(self, video_key: str, target: str) -> SendResult:
+        """Send a video message.
+
+        Args:
+            video_key: Video file path or URL
+            target: Target in format "private:QQ号" or "group:群号"
+
+        Returns:
+            SendResult with status
+        """
+        message_id = str(uuid.uuid4())
+        try:
+            user_id, group_id = self._parse_target(target)
+            if not user_id and not group_id:
+                return SendResult.fail("Invalid target format")
+
+            message_segments = [{"type": "video", "data": {"file": video_key}}]
+            result = self._send_onebot_message(message_id, user_id, group_id, message_segments)
+            return SendResult.ok(message_id, result)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    def send_at(self, user_id: int, target: str, text: str = "") -> SendResult:
+        """Send an @mention message.
+
+        Args:
+            user_id: QQ number to mention (0 for @all)
+            target: Target group
+            text: Additional text after @mention
+
+        Returns:
+            SendResult with status
+        """
+        message_id = str(uuid.uuid4())
+        try:
+            _, group_id = self._parse_target(target)
+            if not group_id:
+                return SendResult.fail("@mention only works in groups")
+
+            message_segments = [{"type": "at", "data": {"qq": str(user_id) if user_id else "all"}}]
+            if text:
+                message_segments.append({"type": "text", "data": {"text": f" {text}"}})
+
+            result = self._send_onebot_message(message_id, None, group_id, message_segments)
+            return SendResult.ok(message_id, result)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    def send_reply(
+        self,
+        reply_to_id: int,
+        text: str,
+        target: str,
+    ) -> SendResult:
+        """Send a reply message.
+
+        Args:
+            reply_to_id: Message ID to reply to
+            text: Reply text
+            target: Target in format "private:QQ号" or "group:群号"
+
+        Returns:
+            SendResult with status
+        """
+        message_id = str(uuid.uuid4())
+        try:
+            user_id, group_id = self._parse_target(target)
+            if not user_id and not group_id:
+                return SendResult.fail("Invalid target format")
+
+            message_segments = [
+                {"type": "reply", "data": {"id": str(reply_to_id)}},
+                {"type": "text", "data": {"text": text}},
+            ]
+            result = self._send_onebot_message(message_id, user_id, group_id, message_segments)
+            return SendResult.ok(message_id, result)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    # ==========================================================================
+    # Internal Helper Methods
+    # ==========================================================================
+
+    def _call_api(self, endpoint: str, payload: dict[str, Any]) -> Any:
+        """Call OneBot API endpoint.
+
+        Args:
+            endpoint: API endpoint path
+            payload: Request payload
+
+        Returns:
+            Response data field
+
+        Raises:
+            Exception: If request fails
+        """
+        result = self._make_http_request(endpoint, payload)
+        return result.get("data") if result else None

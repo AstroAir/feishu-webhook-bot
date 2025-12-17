@@ -44,7 +44,7 @@ class QueuedMessage:
         """Calculate delay for next retry using exponential backoff."""
         # Base delay with exponential backoff: 1s, 2s, 4s, 8s...
         base_delay = 1.0
-        return base_delay * (2 ** self.retry_count)
+        return base_delay * (2**self.retry_count)
 
     def increment_retry(self) -> None:
         """Increment the retry count."""
@@ -135,8 +135,7 @@ class MessageQueue:
             self._stats["total_enqueued"] += len(messages)
             self._stats["current_size"] = len(self._queue)
             logger.info(
-                f"Batch of {len(messages)} messages enqueued, "
-                f"queue_size={len(self._queue)}"
+                f"Batch of {len(messages)} messages enqueued, queue_size={len(self._queue)}"
             )
 
     async def process_queue(self) -> dict[str, Any]:
@@ -178,8 +177,7 @@ class MessageQueue:
                     results["sent"] += 1
                     self._stats["total_sent"] += 1
                     logger.info(
-                        f"Message sent successfully: id={message.id}, "
-                        f"target={message.target}"
+                        f"Message sent successfully: id={message.id}, target={message.target}"
                     )
                 elif message.is_retryable():
                     # Re-queue for retry with exponential backoff

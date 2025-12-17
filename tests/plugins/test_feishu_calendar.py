@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta, timezone
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -392,9 +392,8 @@ class TestCheckEvents:
             patch.object(plugin, "_get_tenant_access_token") as mock_token,
             patch.object(plugin, "_get_calendar_events") as mock_events,
             patch.object(plugin, "_should_send_reminder") as mock_should,
-            patch.object(plugin, "_send_reminder") as mock_send,
+            patch.object(plugin, "_send_reminder"),
         ):
-
             mock_token.return_value = "test_token"
             mock_events.return_value = []
             mock_should.return_value = False
@@ -410,7 +409,6 @@ class TestCheckEvents:
             patch.object(plugin, "_get_tenant_access_token") as mock_token,
             patch.object(plugin, "_get_calendar_events") as mock_events,
         ):
-
             mock_token.return_value = None
 
             plugin.check_events()
@@ -434,7 +432,6 @@ class TestCheckEvents:
             patch.object(plugin, "_get_calendar_events") as mock_events,
             patch.object(plugin, "_send_reminder") as mock_send,
         ):
-
             mock_token.return_value = "test_token"
             mock_events.return_value = [event]
             mock_send.return_value = True

@@ -2,20 +2,24 @@
 """Plugin Configuration Schema Example.
 
 This example demonstrates the plugin configuration schema system:
-- Defining configuration schemas
+- Defining configuration schemas using Pydantic models
 - Field types and validation
 - Environment variable fallbacks
 - Sensitive field handling
 - Schema generation and documentation
 - Configuration validation
+- ConfigSchemaBuilder for programmatic schema creation
 
 The schema system enables type-safe plugin configuration with validation.
 """
 
 from typing import Any
 
+from pydantic import Field
+
 from feishu_webhook_bot.core import LoggingConfig, get_logger, setup_logging
 from feishu_webhook_bot.plugins.config_schema import (
+    ConfigSchemaBuilder,
     FieldType,
     PluginConfigField,
     PluginConfigSchema,
@@ -80,7 +84,7 @@ def demo_basic_fields() -> None:
         if field.env_var:
             print(f"    Env var: {field.env_var}")
         if field.sensitive:
-            print(f"    Sensitive: Yes")
+            print("    Sensitive: Yes")
 
 
 # =============================================================================
@@ -161,59 +165,55 @@ def demo_choice_fields() -> None:
 
 
 # =============================================================================
-# Demo 4: Plugin Configuration Schema
+# Demo 4: Plugin Configuration Schema (Pydantic Model)
 # =============================================================================
 def demo_config_schema() -> None:
-    """Demonstrate complete plugin configuration schema."""
+    """Demonstrate complete plugin configuration schema using Pydantic model."""
     print("\n" + "=" * 60)
-    print("Demo 4: Plugin Configuration Schema")
+    print("Demo 4: Plugin Configuration Schema (Pydantic Model)")
     print("=" * 60)
 
-    # Define schema
-    schema = PluginConfigSchema(
-        name="weather_plugin",
-        version="1.0.0",
-        description="Weather information plugin",
-        fields=[
-            PluginConfigField(
-                name="api_key",
-                field_type=FieldType.SECRET,
-                description="Weather API key",
-                required=True,
-                sensitive=True,
-                env_var="WEATHER_API_KEY",
-            ),
-            PluginConfigField(
-                name="default_city",
-                field_type=FieldType.STRING,
-                description="Default city for weather queries",
-                required=False,
-                default="Beijing",
-            ),
-            PluginConfigField(
-                name="units",
-                field_type=FieldType.CHOICE,
-                description="Temperature units",
-                choices=["celsius", "fahrenheit"],
-                default="celsius",
-            ),
-            PluginConfigField(
-                name="cache_ttl",
-                field_type=FieldType.INT,
-                description="Cache TTL in seconds",
-                default=300,
-                min_value=60,
-                max_value=3600,
-            ),
-        ],
-    )
+    # Define schema by subclassing PluginConfigSchema (Pydantic BaseModel)
+    class WeatherPluginConfig(PluginConfigSchema):
+        """Weather plugin configuration schema."""
 
-    print(f"Schema: {schema.name} v{schema.version}")
-    print(f"Description: {schema.description}")
-    print(f"\nFields ({len(schema.fields)}):")
-    for field in schema.fields:
-        req = "required" if field.required else "optional"
-        print(f"  - {field.name} ({field.field_type.value}, {req})")
+        api_key: str = Field(
+            ...,
+            description="Weather API key",
+            json_schema_extra={"sensitive": True, "env_var": "WEATHER_API_KEY"},
+        )
+        default_city: str = Field(
+            default="Beijing",
+            description="Default city for weather queries",
+        )
+        units: str = Field(
+            default="celsius",
+            description="Temperature units",
+            json_schema_extra={"choices": ["celsius", "fahrenheit"]},
+        )
+        cache_ttl: int = Field(
+            default=300,
+            description="Cache TTL in seconds",
+            ge=60,
+            le=3600,
+        )
+
+    # Get schema fields
+    fields = WeatherPluginConfig.get_schema_fields()
+    print("Schema: WeatherPluginConfig")
+    print(f"\nFields ({len(fields)}):")
+    for name, field_def in fields.items():
+        req = "required" if field_def.required else "optional"
+        print(f"  - {name} ({field_def.field_type.value}, {req})")
+
+    # Validate a config
+    print("\nValidating config:")
+    test_config = {"api_key": "test_key", "cache_ttl": 600}
+    is_valid, errors = WeatherPluginConfig.validate_config(test_config)
+    print(f"  Config: {test_config}")
+    print(f"  Valid: {is_valid}")
+    if errors:
+        print(f"  Errors: {errors}")
 
 
 # =============================================================================
@@ -225,31 +225,13 @@ def demo_schema_validation() -> None:
     print("Demo 5: Schema Validation")
     print("=" * 60)
 
-    schema = PluginConfigSchema(
-        name="test_plugin",
-        version="1.0.0",
-        fields=[
-            PluginConfigField(
-                name="api_key",
-                field_type=FieldType.STRING,
-                description="API key",
-                required=True,
-            ),
-            PluginConfigField(
-                name="timeout",
-                field_type=FieldType.INT,
-                description="Timeout",
-                default=30,
-                min_value=1,
-            ),
-            PluginConfigField(
-                name="enabled",
-                field_type=FieldType.BOOL,
-                description="Enabled",
-                default=True,
-            ),
-        ],
-    )
+    # Define schema using Pydantic model
+    class TestPluginConfig(PluginConfigSchema):
+        """Test plugin configuration."""
+
+        api_key: str = Field(..., description="API key")
+        timeout: int = Field(default=30, description="Timeout", ge=1)
+        enabled: bool = Field(default=True, description="Enabled")
 
     # Test configurations
     test_configs = [
@@ -276,7 +258,7 @@ def demo_schema_validation() -> None:
         print(f"\n  {test['name']}:")
         print(f"    Config: {test['config']}")
 
-        is_valid, errors = schema.validate(test["config"])
+        is_valid, errors = TestPluginConfig.validate_config(test["config"])
         if is_valid:
             print("    Result: VALID")
         else:
@@ -289,7 +271,7 @@ def demo_schema_validation() -> None:
 # Demo 6: Environment Variable Fallback
 # =============================================================================
 def demo_env_var_fallback() -> None:
-    """Demonstrate environment variable fallback."""
+    """Demonstrate environment variable fallback using PluginConfigField."""
     print("\n" + "=" * 60)
     print("Demo 6: Environment Variable Fallback")
     print("=" * 60)
@@ -300,33 +282,30 @@ def demo_env_var_fallback() -> None:
     os.environ["DEMO_API_KEY"] = "env_secret_key"
     os.environ["DEMO_TIMEOUT"] = "45"
 
-    schema = PluginConfigSchema(
-        name="env_demo",
-        version="1.0.0",
-        fields=[
-            PluginConfigField(
-                name="api_key",
-                field_type=FieldType.STRING,
-                description="API key",
-                required=True,
-                env_var="DEMO_API_KEY",
-            ),
-            PluginConfigField(
-                name="timeout",
-                field_type=FieldType.INT,
-                description="Timeout",
-                env_var="DEMO_TIMEOUT",
-                default=30,
-            ),
-            PluginConfigField(
-                name="debug",
-                field_type=FieldType.BOOL,
-                description="Debug mode",
-                env_var="DEMO_DEBUG",
-                default=False,
-            ),
-        ],
-    )
+    # Define fields with env_var support
+    fields = [
+        PluginConfigField(
+            name="api_key",
+            field_type=FieldType.STRING,
+            description="API key",
+            required=True,
+            env_var="DEMO_API_KEY",
+        ),
+        PluginConfigField(
+            name="timeout",
+            field_type=FieldType.INT,
+            description="Timeout",
+            env_var="DEMO_TIMEOUT",
+            default=30,
+        ),
+        PluginConfigField(
+            name="debug",
+            field_type=FieldType.BOOL,
+            description="Debug mode",
+            env_var="DEMO_DEBUG",
+            default=False,
+        ),
+    ]
 
     print("Environment variables set:")
     print("  DEMO_API_KEY=env_secret_key")
@@ -335,10 +314,21 @@ def demo_env_var_fallback() -> None:
 
     # Resolve configuration with env fallback
     config: dict[str, Any] = {}
-    resolved = schema.resolve_with_env(config)
+    for field_def in fields:
+        if field_def.env_var and field_def.env_var in os.environ:
+            env_value = os.environ[field_def.env_var]
+            # Convert type if needed
+            if field_def.field_type == FieldType.INT:
+                config[field_def.name] = int(env_value)
+            elif field_def.field_type == FieldType.BOOL:
+                config[field_def.name] = env_value.lower() in ("true", "1", "yes")
+            else:
+                config[field_def.name] = env_value
+        elif field_def.default is not None:
+            config[field_def.name] = field_def.default
 
     print("\nResolved configuration:")
-    for key, value in resolved.items():
+    for key, value in config.items():
         # Mask sensitive values
         if key == "api_key":
             print(f"  {key}: {'*' * len(str(value))}")
@@ -359,30 +349,24 @@ def demo_sensitive_fields() -> None:
     print("Demo 7: Sensitive Field Handling")
     print("=" * 60)
 
-    schema = PluginConfigSchema(
-        name="secure_plugin",
-        version="1.0.0",
-        fields=[
-            PluginConfigField(
-                name="api_key",
-                field_type=FieldType.SECRET,
-                description="API key",
-                sensitive=True,
-            ),
-            PluginConfigField(
-                name="password",
-                field_type=FieldType.SECRET,
-                description="Database password",
-                sensitive=True,
-            ),
-            PluginConfigField(
-                name="username",
-                field_type=FieldType.STRING,
-                description="Username",
-                sensitive=False,
-            ),
-        ],
-    )
+    # Define schema with sensitive fields using Pydantic model
+    class SecurePluginConfig(PluginConfigSchema):
+        """Secure plugin configuration."""
+
+        api_key: str = Field(
+            ...,
+            description="API key",
+            json_schema_extra={"sensitive": True},
+        )
+        password: str = Field(
+            ...,
+            description="Database password",
+            json_schema_extra={"sensitive": True},
+        )
+        username: str = Field(
+            default="admin",
+            description="Username",
+        )
 
     config = {
         "api_key": "super_secret_key_12345",
@@ -394,8 +378,15 @@ def demo_sensitive_fields() -> None:
     for key, value in config.items():
         print(f"  {key}: {value}")
 
-    # Mask sensitive fields
-    masked = schema.mask_sensitive(config)
+    # Mask sensitive fields manually
+    fields = SecurePluginConfig.get_schema_fields()
+    masked = {}
+    for key, value in config.items():
+        field_def = fields.get(key)
+        if field_def and field_def.sensitive:
+            masked[key] = "********"
+        else:
+            masked[key] = value
 
     print("\nMasked configuration (safe for logging):")
     for key, value in masked.items():
@@ -411,91 +402,98 @@ def demo_schema_documentation() -> None:
     print("Demo 8: Schema Documentation Generation")
     print("=" * 60)
 
-    schema = PluginConfigSchema(
-        name="notification_plugin",
-        version="2.0.0",
-        description="Send notifications to various channels",
-        fields=[
-            PluginConfigField(
-                name="webhook_url",
-                field_type=FieldType.URL,
-                description="Webhook URL for notifications",
-                required=True,
-                example="https://hooks.example.com/notify",
-                help_url="https://docs.example.com/webhooks",
-            ),
-            PluginConfigField(
-                name="channel",
-                field_type=FieldType.CHOICE,
-                description="Notification channel",
-                choices=["email", "slack", "feishu", "telegram"],
-                default="feishu",
-            ),
-            PluginConfigField(
-                name="retry_count",
-                field_type=FieldType.INT,
-                description="Number of retry attempts",
-                default=3,
-                min_value=0,
-                max_value=10,
-            ),
-            PluginConfigField(
-                name="api_key",
-                field_type=FieldType.SECRET,
-                description="API key for authentication",
-                required=True,
-                sensitive=True,
-                env_var="NOTIFICATION_API_KEY",
-            ),
-        ],
-    )
+    # Define schema using Pydantic model
+    class NotificationPluginConfig(PluginConfigSchema):
+        """Send notifications to various channels."""
 
-    # Generate documentation
-    doc = schema.generate_documentation()
-    print(doc)
+        webhook_url: str = Field(
+            ...,
+            description="Webhook URL for notifications",
+            json_schema_extra={
+                "example": "https://hooks.example.com/notify",
+                "help_url": "https://docs.example.com/webhooks",
+            },
+        )
+        channel: str = Field(
+            default="feishu",
+            description="Notification channel",
+            json_schema_extra={"choices": ["email", "slack", "feishu", "telegram"]},
+        )
+        retry_count: int = Field(
+            default=3,
+            description="Number of retry attempts",
+            ge=0,
+            le=10,
+        )
+        api_key: str = Field(
+            ...,
+            description="API key for authentication",
+            json_schema_extra={"sensitive": True, "env_var": "NOTIFICATION_API_KEY"},
+        )
+
+    # Generate documentation manually
+    fields = NotificationPluginConfig.get_schema_fields()
+    print("\nNotificationPluginConfig Schema Documentation")
+    print("=" * 45)
+    print(f"Description: {NotificationPluginConfig.__doc__}")
+    print("\nFields:")
+    for name, field_def in fields.items():
+        req = "(required)" if field_def.required else "(optional)"
+        print(f"\n  {name} {req}")
+        print(f"    Type: {field_def.field_type.value}")
+        print(f"    Description: {field_def.description}")
+        if field_def.default is not None:
+            print(f"    Default: {field_def.default}")
+        if field_def.example:
+            print(f"    Example: {field_def.example}")
+        if field_def.env_var:
+            print(f"    Env var: {field_def.env_var}")
+        if field_def.sensitive:
+            print("    Sensitive: Yes")
 
 
 # =============================================================================
 # Demo 9: Conditional Fields
 # =============================================================================
 def demo_conditional_fields() -> None:
-    """Demonstrate conditional/dependent fields."""
+    """Demonstrate conditional/dependent fields using ConfigSchemaBuilder."""
     print("\n" + "=" * 60)
     print("Demo 9: Conditional Fields")
     print("=" * 60)
 
-    schema = PluginConfigSchema(
-        name="storage_plugin",
-        version="1.0.0",
-        fields=[
-            PluginConfigField(
-                name="storage_type",
-                field_type=FieldType.CHOICE,
-                description="Storage backend type",
-                choices=["local", "s3", "gcs"],
-                required=True,
-            ),
-            PluginConfigField(
-                name="local_path",
-                field_type=FieldType.PATH,
-                description="Local storage path",
-                depends_on="storage_type",  # Only needed if storage_type is "local"
-            ),
-            PluginConfigField(
-                name="s3_bucket",
-                field_type=FieldType.STRING,
-                description="S3 bucket name",
-                depends_on="storage_type",  # Only needed if storage_type is "s3"
-            ),
-            PluginConfigField(
-                name="s3_region",
-                field_type=FieldType.STRING,
-                description="S3 region",
-                depends_on="storage_type",
-                default="us-east-1",
-            ),
-        ],
+    # Use ConfigSchemaBuilder for programmatic schema creation
+    builder = ConfigSchemaBuilder()
+    builder.add_field(
+        name="storage_type",
+        field_type=FieldType.CHOICE,
+        description="Storage backend type",
+        choices=["local", "s3", "gcs"],
+        required=True,
     )
+    builder.add_field(
+        name="local_path",
+        field_type=FieldType.PATH,
+        description="Local storage path",
+        depends_on="storage_type",
+        required=False,
+    )
+    builder.add_field(
+        name="s3_bucket",
+        field_type=FieldType.STRING,
+        description="S3 bucket name",
+        depends_on="storage_type",
+        required=False,
+    )
+    builder.add_field(
+        name="s3_region",
+        field_type=FieldType.STRING,
+        description="S3 region",
+        depends_on="storage_type",
+        default="us-east-1",
+        required=False,
+    )
+
+    fields = builder.build()
 
     print("Conditional field configuration:")
     print("\nWhen storage_type = 'local':")
@@ -506,6 +504,11 @@ def demo_conditional_fields() -> None:
     print("  Required: s3_bucket")
     print("  Optional: s3_region (default: us-east-1)")
     print("  Not needed: local_path")
+
+    print("\nFields with dependencies:")
+    for name, field_def in fields.items():
+        if field_def.depends_on:
+            print(f"  {name} -> depends on '{field_def.depends_on}'")
 
     # Example configurations
     configs = [
@@ -527,74 +530,66 @@ def demo_real_world_schema() -> None:
     print("Demo 10: Real-World Plugin Schema")
     print("=" * 60)
 
-    # Calendar plugin schema
-    calendar_schema = PluginConfigSchema(
-        name="feishu_calendar",
-        version="1.0.0",
-        description="Feishu Calendar integration plugin",
-        fields=[
-            PluginConfigField(
-                name="app_id",
-                field_type=FieldType.STRING,
-                description="Feishu App ID",
-                required=True,
-                env_var="FEISHU_APP_ID",
-            ),
-            PluginConfigField(
-                name="app_secret",
-                field_type=FieldType.SECRET,
-                description="Feishu App Secret",
-                required=True,
-                sensitive=True,
-                env_var="FEISHU_APP_SECRET",
-            ),
-            PluginConfigField(
-                name="default_calendar_id",
-                field_type=FieldType.STRING,
-                description="Default calendar ID for queries",
-                required=False,
-            ),
-            PluginConfigField(
-                name="sync_interval",
-                field_type=FieldType.INT,
-                description="Calendar sync interval in minutes",
-                default=15,
-                min_value=5,
-                max_value=60,
-            ),
-            PluginConfigField(
-                name="reminder_before",
-                field_type=FieldType.INT,
-                description="Send reminder N minutes before event",
-                default=10,
-                min_value=1,
-                max_value=60,
-            ),
-            PluginConfigField(
-                name="notification_channel",
-                field_type=FieldType.CHOICE,
-                description="Channel for event notifications",
-                choices=["webhook", "bot", "both"],
-                default="webhook",
-            ),
-            PluginConfigField(
-                name="include_declined",
-                field_type=FieldType.BOOL,
-                description="Include declined events in queries",
-                default=False,
-            ),
-        ],
-    )
+    # Calendar plugin schema using Pydantic model
+    class FeishuCalendarConfig(PluginConfigSchema):
+        """Feishu Calendar integration plugin configuration."""
 
-    print(f"Plugin: {calendar_schema.name}")
-    print(f"Version: {calendar_schema.version}")
-    print(f"Description: {calendar_schema.description}")
+        app_id: str = Field(
+            ...,
+            description="Feishu App ID",
+            json_schema_extra={"env_var": "FEISHU_APP_ID"},
+        )
+        app_secret: str = Field(
+            ...,
+            description="Feishu App Secret",
+            json_schema_extra={"sensitive": True, "env_var": "FEISHU_APP_SECRET"},
+        )
+        default_calendar_id: str | None = Field(
+            default=None,
+            description="Default calendar ID for queries",
+        )
+        sync_interval: int = Field(
+            default=15,
+            description="Calendar sync interval in minutes",
+            ge=5,
+            le=60,
+        )
+        reminder_before: int = Field(
+            default=10,
+            description="Send reminder N minutes before event",
+            ge=1,
+            le=60,
+        )
+        notification_channel: str = Field(
+            default="webhook",
+            description="Channel for event notifications",
+            json_schema_extra={"choices": ["webhook", "bot", "both"]},
+        )
+        include_declined: bool = Field(
+            default=False,
+            description="Include declined events in queries",
+        )
 
+    print("Plugin: FeishuCalendarConfig")
+    print(f"Description: {FeishuCalendarConfig.__doc__}")
+
+    fields = FeishuCalendarConfig.get_schema_fields()
     print("\nConfiguration fields:")
-    for field in calendar_schema.fields:
-        req = "*" if field.required else ""
-        default = f" (default: {field.default})" if field.default is not None else ""
-        print(f"  {field.name}{req}: {field.field_type.value}{default}")
+    for name, field_def in fields.items():
+        req = "*" if field_def.required else ""
+        default = f" (default: {field_def.default})" if field_def.default is not None else ""
+        print(f"  {name}{req}: {field_def.field_type.value}{default}")
+
+    # Validate example config
+    print("\nValidating example config:")
+    example_config = {
+        "app_id": "cli_xxx",
+        "app_secret": "secret_xxx",
+        "sync_interval": 15,
+    }
+    is_valid, errors = FeishuCalendarConfig.validate_config(example_config)
+    print(f"  Config: {example_config}")
+    print(f"  Valid: {is_valid}")
 
     # Example configuration
     print("\nExample configuration (YAML):")

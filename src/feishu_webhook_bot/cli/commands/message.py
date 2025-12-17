@@ -106,9 +106,7 @@ def _cmd_message_queue(args: argparse.Namespace) -> int:
         table.add_row("Retry Delay (s)", str(config.message_queue.retry_delay))
 
         console.print(table)
-        console.print(
-            "\n[yellow]Note: Queue size and message count available during runtime.[/]"
-        )
+        console.print("\n[yellow]Note: Queue size and message count available during runtime.[/]")
 
         return 0
 
@@ -140,9 +138,7 @@ def _cmd_message_tracker(args: argparse.Namespace) -> int:
         table.add_column("Value", style="green")
 
         table.add_row("Max History", str(config.message_tracker.max_history))
-        table.add_row(
-            "Cleanup Interval (s)", str(config.message_tracker.cleanup_interval)
-        )
+        table.add_row("Cleanup Interval (s)", str(config.message_tracker.cleanup_interval))
 
         db_status = (
             config.message_tracker.db_path
@@ -181,7 +177,7 @@ def _cmd_message_circuit_breaker(args: argparse.Namespace) -> int:
         has_circuit_breakers = any(
             p.retry and p.retry.circuit_breaker
             for p in config.providers
-            if hasattr(p, 'retry') and hasattr(p.retry, 'circuit_breaker')
+            if hasattr(p, "retry") and hasattr(p.retry, "circuit_breaker")
         )
 
         if not has_circuit_breakers:
@@ -195,8 +191,8 @@ def _cmd_message_circuit_breaker(args: argparse.Namespace) -> int:
         table.add_column("Status")
 
         for provider in config.providers:
-            if hasattr(provider, 'retry') and provider.retry:
-                cb_config = getattr(provider.retry, 'circuit_breaker', None)
+            if hasattr(provider, "retry") and provider.retry:
+                cb_config = getattr(provider.retry, "circuit_breaker", None)
                 if cb_config:
                     table.add_row(
                         provider.name,

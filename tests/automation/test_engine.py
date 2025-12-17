@@ -15,12 +15,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import time
-from collections.abc import Mapping
 from typing import Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import httpx
 import pytest
 
 from feishu_webhook_bot.automation.engine import AutomationEngine
@@ -36,7 +33,6 @@ from feishu_webhook_bot.core.config import (
 )
 from feishu_webhook_bot.core.provider import BaseProvider, ProviderConfig
 from feishu_webhook_bot.core.templates import RenderedTemplate
-
 
 # ==============================================================================
 # Test Fixtures
@@ -66,7 +62,9 @@ class MockProvider(BaseProvider):
     def send_card(self, card: dict, target: str) -> Any:
         return Mock(success=True)
 
-    def send_rich_text(self, title: str, content: list, target: str, language: str = "zh_cn") -> Any:
+    def send_rich_text(
+        self, title: str, content: list, target: str, language: str = "zh_cn"
+    ) -> Any:
         return Mock(success=True)
 
     def send_image(self, image_key: str, target: str) -> Any:
@@ -146,7 +144,9 @@ def create_schedule_trigger(mode: str = "interval", **kwargs) -> AutomationTrigg
     )
 
 
-def create_event_trigger(event_type: str = "test.event", conditions: list | None = None) -> AutomationTriggerConfig:
+def create_event_trigger(
+    event_type: str = "test.event", conditions: list | None = None
+) -> AutomationTriggerConfig:
     """Helper to create event trigger config."""
     return AutomationTriggerConfig(
         type="event",

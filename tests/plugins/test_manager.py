@@ -12,10 +12,9 @@ Tests cover:
 from __future__ import annotations
 
 import tempfile
-import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -23,7 +22,6 @@ from feishu_webhook_bot.core.config import BotConfig, PluginConfig
 from feishu_webhook_bot.core.provider import BaseProvider, ProviderConfig
 from feishu_webhook_bot.plugins.base import BasePlugin, PluginMetadata
 from feishu_webhook_bot.plugins.manager import PluginFileHandler, PluginManager
-
 
 # ==============================================================================
 # Test Fixtures
@@ -48,7 +46,9 @@ class MockProvider(BaseProvider):
     def send_card(self, card: dict, target: str) -> Any:
         return Mock(success=True)
 
-    def send_rich_text(self, title: str, content: list, target: str, language: str = "zh_cn") -> Any:
+    def send_rich_text(
+        self, title: str, content: list, target: str, language: str = "zh_cn"
+    ) -> Any:
         return Mock(success=True)
 
     def send_image(self, image_key: str, target: str) -> Any:
@@ -288,7 +288,9 @@ class TestPluginFileHandler:
 class TestPluginManagerInitialization:
     """Tests for PluginManager initialization."""
 
-    def test_manager_initialization(self, plugin_manager, minimal_config, mock_client, mock_scheduler, mock_providers):
+    def test_manager_initialization(
+        self, plugin_manager, minimal_config, mock_client, mock_scheduler, mock_providers
+    ):
         """Test PluginManager initialization."""
         assert plugin_manager.config is minimal_config
         assert plugin_manager.client is mock_client
@@ -376,13 +378,13 @@ class TestPluginLoading:
 
     def test_load_plugin_from_valid_file(self, plugin_manager):
         """Test loading plugin from a valid Python file."""
-        plugin_code = '''
+        plugin_code = """
 from feishu_webhook_bot.plugins.base import BasePlugin, PluginMetadata
 
 class TestPlugin(BasePlugin):
     def metadata(self):
         return PluginMetadata(name="test-plugin", version="1.0.0")
-'''
+"""
         with tempfile.TemporaryDirectory() as tmpdir:
             plugin_file = Path(tmpdir) / "test_plugin.py"
             plugin_file.write_text(plugin_code)
@@ -394,11 +396,11 @@ class TestPlugin(BasePlugin):
 
     def test_load_plugin_from_invalid_file(self, plugin_manager):
         """Test loading plugin from file without plugin class."""
-        plugin_code = '''
+        plugin_code = """
 # This file has no plugin class
 def some_function():
     pass
-'''
+"""
         with tempfile.TemporaryDirectory() as tmpdir:
             plugin_file = Path(tmpdir) / "not_a_plugin.py"
             plugin_file.write_text(plugin_code)
@@ -409,10 +411,10 @@ def some_function():
 
     def test_load_plugin_from_syntax_error_file(self, plugin_manager):
         """Test loading plugin from file with syntax error."""
-        plugin_code = '''
+        plugin_code = """
 def broken(
     # Missing closing parenthesis
-'''
+"""
         with tempfile.TemporaryDirectory() as tmpdir:
             plugin_file = Path(tmpdir) / "broken_plugin.py"
             plugin_file.write_text(plugin_code)
@@ -547,7 +549,9 @@ class TestPluginReload:
         assert plugin.disable_called is True
         assert plugin.unload_called is True
 
-    def test_reload_plugins_clears_plugin_dict(self, plugin_manager, minimal_config, mock_providers):
+    def test_reload_plugins_clears_plugin_dict(
+        self, plugin_manager, minimal_config, mock_providers
+    ):
         """Test reload clears plugin dictionary."""
         plugin = SamplePlugin(minimal_config, providers=mock_providers)
         plugin_manager.plugins["sample-plugin"] = plugin
@@ -568,7 +572,9 @@ class TestPluginReload:
 class TestJobRegistration:
     """Tests for job registration with scheduler."""
 
-    def test_enable_patches_register_job(self, plugin_manager, minimal_config, mock_scheduler, mock_providers):
+    def test_enable_patches_register_job(
+        self, plugin_manager, minimal_config, mock_scheduler, mock_providers
+    ):
         """Test enabling plugin patches register_job."""
         plugin = SamplePlugin(minimal_config, providers=mock_providers)
         plugin_manager.plugins["sample-plugin"] = plugin
@@ -584,7 +590,9 @@ class TestJobRegistration:
         mock_scheduler.add_job.assert_called_once()
         assert job_id == "job_123"
 
-    def test_disable_cleans_up_jobs(self, plugin_manager, minimal_config, mock_scheduler, mock_providers):
+    def test_disable_cleans_up_jobs(
+        self, plugin_manager, minimal_config, mock_scheduler, mock_providers
+    ):
         """Test disabling plugin cleans up jobs."""
         plugin = SamplePlugin(minimal_config, providers=mock_providers)
         plugin_manager.plugins["sample-plugin"] = plugin
@@ -707,7 +715,9 @@ class TestEventDispatching:
 
         assert len(plugin.events_received) == 1
 
-    def test_dispatch_event_handles_plugin_errors(self, plugin_manager, minimal_config, mock_providers):
+    def test_dispatch_event_handles_plugin_errors(
+        self, plugin_manager, minimal_config, mock_providers
+    ):
         """Test dispatch handles plugin errors gracefully."""
         plugin = SamplePlugin(minimal_config, providers=mock_providers)
 
@@ -722,7 +732,9 @@ class TestEventDispatching:
         # Should not raise
         plugin_manager.dispatch_event(event)
 
-    def test_dispatch_event_skips_plugins_without_handler(self, plugin_manager, minimal_config, mock_providers):
+    def test_dispatch_event_skips_plugins_without_handler(
+        self, plugin_manager, minimal_config, mock_providers
+    ):
         """Test dispatch skips plugins without handle_event attribute."""
 
         class NoHandlerPlugin(BasePlugin):
@@ -750,13 +762,13 @@ class TestMultiProviderSupport:
 
     def test_plugin_receives_providers(self, plugin_manager, minimal_config, mock_providers):
         """Test plugin receives providers dict."""
-        plugin_code = '''
+        plugin_code = """
 from feishu_webhook_bot.plugins.base import BasePlugin, PluginMetadata
 
 class ProviderTestPlugin(BasePlugin):
     def metadata(self):
         return PluginMetadata(name="provider-test", version="1.0.0")
-'''
+"""
         with tempfile.TemporaryDirectory() as tmpdir:
             plugin_file = Path(tmpdir) / "provider_test.py"
             plugin_file.write_text(plugin_code)
@@ -766,7 +778,9 @@ class ProviderTestPlugin(BasePlugin):
             assert plugin is not None
             assert plugin.providers == mock_providers
 
-    def test_plugin_can_access_specific_provider(self, plugin_manager, minimal_config, mock_providers):
+    def test_plugin_can_access_specific_provider(
+        self, plugin_manager, minimal_config, mock_providers
+    ):
         """Test plugin can access specific provider."""
         plugin = SamplePlugin(minimal_config, providers=mock_providers)
         plugin_manager.plugins["sample-plugin"] = plugin

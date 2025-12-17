@@ -11,8 +11,7 @@ Tests cover:
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -21,7 +20,6 @@ from feishu_webhook_bot.core.message_queue import (
     QueuedMessage,
 )
 from feishu_webhook_bot.core.provider import MessageType, SendResult
-
 
 # ==============================================================================
 # QueuedMessage Tests

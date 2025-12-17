@@ -253,6 +253,295 @@ class BasePlugin(ABC):
         """
         return None
 
+    # ========== QQ/OneBot11 Support ==========
+
+    def get_qq_provider(self) -> BaseProvider | None:
+        """Get QQ/Napcat provider for QQ-specific operations.
+
+        Returns:
+            QQ provider instance or None if not available
+        """
+        return self._providers.get("napcat") or self._providers.get("qq")
+
+    def handle_qq_notice(self, notice_type: str, event: dict[str, Any]) -> None:
+        """Handle QQ notice events.
+
+        Override this method to handle QQ notice events such as:
+        - group_increase: New member joined group
+        - group_decrease: Member left/kicked from group
+        - group_ban: Member banned/unbanned
+        - friend_add: New friend added
+        - poke (notify): Poke notification
+
+        Args:
+            notice_type: Notice type (group_increase, group_decrease, etc.)
+            event: Full event payload with fields like group_id, user_id, etc.
+
+        Example:
+            ```python
+            def handle_qq_notice(self, notice_type: str, event: dict) -> None:
+                if notice_type == "group_increase":
+                    group_id = event.get("group_id")
+                    user_id = event.get("user_id")
+                    self.send_qq_message(f"欢迎 [CQ:at,qq={user_id}]！", f"group:{group_id}")
+            ```
+        """
+        pass
+
+    def handle_qq_request(self, request_type: str, event: dict[str, Any]) -> bool | None:
+        """Handle QQ request events.
+
+        Override this method to handle QQ request events such as:
+        - friend: Friend add request
+        - group: Group add/invite request
+
+        Args:
+            request_type: Request type (friend, group)
+            event: Full event payload with fields like user_id, flag, comment, etc.
+
+        Returns:
+            True to approve, False to reject, None to ignore (let other handlers decide)
+
+        Example:
+            ```python
+            def handle_qq_request(self, request_type: str, event: dict) -> bool | None:
+                if request_type == "friend":
+                    # Auto-approve friends with keyword in comment
+                    if "验证码123" in event.get("comment", ""):
+                        return True
+                return None  # Let other handlers decide
+            ```
+        """
+        return None
+
+    def handle_qq_message(self, message: dict[str, Any]) -> str | None:
+        """Handle QQ message events.
+
+        Override this method to handle QQ messages. This is called before AI processing
+        and can be used for command handling or keyword responses.
+
+        Args:
+            message: Message event payload with fields like:
+                - message_type: "private" or "group"
+                - user_id: Sender QQ number
+                - group_id: Group ID (for group messages)
+                - raw_message: Raw message content
+                - message: Message segments array
+
+        Returns:
+            Response message to send back, or None to not respond
+
+        Example:
+            ```python
+            def handle_qq_message(self, message: dict) -> str | None:
+                content = message.get("raw_message", "")
+                if content == "/ping":
+                    return "pong!"
+                return None
+            ```
+        """
+        return None
+
+    def send_qq_message(self, content: str, target: str) -> bool:
+        """Send a message via QQ provider.
+
+        Args:
+            content: Message content (supports CQ codes)
+            target: Target in format "group:123456" or "private:123456"
+
+        Returns:
+            True if sent successfully, False otherwise
+
+        Example:
+            ```python
+            # Send to group
+            self.send_qq_message("Hello group!", "group:123456789")
+
+            # Send to private
+            self.send_qq_message("Hello!", "private:987654321")
+
+            # Send with @mention
+            self.send_qq_message("[CQ:at,qq=123] Hello!", "group:456")
+            ```
+        """
+        provider = self.get_qq_provider()
+        if not provider:
+            self.logger.warning("QQ provider not available")
+            return False
+
+        try:
+            provider.send_text(content, target)
+            return True
+        except Exception as e:
+            self.logger.error("Failed to send QQ message: %s", e)
+            return False
+
+    def send_qq_poke(self, user_id: int, group_id: int | None = None) -> bool:
+        """Send a poke via QQ provider.
+
+        Args:
+            user_id: Target user QQ number
+            group_id: Group ID for group poke, None for private poke
+
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "send_poke"):
+            self.logger.warning("QQ poke not available")
+            return False
+
+        try:
+            provider.send_poke(user_id, group_id)
+            return True
+        except Exception as e:
+            self.logger.error("Failed to send poke: %s", e)
+            return False
+
+    def send_qq_image(self, image_url: str, target: str) -> bool:
+        """Send an image via QQ provider.
+
+        Args:
+            image_url: Image URL or local file path
+            target: Target in format "group:123456" or "private:123456"
+
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "send_image"):
+            self.logger.warning("QQ image sending not available")
+            return False
+
+        try:
+            provider.send_image(image_url, target)
+            return True
+        except Exception as e:
+            self.logger.error("Failed to send QQ image: %s", e)
+            return False
+
+    def qq_set_group_ban(self, group_id: int, user_id: int, duration: int = 1800) -> bool:
+        """Mute a user in a group.
+
+        Args:
+            group_id: Group ID
+            user_id: User to mute
+            duration: Mute duration in seconds (0 to unmute)
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "set_group_ban"):
+            return False
+
+        try:
+            provider.set_group_ban(group_id, user_id, duration)
+            return True
+        except Exception as e:
+            self.logger.error("Failed to set group ban: %s", e)
+            return False
+
+    def qq_set_group_kick(self, group_id: int, user_id: int, reject_add: bool = False) -> bool:
+        """Kick a user from a group.
+
+        Args:
+            group_id: Group ID
+            user_id: User to kick
+            reject_add: Whether to reject future join requests
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "set_group_kick"):
+            return False
+
+        try:
+            provider.set_group_kick(group_id, user_id, reject_add)
+            return True
+        except Exception as e:
+            self.logger.error("Failed to kick user: %s", e)
+            return False
+
+    def qq_approve_friend_request(self, flag: str, approve: bool = True) -> bool:
+        """Approve or reject a friend request.
+
+        Args:
+            flag: Request flag from the request event
+            approve: True to approve, False to reject
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "set_friend_add_request"):
+            return False
+
+        try:
+            provider.set_friend_add_request(flag, approve=approve)
+            return True
+        except Exception as e:
+            self.logger.error("Failed to handle friend request: %s", e)
+            return False
+
+    def qq_approve_group_request(self, flag: str, sub_type: str, approve: bool = True) -> bool:
+        """Approve or reject a group join/invite request.
+
+        Args:
+            flag: Request flag from the request event
+            sub_type: "add" for join request, "invite" for invite
+            approve: True to approve, False to reject
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "set_group_add_request"):
+            return False
+
+        try:
+            provider.set_group_add_request(flag, sub_type=sub_type, approve=approve)
+            return True
+        except Exception as e:
+            self.logger.error("Failed to handle group request: %s", e)
+            return False
+
+    def qq_get_group_list(self) -> list[dict[str, Any]]:
+        """Get list of groups the bot is in.
+
+        Returns:
+            List of group info dicts with group_id, group_name, etc.
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "get_group_list"):
+            return []
+
+        try:
+            return provider.get_group_list() or []
+        except Exception as e:
+            self.logger.error("Failed to get group list: %s", e)
+            return []
+
+    def qq_get_group_member_list(self, group_id: int) -> list[dict[str, Any]]:
+        """Get list of members in a group.
+
+        Args:
+            group_id: Group ID
+
+        Returns:
+            List of member info dicts
+        """
+        provider = self.get_qq_provider()
+        if not provider or not hasattr(provider, "get_group_member_list"):
+            return []
+
+        try:
+            return provider.get_group_member_list(group_id) or []
+        except Exception as e:
+            self.logger.error("Failed to get group member list: %s", e)
+            return []
+
     # ========== Configuration Schema Support (Optional) ==========
 
     # Optional class attributes for advanced features
@@ -260,7 +549,62 @@ class BasePlugin(ABC):
     config_schema: type[PluginConfigSchema] | None = None
     PYTHON_DEPENDENCIES: list = []
     PLUGIN_DEPENDENCIES: list = []
-    PERMISSIONS: list = []
+    PERMISSIONS: list = []  # List of PluginPermission enums
+
+    def get_required_permissions(self) -> set:
+        """Get the permissions required by this plugin.
+
+        Returns:
+            Set of PluginPermission enums
+        """
+        from .permissions import PluginPermission
+
+        perms = set()
+        for p in self.PERMISSIONS:
+            if isinstance(p, PluginPermission):
+                perms.add(p)
+            elif isinstance(p, str):
+                try:
+                    perms.add(PluginPermission[p])
+                except KeyError:
+                    self.logger.warning("Unknown permission: %s", p)
+        return perms
+
+    def get_permission_set(self):
+        """Get the full permission set for this plugin.
+
+        Returns:
+            PluginPermissionSet instance
+        """
+        from .permissions import PluginPermissionSet
+
+        return PluginPermissionSet(required=self.get_required_permissions())
+
+    def check_permission(self, permission) -> bool:
+        """Check if this plugin has a specific permission.
+
+        Args:
+            permission: PluginPermission to check
+
+        Returns:
+            True if permission is granted
+        """
+        from .permissions import get_permission_manager
+
+        return get_permission_manager().check_permission(self.metadata().name, permission)
+
+    def require_permission(self, permission) -> None:
+        """Require a permission, raising an error if not granted.
+
+        Args:
+            permission: PluginPermission required
+
+        Raises:
+            PermissionError: If permission is not granted
+        """
+        from .permissions import get_permission_manager
+
+        get_permission_manager().require_permission(self.metadata().name, permission)
 
     def validate_config(self) -> tuple[bool, list[str]]:
         """Validate this plugin's configuration against its schema.

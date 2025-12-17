@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 class CircuitState(str, Enum):
     """Circuit breaker states."""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -26,14 +28,18 @@ class CircuitState(str, Enum):
 
 class CircuitBreakerConfig(BaseModel):
     """Configuration for circuit breaker."""
+
     failure_threshold: int = Field(default=5, ge=1, description="Failures before opening")
     success_threshold: int = Field(default=3, ge=1, description="Successes to close from half-open")
     timeout_seconds: float = Field(default=30.0, ge=0.0, description="Wait time before half-open")
-    excluded_exceptions: list[str] = Field(default_factory=list, description="Exception class names to ignore")
+    excluded_exceptions: list[str] = Field(
+        default_factory=list, description="Exception class names to ignore"
+    )
 
 
 class CircuitBreakerOpen(Exception):
     """Exception raised when circuit breaker is open."""
+
     def __init__(self, name: str, remaining_seconds: float):
         self.name = name
         self.remaining_seconds = remaining_seconds
@@ -94,7 +100,9 @@ class CircuitBreaker:
                     self._state = CircuitState.CLOSED
                     self._failure_count = 0
                     self._success_count = 0
-                    logger.info(f"Circuit '{self.name}' closed after {self.config.success_threshold} successes")
+                    logger.info(
+                        f"Circuit '{self.name}' closed after {self.config.success_threshold} successes"
+                    )
             elif self._state == CircuitState.CLOSED:
                 self._failure_count = max(0, self._failure_count - 1)
 
@@ -113,7 +121,9 @@ class CircuitBreaker:
                 if self._failure_count >= self.config.failure_threshold:
                     self._state = CircuitState.OPEN
                     self._last_failure_time = time.time()
-                    logger.warning(f"Circuit '{self.name}' opened after {self._failure_count} failures")
+                    logger.warning(
+                        f"Circuit '{self.name}' opened after {self._failure_count} failures"
+                    )
 
     def _is_excluded(self, exception: Exception) -> bool:
         """Check if exception type is excluded."""
@@ -125,7 +135,9 @@ class CircuitBreaker:
         if not self.should_allow_request():
             remaining = self.config.timeout_seconds
             if self._last_failure_time:
-                remaining = max(0, self.config.timeout_seconds - (time.time() - self._last_failure_time))
+                remaining = max(
+                    0, self.config.timeout_seconds - (time.time() - self._last_failure_time)
+                )
             raise CircuitBreakerOpen(self.name, remaining)
 
         try:
@@ -174,6 +186,7 @@ def circuit_breaker(
     Returns:
         Decorated function.
     """
+
     def decorator(func: F) -> F:
         breaker_name = name or func.__name__
         cb = CircuitBreakerRegistry().get_or_create(breaker_name, config or CircuitBreakerConfig())
@@ -185,11 +198,13 @@ def circuit_breaker(
         # Attach circuit breaker reference to wrapper
         wrapper._circuit_breaker = cb  # type: ignore[attr-defined]
         return wrapper  # type: ignore[return-value]
+
     return decorator
 
 
 class CircuitBreakerRegistry:
     """Registry for managing circuit breaker instances."""
+
     _instance: CircuitBreakerRegistry | None = None
     _lock = threading.Lock()
 
@@ -209,7 +224,9 @@ class CircuitBreakerRegistry:
     def _breakers(self, value: dict[str, CircuitBreaker]) -> None:
         self.__dict__["_breakers"] = value
 
-    def get_or_create(self, name: str, config: CircuitBreakerConfig | None = None) -> CircuitBreaker:
+    def get_or_create(
+        self, name: str, config: CircuitBreakerConfig | None = None
+    ) -> CircuitBreaker:
         if name not in self._breakers:
             self._breakers[name] = CircuitBreaker(name, config)
         return self._breakers[name]

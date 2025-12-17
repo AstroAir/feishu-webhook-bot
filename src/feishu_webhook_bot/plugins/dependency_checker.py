@@ -270,9 +270,7 @@ class DependencyChecker:
                 commands.append(status.install_command)
         return commands
 
-    def get_all_missing_packages(
-        self, results: dict[str, DependencyCheckResult]
-    ) -> list[str]:
+    def get_all_missing_packages(self, results: dict[str, DependencyCheckResult]) -> list[str]:
         """Get unique list of all missing packages across multiple plugins.
 
         Args:

@@ -13,6 +13,7 @@ This plugin provides comprehensive calendar integration with Feishu:
 
 from __future__ import annotations
 
+import contextlib
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
@@ -33,7 +34,6 @@ from .manifest import (
     PackageDependency,
     PermissionRequest,
     PermissionType,
-    PluginManifest,
 )
 
 logger = get_logger("plugin.feishu-calendar")
@@ -201,7 +201,7 @@ class CalendarInfo:
     is_primary: bool = False
 
     @classmethod
-    def from_api_response(cls, data: dict[str, Any]) -> "CalendarInfo":
+    def from_api_response(cls, data: dict[str, Any]) -> CalendarInfo:
         """Create from Feishu API response."""
         return cls(
             calendar_id=data.get("calendar_id", ""),
@@ -227,7 +227,7 @@ class EventAttendee:
     is_external: bool = False
 
     @classmethod
-    def from_api_response(cls, data: dict[str, Any]) -> "EventAttendee":
+    def from_api_response(cls, data: dict[str, Any]) -> EventAttendee:
         """Create from Feishu API response."""
         status_str = data.get("rsvp_status", "needs_action")
         try:
@@ -256,7 +256,7 @@ class EventLocation:
     longitude: float | None = None
 
     @classmethod
-    def from_api_response(cls, data: dict[str, Any] | str | None) -> "EventLocation":
+    def from_api_response(cls, data: dict[str, Any] | str | None) -> EventLocation:
         """Create from Feishu API response."""
         if data is None:
             return cls()
@@ -279,7 +279,7 @@ class EventVChat:
     meeting_settings: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api_response(cls, data: dict[str, Any] | None) -> "EventVChat":
+    def from_api_response(cls, data: dict[str, Any] | None) -> EventVChat:
         """Create from Feishu API response."""
         if data is None:
             return cls()
@@ -333,9 +333,7 @@ class CalendarEvent:
     calendar_id: str = ""
 
     @classmethod
-    def from_api_response(
-        cls, data: dict[str, Any], calendar_id: str = ""
-    ) -> "CalendarEvent":
+    def from_api_response(cls, data: dict[str, Any], calendar_id: str = "") -> CalendarEvent:
         """Create from Feishu API response."""
         # Parse start time
         start_time_data = data.get("start_time", {})
@@ -347,43 +345,31 @@ class CalendarEvent:
             if start_time_data.get("date"):
                 # All-day event
                 is_all_day = True
-                try:
-                    start_time = datetime.strptime(
-                        start_time_data["date"], "%Y-%m-%d"
-                    ).replace(tzinfo=UTC)
-                except ValueError:
-                    pass
+                with contextlib.suppress(ValueError):
+                    start_time = datetime.strptime(start_time_data["date"], "%Y-%m-%d").replace(
+                        tzinfo=UTC
+                    )
             elif start_time_data.get("timestamp"):
-                start_time = datetime.fromtimestamp(
-                    int(start_time_data["timestamp"]), tz=UTC
-                )
+                start_time = datetime.fromtimestamp(int(start_time_data["timestamp"]), tz=UTC)
             tz_str = start_time_data.get("timezone", "Asia/Shanghai")
         elif start_time_data:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 start_time = datetime.fromtimestamp(int(start_time_data), tz=UTC)
-            except (ValueError, TypeError):
-                pass
 
         # Parse end time
         end_time_data = data.get("end_time", {})
         end_time = None
         if isinstance(end_time_data, dict):
             if end_time_data.get("date"):
-                try:
-                    end_time = datetime.strptime(
-                        end_time_data["date"], "%Y-%m-%d"
-                    ).replace(tzinfo=UTC)
-                except ValueError:
-                    pass
+                with contextlib.suppress(ValueError):
+                    end_time = datetime.strptime(end_time_data["date"], "%Y-%m-%d").replace(
+                        tzinfo=UTC
+                    )
             elif end_time_data.get("timestamp"):
-                end_time = datetime.fromtimestamp(
-                    int(end_time_data["timestamp"]), tz=UTC
-                )
+                end_time = datetime.fromtimestamp(int(end_time_data["timestamp"]), tz=UTC)
         elif end_time_data:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 end_time = datetime.fromtimestamp(int(end_time_data), tz=UTC)
-            except (ValueError, TypeError):
-                pass
 
         # Parse status
         status_str = data.get("status", "confirmed")
@@ -412,31 +398,20 @@ class CalendarEvent:
         reminders_data = data.get("reminders", [])
         reminders = []
         for r in reminders_data:
-            if isinstance(r, dict):
-                minutes = r.get("minutes", 0)
-            else:
-                minutes = int(r) if r else 0
+            minutes = r.get("minutes", 0) if isinstance(r, dict) else int(r) if r else 0
             if minutes:
                 reminders.append(minutes)
 
         # Parse timestamps
         create_time = None
         if data.get("create_time"):
-            try:
-                create_time = datetime.fromtimestamp(
-                    int(data["create_time"]), tz=UTC
-                )
-            except (ValueError, TypeError):
-                pass
+            with contextlib.suppress(ValueError, TypeError):
+                create_time = datetime.fromtimestamp(int(data["create_time"]), tz=UTC)
 
         update_time = None
         if data.get("update_time"):
-            try:
-                update_time = datetime.fromtimestamp(
-                    int(data["update_time"]), tz=UTC
-                )
-            except (ValueError, TypeError):
-                pass
+            with contextlib.suppress(ValueError, TypeError):
+                update_time = datetime.fromtimestamp(int(data["update_time"]), tz=UTC)
 
         return cls(
             event_id=data.get("event_id", ""),
@@ -611,26 +586,26 @@ plugins:
         # 必填: 飞书应用凭证 (建议使用环境变量)
         app_id: "${FEISHU_APP_ID}"
         app_secret: "${FEISHU_APP_SECRET}"
-        
+
         # 要监控的日历ID列表 (primary 表示主日历)
         calendar_ids:
           - "primary"
-        
+
         # 检查间隔 (分钟)
         check_interval_minutes: 5
-        
+
         # 提醒时间 (事件开始前多少分钟发送提醒)
         reminder_minutes:
           - 30
           - 15
           - 5
-        
+
         # 发送通知的 Webhook 名称
         webhook_name: "default"
-        
+
         # 时区偏移 (小时, 默认东八区)
         timezone_offset: 8
-        
+
         # 每日摘要设置
         daily_summary_enabled: true
         daily_summary_hour: 8  # 早上8点发送
@@ -1025,9 +1000,7 @@ class FeishuCalendarPlugin(BasePlugin):
         # Step 2: Calendar selection
         print("\n步骤 2/4: 日历配置")
         print("-" * 40)
-        calendar_ids_input = input(
-            "请输入要监控的日历ID (多个用逗号分隔, 默认 primary): "
-        ).strip()
+        calendar_ids_input = input("请输入要监控的日历ID (多个用逗号分隔, 默认 primary): ").strip()
         if calendar_ids_input:
             config["calendar_ids"] = [c.strip() for c in calendar_ids_input.split(",")]
         else:
@@ -1039,13 +1012,9 @@ class FeishuCalendarPlugin(BasePlugin):
         interval_input = input("检查间隔 (分钟, 默认 5): ").strip()
         config["check_interval_minutes"] = int(interval_input) if interval_input else 5
 
-        reminder_input = input(
-            "提醒时间 (事件开始前分钟数, 多个用逗号分隔, 默认 15,5): "
-        ).strip()
+        reminder_input = input("提醒时间 (事件开始前分钟数, 多个用逗号分隔, 默认 15,5): ").strip()
         if reminder_input:
-            config["reminder_minutes"] = [
-                int(r.strip()) for r in reminder_input.split(",")
-            ]
+            config["reminder_minutes"] = [int(r.strip()) for r in reminder_input.split(",")]
         else:
             config["reminder_minutes"] = [15, 5]
 
@@ -1458,9 +1427,7 @@ class FeishuCalendarPlugin(BasePlugin):
             return CalendarEvent.from_api_response(event_data, calendar_id)
 
         except httpx.HTTPError as e:
-            logger.error(
-                "HTTP error fetching event %s: %s", event_id, e, exc_info=True
-            )
+            logger.error("HTTP error fetching event %s: %s", event_id, e, exc_info=True)
             return None
         except Exception as e:
             logger.error("Error fetching event %s: %s", event_id, e, exc_info=True)
@@ -1881,7 +1848,11 @@ class FeishuCalendarPlugin(BasePlugin):
                 "width": "weighted",
                 "weight": 1,
                 "elements": [
-                    {"tag": "markdown", "content": f"**{all_day}**\n全天日程", "text_align": "center"}
+                    {
+                        "tag": "markdown",
+                        "content": f"**{all_day}**\n全天日程",
+                        "text_align": "center",
+                    }
                 ],
             },
         ]
@@ -1909,9 +1880,7 @@ class FeishuCalendarPlugin(BasePlugin):
                 {
                     "tag": "column",
                     "width": "auto",
-                    "elements": [
-                        {"tag": "markdown", "content": f"**{time_str}**"}
-                    ],
+                    "elements": [{"tag": "markdown", "content": f"**{time_str}**"}],
                 },
                 {
                     "tag": "column",
@@ -1937,9 +1906,7 @@ class FeishuCalendarPlugin(BasePlugin):
 
         return card.build()
 
-    def build_calendar_list_card(
-        self, calendars: list[CalendarInfo]
-    ) -> dict[str, Any]:
+    def build_calendar_list_card(self, calendars: list[CalendarInfo]) -> dict[str, Any]:
         """Build a card showing available calendars.
 
         Args:
@@ -2052,9 +2019,7 @@ class FeishuCalendarPlugin(BasePlugin):
 
     # ========== Public API Methods ==========
 
-    def send_event_card(
-        self, calendar_id: str = "primary", event_id: str = ""
-    ) -> bool:
+    def send_event_card(self, calendar_id: str = "primary", event_id: str = "") -> bool:
         """Send a detailed card for a specific event.
 
         Args:

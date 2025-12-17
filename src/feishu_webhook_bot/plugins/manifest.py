@@ -212,7 +212,7 @@ class PluginManifest:
         )
 
         # Check for manifest() method that returns a complete manifest
-        if hasattr(plugin_class, "manifest") and callable(getattr(plugin_class, "manifest")):
+        if hasattr(plugin_class, "manifest") and callable(plugin_class.manifest):
             try:
                 user_manifest = plugin.manifest()
                 if isinstance(user_manifest, PluginManifest):
@@ -222,7 +222,7 @@ class PluginManifest:
 
         # Check for PYTHON_DEPENDENCIES class attribute
         if hasattr(plugin_class, "PYTHON_DEPENDENCIES"):
-            deps = getattr(plugin_class, "PYTHON_DEPENDENCIES")
+            deps = plugin_class.PYTHON_DEPENDENCIES
             if isinstance(deps, list):
                 manifest.python_dependencies = [
                     d if isinstance(d, PackageDependency) else PackageDependency(str(d))
@@ -231,38 +231,37 @@ class PluginManifest:
 
         # Check for PLUGIN_DEPENDENCIES class attribute
         if hasattr(plugin_class, "PLUGIN_DEPENDENCIES"):
-            deps = getattr(plugin_class, "PLUGIN_DEPENDENCIES")
+            deps = plugin_class.PLUGIN_DEPENDENCIES
             if isinstance(deps, list):
                 manifest.plugin_dependencies = [
-                    d if isinstance(d, PluginDependency) else PluginDependency(str(d))
-                    for d in deps
+                    d if isinstance(d, PluginDependency) else PluginDependency(str(d)) for d in deps
                 ]
 
         # Check for PERMISSIONS class attribute
         if hasattr(plugin_class, "PERMISSIONS"):
-            perms = getattr(plugin_class, "PERMISSIONS")
+            perms = plugin_class.PERMISSIONS
             if isinstance(perms, list):
                 manifest.permissions = [p for p in perms if isinstance(p, PermissionRequest)]
 
         # Check for config_schema
         if hasattr(plugin_class, "config_schema"):
-            schema = getattr(plugin_class, "config_schema")
+            schema = plugin_class.config_schema
             if isinstance(schema, type):
                 manifest.config_schema = schema
 
         # Check for additional attributes
         if hasattr(plugin_class, "HOMEPAGE"):
-            manifest.homepage = getattr(plugin_class, "HOMEPAGE")
+            manifest.homepage = plugin_class.HOMEPAGE
         if hasattr(plugin_class, "LICENSE"):
-            manifest.license = getattr(plugin_class, "LICENSE")
+            manifest.license = plugin_class.LICENSE
         if hasattr(plugin_class, "TAGS"):
-            manifest.tags = getattr(plugin_class, "TAGS")
+            manifest.tags = plugin_class.TAGS
         if hasattr(plugin_class, "MIN_BOT_VERSION"):
-            manifest.min_bot_version = getattr(plugin_class, "MIN_BOT_VERSION")
+            manifest.min_bot_version = plugin_class.MIN_BOT_VERSION
         if hasattr(plugin_class, "SUPPORTS_HOT_RELOAD"):
-            manifest.supports_hot_reload = getattr(plugin_class, "SUPPORTS_HOT_RELOAD")
+            manifest.supports_hot_reload = plugin_class.SUPPORTS_HOT_RELOAD
         if hasattr(plugin_class, "SUPPORTS_MULTI_PROVIDER"):
-            manifest.supports_multi_provider = getattr(plugin_class, "SUPPORTS_MULTI_PROVIDER")
+            manifest.supports_multi_provider = plugin_class.SUPPORTS_MULTI_PROVIDER
 
         return manifest
 

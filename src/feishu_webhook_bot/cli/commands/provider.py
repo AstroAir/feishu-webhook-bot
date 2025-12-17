@@ -65,9 +65,7 @@ def _cmd_provider_list(args: argparse.Namespace) -> int:
         table.add_column("Timeout (s)")
 
         for provider_config in config.providers:
-            status = (
-                "[green]Enabled[/]" if provider_config.enabled else "[red]Disabled[/]"
-            )
+            status = "[green]Enabled[/]" if provider_config.enabled else "[red]Disabled[/]"
             timeout = str(provider_config.timeout) if provider_config.timeout else "-"
 
             table.add_row(
@@ -117,30 +115,26 @@ def _cmd_provider_info(args: argparse.Namespace) -> int:
             info_lines.append(f"[bold]Timeout:[/] {provider_config.timeout}s")
 
         if provider_config.retry:
-            info_lines.append(
-                f"[bold]Retry Max Attempts:[/] {provider_config.retry.max_attempts}"
-            )
+            info_lines.append(f"[bold]Retry Max Attempts:[/] {provider_config.retry.max_attempts}")
             info_lines.append(
                 f"[bold]Retry Backoff:[/] {provider_config.retry.backoff_multiplier}x"
             )
 
         # Show provider-specific config
         provider_dict = provider_config.model_dump(
-            exclude={'provider_type', 'name', 'enabled', 'timeout', 'retry'}
+            exclude={"provider_type", "name", "enabled", "timeout", "retry"}
         )
         if provider_dict:
             info_lines.append("\n[bold]Configuration:[/]")
             for key, value in provider_dict.items():
-                if key not in ['url', 'secret'] and not key.startswith('_'):
+                if key not in ["url", "secret"] and not key.startswith("_"):
                     info_lines.append(f"  {key}: {value}")
-                elif key == 'url':
+                elif key == "url":
                     # Mask URL for privacy
                     masked = value[:20] + "..." if len(str(value)) > 20 else value
                     info_lines.append(f"  {key}: {masked}")
 
-        console.print(
-            Panel("\n".join(info_lines), title=f"Provider: {args.provider_name}")
-        )
+        console.print(Panel("\n".join(info_lines), title=f"Provider: {args.provider_name}"))
         return 0
 
     except Exception as e:
@@ -182,9 +176,7 @@ def _cmd_provider_test(args: argparse.Namespace) -> int:
             console.print("\n[yellow]Provider is disabled. Enable it to test.[/]")
             return 0
 
-        console.print(
-            "\n[yellow]Note: Full connectivity test requires bot runtime context.[/]"
-        )
+        console.print("\n[yellow]Note: Full connectivity test requires bot runtime context.[/]")
         console.print("Please start the bot to verify provider connectivity.")
 
         return 0
@@ -218,9 +210,7 @@ def _cmd_provider_stats(args: argparse.Namespace) -> int:
         console = Console()
         console.print(f"\n[bold]Provider Statistics: {args.provider_name}[/]\n")
 
-        console.print(
-            "[yellow]Note: Provider statistics require bot runtime context.[/]"
-        )
+        console.print("[yellow]Note: Provider statistics require bot runtime context.[/]")
         console.print("Stats are tracked during message sending operations.")
         console.print("Please refer to message tracker for delivery statistics.")
 
@@ -260,9 +250,7 @@ def _cmd_provider_send(args: argparse.Namespace) -> int:
 
         console.print(f"\n[bold]Sending message via: {args.provider_name}[/]")
         console.print(f"Target: [cyan]{args.target}[/]")
-        msg_preview = (
-            args.message[:50] + "..." if len(args.message) > 50 else args.message
-        )
+        msg_preview = args.message[:50] + "..." if len(args.message) > 50 else args.message
         console.print(f"Message: [dim]{msg_preview}[/]")
 
         # Create provider instance and send
@@ -285,9 +273,7 @@ def _cmd_provider_send(args: argparse.Namespace) -> int:
                     console.print("\n[green]✓ Message sent successfully![/]")
                     console.print(f"Message ID: {result.message_id}")
                 else:
-                    console.print(
-                        f"\n[red]✗ Failed to send message: {result.error}[/]"
-                    )
+                    console.print(f"\n[red]✗ Failed to send message: {result.error}[/]")
                     return 1
             finally:
                 provider.disconnect()
@@ -311,17 +297,13 @@ def _cmd_provider_send(args: argparse.Namespace) -> int:
                     console.print("\n[green]✓ Message sent successfully![/]")
                     console.print(f"Message ID: {result.message_id}")
                 else:
-                    console.print(
-                        f"\n[red]✗ Failed to send message: {result.error}[/]"
-                    )
+                    console.print(f"\n[red]✗ Failed to send message: {result.error}[/]")
                     return 1
             finally:
                 provider.disconnect()
 
         else:
-            console.print(
-                f"[red]Unsupported provider type: {provider_config.provider_type}[/]"
-            )
+            console.print(f"[red]Unsupported provider type: {provider_config.provider_type}[/]")
             return 1
 
         return 0
@@ -388,9 +370,7 @@ def _cmd_provider_status(args: argparse.Namespace) -> int:
 
         # Summary
         enabled_count = sum(1 for p in config.providers if p.enabled)
-        feishu_count = sum(
-            1 for p in config.providers if p.provider_type == "feishu"
-        )
+        feishu_count = sum(1 for p in config.providers if p.provider_type == "feishu")
         qq_count = sum(1 for p in config.providers if p.provider_type == "napcat")
 
         console.print("\n[bold]Summary:[/]")

@@ -2,73 +2,81 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from pydantic import Field
 
+from feishu_webhook_bot.plugins.config_schema import PluginConfigSchema
+from feishu_webhook_bot.plugins.manifest import PluginManifest
 from feishu_webhook_bot.plugins.setup_wizard import PluginSetupWizard
 
 
-@pytest.fixture
-def basic_schema() -> dict:
+class BasicTestSchema(PluginConfigSchema):
     """Basic plugin schema for testing."""
-    return {
-        "fields": [
-            {
-                "name": "api_key",
-                "type": "SECRET",
-                "description": "Your API key",
-                "required": True,
-                "example": "sk_live_123456",
-            },
-            {
-                "name": "enabled",
-                "type": "BOOL",
-                "description": "Enable the plugin",
-                "default": True,
-                "required": False,
-            },
-            {
-                "name": "timeout",
-                "type": "INT",
-                "description": "Request timeout in seconds",
-                "default": 30,
-                "minimum": 1,
-                "maximum": 300,
-                "required": False,
-            },
-            {
-                "name": "log_level",
-                "type": "CHOICE",
-                "description": "Logging level",
-                "choices": ["DEBUG", "INFO", "WARNING", "ERROR"],
-                "default": "INFO",
-                "required": False,
-            },
-        ]
-    }
+
+    api_key: str = Field(
+        ...,
+        description="Your API key",
+        json_schema_extra={"sensitive": True, "example": "sk_live_123456"},
+    )
+    enabled: bool = Field(default=True, description="Enable the plugin")
+    timeout: int = Field(
+        default=30,
+        description="Request timeout in seconds",
+        ge=1,
+        le=300,
+    )
+    log_level: str = Field(
+        default="INFO",
+        description="Logging level",
+        json_schema_extra={"choices": ["DEBUG", "INFO", "WARNING", "ERROR"]},
+    )
+
+
+class GroupedTestSchema(PluginConfigSchema):
+    """Schema with field groups for testing."""
+
+    api_key: str = Field(..., description="API key")
+    enabled: bool = Field(default=True, description="Enable plugin")
+    timeout: int = Field(default=30, description="Timeout")
+    log_level: str = Field(default="INFO", description="Log level")
+
+    @classmethod
+    def get_field_groups(cls) -> dict[str, list[str]]:
+        return {
+            "Basic Settings": ["api_key", "enabled"],
+            "Advanced Settings": ["timeout", "log_level"],
+        }
 
 
 @pytest.fixture
-def manifest() -> dict:
+def basic_schema() -> type[PluginConfigSchema]:
+    """Basic plugin schema for testing."""
+    return BasicTestSchema
+
+
+@pytest.fixture
+def grouped_schema() -> type[PluginConfigSchema]:
+    """Grouped plugin schema for testing."""
+    return GroupedTestSchema
+
+
+@pytest.fixture
+def manifest() -> PluginManifest:
     """Plugin manifest for testing."""
-    return {
-        "name": "Test Plugin",
-        "version": "1.0.0",
-        "description": "A test plugin",
-        "author": "Test Author",
-        "dependencies": [],
-        "permissions": [
-            {"name": "read_events", "description": "Read calendar events"},
-            {"name": "send_messages", "description": "Send messages"},
-        ],
-    }
+    return PluginManifest(
+        name="Test Plugin",
+        version="1.0.0",
+        description="A test plugin",
+        author="Test Author",
+    )
 
 
 class TestPluginSetupWizardInitialization:
     """Test wizard initialization."""
 
-    def test_init_basic(self, basic_schema: dict) -> None:
+    def test_init_basic(self, basic_schema: type[PluginConfigSchema]) -> None:
         """Test basic initialization."""
         wizard = PluginSetupWizard("test-plugin", basic_schema)
         assert wizard.plugin_name == "test-plugin"
@@ -76,277 +84,122 @@ class TestPluginSetupWizardInitialization:
         assert wizard.new_config == {}
         assert wizard.existing_config == {}
 
-    def test_init_with_manifest(self, basic_schema: dict, manifest: dict) -> None:
+    def test_init_with_manifest(
+        self, basic_schema: type[PluginConfigSchema], manifest: PluginManifest
+    ) -> None:
         """Test initialization with manifest."""
         wizard = PluginSetupWizard("test-plugin", basic_schema, manifest)
         assert wizard.manifest == manifest
 
-    def test_init_with_existing_config(self, basic_schema: dict) -> None:
+    def test_init_with_existing_config(self, basic_schema: type[PluginConfigSchema]) -> None:
         """Test initialization with existing configuration."""
         existing = {"api_key": "existing_key"}
         wizard = PluginSetupWizard("test-plugin", basic_schema, existing_config=existing)
         assert wizard.existing_config == existing
 
 
-class TestPluginSetupWizardValidation:
-    """Test input validation."""
+class TestPluginSetupWizardSchemaAccess:
+    """Test schema field access."""
 
-    def test_validate_required_field(self, basic_schema: dict) -> None:
-        """Test validation of required fields."""
+    def test_get_schema_fields(self, basic_schema: type[PluginConfigSchema]) -> None:
+        """Test getting schema fields."""
         wizard = PluginSetupWizard("test-plugin", basic_schema)
-        api_key_field = basic_schema["fields"][0]
+        fields = wizard.schema.get_schema_fields()
+        assert "api_key" in fields
+        assert "enabled" in fields
+        assert "timeout" in fields
+        assert "log_level" in fields
 
-        is_valid, msg = wizard._validate_input(api_key_field, "")
-        assert not is_valid
-        assert "required" in msg.lower()
-
-        is_valid, msg = wizard._validate_input(api_key_field, "sk_live_123")
-        assert is_valid
-        assert msg == ""
-
-    def test_validate_optional_field(self, basic_schema: dict) -> None:
-        """Test validation of optional fields."""
+    def test_get_required_fields(self, basic_schema: type[PluginConfigSchema]) -> None:
+        """Test getting required fields."""
         wizard = PluginSetupWizard("test-plugin", basic_schema)
-        enabled_field = basic_schema["fields"][1]
+        required = wizard.schema.get_required_fields()
+        assert len(required) == 1
+        assert required[0].name == "api_key"
 
-        is_valid, msg = wizard._validate_input(enabled_field, "")
-        assert is_valid
-        assert msg == ""
-
-    def test_validate_int_field_range(self, basic_schema: dict) -> None:
-        """Test integer field range validation."""
+    def test_get_optional_fields(self, basic_schema: type[PluginConfigSchema]) -> None:
+        """Test getting optional fields."""
         wizard = PluginSetupWizard("test-plugin", basic_schema)
-        timeout_field = basic_schema["fields"][2]
+        optional = wizard.schema.get_optional_fields()
+        assert len(optional) == 3
+        names = [f.name for f in optional]
+        assert "enabled" in names
+        assert "timeout" in names
+        assert "log_level" in names
 
-        is_valid, msg = wizard._validate_input(timeout_field, 0)
-        assert not is_valid
-        assert "least" in msg.lower()
-
-        is_valid, msg = wizard._validate_input(timeout_field, 400)
-        assert not is_valid
-        assert "most" in msg.lower()
-
-        is_valid, msg = wizard._validate_input(timeout_field, 60)
-        assert is_valid
-        assert msg == ""
-
-    def test_validate_choice_field(self, basic_schema: dict) -> None:
-        """Test choice field validation."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        log_level_field = basic_schema["fields"][3]
-
-        is_valid, msg = wizard._validate_input(log_level_field, "INVALID")
-        assert not is_valid
-        assert "must be one of" in msg.lower()
-
-        is_valid, msg = wizard._validate_input(log_level_field, "DEBUG")
-        assert is_valid
-        assert msg == ""
-
-    def test_validate_string_pattern(self, basic_schema: dict) -> None:
-        """Test string pattern validation."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        email_field = {
-            "name": "email",
-            "type": "STRING",
-            "pattern": r"^[\w\.-]+@[\w\.-]+\.\w+$",
-            "required": True,
-        }
-
-        is_valid, msg = wizard._validate_input(email_field, "invalid-email")
-        assert not is_valid
-        assert "pattern" in msg.lower()
-
-        is_valid, msg = wizard._validate_input(email_field, "test@example.com")
-        assert is_valid
-        assert msg == ""
-
-
-class TestPluginSetupWizardFieldFinding:
-    """Test field discovery and lookup."""
-
-    def test_find_field_by_name(self, basic_schema: dict) -> None:
-        """Test finding field by name."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        field = wizard._find_field_by_name("api_key")
-        assert field is not None
-        assert field["name"] == "api_key"
-        assert field["type"] == "SECRET"
-
-    def test_find_field_by_name_not_found(self, basic_schema: dict) -> None:
-        """Test finding non-existent field."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        field = wizard._find_field_by_name("nonexistent")
-        assert field is None
-
-    def test_find_field_in_list(self, basic_schema: dict) -> None:
-        """Test finding field in field list."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        fields = basic_schema["fields"]
-        field = wizard._find_field("timeout", fields)
-        assert field is not None
-        assert field["name"] == "timeout"
-        assert field["type"] == "INT"
-
-
-class TestPluginSetupWizardDependencies:
-    """Test dependency checking."""
-
-    def test_check_dependencies_all_present(self, basic_schema: dict) -> None:
-        """Test when all dependencies are present."""
-        manifest = {
-            "dependencies": ["os", "sys"],  # Standard library modules
-        }
-        wizard = PluginSetupWizard("test-plugin", basic_schema, manifest)
-        assert wizard._check_dependencies() is True
-
-    def test_check_dependencies_missing(self, basic_schema: dict) -> None:
-        """Test when dependencies are missing."""
-        manifest = {
-            "dependencies": ["nonexistent_module_xyz"],
-        }
-        wizard = PluginSetupWizard("test-plugin", basic_schema, manifest)
-        assert wizard._check_dependencies() is False
-
-    def test_check_dependencies_empty(self, basic_schema: dict) -> None:
-        """Test when no dependencies are specified."""
-        manifest = {"dependencies": []}
-        wizard = PluginSetupWizard("test-plugin", basic_schema, manifest)
-        assert wizard._check_dependencies() is True
-
-    def test_check_dependencies_no_manifest(self, basic_schema: dict) -> None:
-        """Test when manifest has no dependencies field."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        assert wizard._check_dependencies() is True
-
-
-class TestPluginSetupWizardFieldDependencies:
-    """Test field-level dependencies."""
-
-    def test_check_field_dependencies_no_dependencies(self, basic_schema: dict) -> None:
-        """Test field with no dependencies."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        field = basic_schema["fields"][0]
-        assert wizard._check_field_dependencies(field) is True
-
-    def test_check_field_dependencies_satisfied(self, basic_schema: dict) -> None:
-        """Test field with satisfied dependencies."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        wizard.new_config = {"enabled": True}
-        field = {
-            "name": "api_key",
-            "type": "STRING",
-            "dependencies": [{"field": "enabled", "value": True}],
-        }
-        assert wizard._check_field_dependencies(field) is True
-
-    def test_check_field_dependencies_unsatisfied(self, basic_schema: dict) -> None:
-        """Test field with unsatisfied dependencies."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        wizard.new_config = {"enabled": False}
-        field = {
-            "name": "api_key",
-            "type": "STRING",
-            "dependencies": [{"field": "enabled", "value": True}],
-        }
-        assert wizard._check_field_dependencies(field) is False
+    def test_get_field_groups(self, grouped_schema: type[PluginConfigSchema]) -> None:
+        """Test getting field groups."""
+        wizard = PluginSetupWizard("test-plugin", grouped_schema)
+        groups = wizard.schema.get_field_groups()
+        assert "Basic Settings" in groups
+        assert "Advanced Settings" in groups
+        assert "api_key" in groups["Basic Settings"]
 
 
 class TestPluginSetupWizardRun:
     """Test the complete wizard flow."""
 
-    def test_run_basic_flow(self, basic_schema: dict) -> None:
-        """Test basic wizard flow."""
-        wizard = PluginSetupWizard("test-plugin", basic_schema)
-        wizard._check_dependencies = MagicMock(return_value=True)
-        wizard.new_config = {"api_key": "sk_live_test"}
-
-        with patch.object(wizard, "_show_header"):
-            with patch.object(wizard, "_show_plugin_info"):
-                with patch.object(wizard, "_collect_configuration"):
-                    with patch.object(wizard, "_show_summary"):
-                        with patch(
-                            "feishu_webhook_bot.plugins.setup_wizard.Confirm.ask",
-                            return_value=True,
-                        ):
-                            config = wizard.run()
-
-        assert isinstance(config, dict)
-        assert config == {"api_key": "sk_live_test"}
-
-    def test_run_cancelled(self, basic_schema: dict) -> None:
+    def test_run_cancelled_keyboard_interrupt(self, basic_schema: type[PluginConfigSchema]) -> None:
         """Test wizard cancellation via Ctrl+C."""
         wizard = PluginSetupWizard("test-plugin", basic_schema)
 
-        with patch.object(wizard, "_show_header"):
-            with patch.object(wizard, "_collect_configuration", side_effect=KeyboardInterrupt()):
-                config = wizard.run()
+        with patch.object(wizard, "_show_header", side_effect=KeyboardInterrupt()):
+            config = wizard.run()
 
         assert config == {}
 
-    def test_run_save_cancelled(self, basic_schema: dict) -> None:
-        """Test cancellation at save confirmation."""
+    def test_run_with_manifest(
+        self, basic_schema: type[PluginConfigSchema], manifest: PluginManifest
+    ) -> None:
+        """Test wizard run with manifest."""
+        wizard = PluginSetupWizard("test-plugin", basic_schema, manifest)
+        wizard.new_config = {"api_key": "test_key"}
+
+        with (
+            patch.object(wizard, "_show_header"),
+            patch.object(wizard, "_show_plugin_info"),
+            patch.object(wizard, "_check_dependencies", return_value=True),
+            patch.object(wizard, "_show_permissions"),
+            patch.object(wizard, "_collect_configuration"),
+            patch.object(wizard, "_show_summary"),
+            patch.object(wizard, "_confirm", return_value=True),
+        ):
+            config = wizard.run()
+
+        assert config == {"api_key": "test_key"}
+
+    def test_run_save_declined(self, basic_schema: type[PluginConfigSchema]) -> None:
+        """Test wizard when save is declined."""
         wizard = PluginSetupWizard("test-plugin", basic_schema)
-        wizard.new_config = {"api_key": "test"}
-        wizard._check_dependencies = MagicMock(return_value=True)
+        wizard.new_config = {"api_key": "test_key"}
 
-        with patch.object(wizard, "_show_header"):
-            with patch.object(wizard, "_show_plugin_info"):
-                with patch.object(wizard, "_collect_configuration"):
-                    with patch.object(wizard, "_show_summary"):
-                        with patch(
-                            "feishu_webhook_bot.plugins.setup_wizard.Confirm.ask",
-                            return_value=False,
-                        ):
-                            config = wizard.run()
+        with (
+            patch.object(wizard, "_show_header"),
+            patch.object(wizard, "_collect_configuration"),
+            patch.object(wizard, "_show_summary"),
+            patch.object(wizard, "_confirm", return_value=False),
+        ):
+            config = wizard.run()
 
         assert config == {}
 
 
-class TestPluginSetupWizardGroupedSchema:
-    """Test wizard with grouped fields."""
+class TestPluginSetupWizardValidation:
+    """Test schema validation through wizard."""
 
-    def test_collect_configuration_with_groups(self) -> None:
-        """Test configuration collection with grouped fields."""
-        schema = {
-            "groups": [
-                {
-                    "name": "Basic Settings",
-                    "fields": ["api_key", "enabled"],
-                },
-                {
-                    "name": "Advanced Settings",
-                    "fields": ["timeout", "log_level"],
-                },
-            ],
-            "fields": [
-                {
-                    "name": "api_key",
-                    "type": "SECRET",
-                    "required": True,
-                },
-                {
-                    "name": "enabled",
-                    "type": "BOOL",
-                    "default": True,
-                },
-                {
-                    "name": "timeout",
-                    "type": "INT",
-                    "default": 30,
-                },
-                {
-                    "name": "log_level",
-                    "type": "CHOICE",
-                    "choices": ["DEBUG", "INFO"],
-                },
-            ],
-        }
+    def test_validate_config_valid(self, basic_schema: type[PluginConfigSchema]) -> None:
+        """Test validation with valid config."""
+        is_valid, errors = basic_schema.validate_config({"api_key": "test_key", "timeout": 60})
+        assert is_valid is True
+        assert errors == []
 
-        wizard = PluginSetupWizard("test-plugin", schema)
+    def test_validate_config_missing_required(self, basic_schema: type[PluginConfigSchema]) -> None:
+        """Test validation with missing required field."""
+        is_valid, errors = basic_schema.validate_config({"timeout": 60})
+        assert is_valid is False
+        assert len(errors) > 0
 
-        with patch.object(wizard, "_show_group_header") as mock_header:
-            with patch.object(wizard, "_collect_field"):
-                wizard._collect_configuration()
-
-        assert mock_header.call_count == 2
+    def test_validate_config_invalid_range(self, basic_schema: type[PluginConfigSchema]) -> None:
+        """Test validation with out-of-range value."""
+        is_valid, errors = basic_schema.validate_config({"api_key": "test", "timeout": 500})
+        assert is_valid is False

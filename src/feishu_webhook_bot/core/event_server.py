@@ -72,7 +72,9 @@ class EventServer:
             return {"status": "ok"}
 
         # Feishu event endpoint (primary/legacy)
-        @self._app.post(self._config.path)
+        feishu_path = getattr(self._config, "feishu_path", None) or self._config.path
+
+        @self._app.post(feishu_path)
         async def receive_feishu_event(request: Request) -> dict[str, str]:
             payload = await request.json()
             self._verify_token(payload)
@@ -98,22 +100,21 @@ class EventServer:
             return {"status": "ok"}
 
         # QQ/Napcat OneBot11 event endpoint
-        @self._app.post("/qq/events")
+        qq_path = getattr(self._config, "qq_path", "/qq/events")
+
+        @self._app.post(qq_path)
         async def receive_qq_event(request: Request) -> dict[str, Any]:
             try:
                 payload = await request.json()
-            except Exception:
-                raise HTTPException(status_code=400, detail="Invalid JSON")
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail="Invalid JSON") from exc
 
             # Verify access token if configured (via Authorization header)
             if self._qq_access_token:
                 auth_header = request.headers.get("Authorization")
                 if not auth_header:
                     logger.warning("QQ event received without Authorization header")
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Missing Authorization header"
-                    )
+                    raise HTTPException(status_code=401, detail="Missing Authorization header")
 
                 # Support both "Bearer <token>" and plain token formats
                 token = auth_header
@@ -122,10 +123,7 @@ class EventServer:
 
                 if token != self._qq_access_token:
                     logger.warning("QQ event received with invalid access token")
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Invalid access token"
-                    )
+                    raise HTTPException(status_code=403, detail="Invalid access token")
 
                 logger.debug("QQ access token verified successfully")
 
@@ -147,13 +145,11 @@ class EventServer:
 
         # Generic provider event endpoint
         @self._app.post("/provider/{provider_name}/events")
-        async def receive_provider_event(
-            request: Request, provider_name: str
-        ) -> dict[str, str]:
+        async def receive_provider_event(request: Request, provider_name: str) -> dict[str, str]:
             try:
                 payload = await request.json()
-            except Exception:
-                raise HTTPException(status_code=400, detail="Invalid JSON")
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail="Invalid JSON") from exc
 
             payload["_provider"] = provider_name
 

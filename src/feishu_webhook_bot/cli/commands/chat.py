@@ -90,9 +90,7 @@ def _cmd_chat_test(args: argparse.Namespace) -> int:
         console.print(f"  [cyan]Regular message:[/] {args.message}")
         console.print("  Message would be processed by ChatController")
 
-    console.print(
-        "\n[yellow]Note: Full message processing requires bot runtime context.[/]"
-    )
+    console.print("\n[yellow]Note: Full message processing requires bot runtime context.[/]")
 
     return 0
 

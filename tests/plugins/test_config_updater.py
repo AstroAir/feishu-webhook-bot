@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 
 import yaml
-
 from pydantic import Field
 
 from feishu_webhook_bot.plugins.config_schema import PluginConfigSchema
@@ -40,9 +39,7 @@ class TestConfigUpdater:
 
     def test_backup_creates_backup_file(self) -> None:
         """Test backup creates a backup file."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("test: value\n")
             config_path = Path(f.name)
 
@@ -60,9 +57,7 @@ class TestConfigUpdater:
 
     def test_update_plugin_settings_new_plugin(self) -> None:
         """Test updating settings for a new plugin."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("plugins:\n  plugin_settings: []\n")
             config_path = Path(f.name)
 
@@ -98,9 +93,7 @@ class TestConfigUpdater:
             }
         }
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             yaml.dump(initial_config, f)
             config_path = Path(f.name)
 
@@ -123,9 +116,7 @@ class TestConfigUpdater:
 
     def test_update_plugin_settings_creates_plugins_section(self) -> None:
         """Test updating settings creates plugins section if missing."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("other: value\n")
             config_path = Path(f.name)
 
@@ -156,9 +147,7 @@ class TestConfigUpdater:
             }
         }
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             yaml.dump(initial_config, f)
             config_path = Path(f.name)
 
@@ -169,9 +158,7 @@ class TestConfigUpdater:
             assert result is True
 
             config = yaml.safe_load(config_path.read_text())
-            plugin_names = [
-                p["plugin_name"] for p in config["plugins"]["plugin_settings"]
-            ]
+            plugin_names = [p["plugin_name"] for p in config["plugins"]["plugin_settings"]]
 
             assert "plugin-a" not in plugin_names
             assert "plugin-b" in plugin_names
@@ -191,9 +178,7 @@ class TestConfigUpdater:
             }
         }
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             yaml.dump(initial_config, f)
             config_path = Path(f.name)
 
@@ -218,9 +203,7 @@ class TestConfigUpdater:
             }
         }
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             yaml.dump(initial_config, f)
             config_path = Path(f.name)
 
@@ -234,9 +217,7 @@ class TestConfigUpdater:
 
     def test_get_plugin_settings_not_found(self) -> None:
         """Test getting settings for non-existent plugin."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("plugins:\n  plugin_settings: []\n")
             config_path = Path(f.name)
 
@@ -259,9 +240,7 @@ class TestConfigUpdater:
             }
         }
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             yaml.dump(initial_config, f)
             config_path = Path(f.name)
 
@@ -277,9 +256,7 @@ class TestConfigUpdater:
 
     def test_list_configured_plugins_empty(self) -> None:
         """Test listing plugins when none configured."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("")
             config_path = Path(f.name)
 
@@ -302,17 +279,13 @@ class TestConfigUpdater:
 
     def test_generate_template_string(self) -> None:
         """Test generating template string."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("")
             config_path = Path(f.name)
 
         try:
             updater = ConfigUpdater(config_path)
-            template_str = updater.generate_template_string(
-                "test-plugin", MockConfigSchema
-            )
+            template_str = updater.generate_template_string("test-plugin", MockConfigSchema)
 
             assert "test-plugin" in template_str
             assert "plugins" in template_str
@@ -322,17 +295,13 @@ class TestConfigUpdater:
 
     def test_add_plugin_template(self) -> None:
         """Test adding plugin template."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("plugins:\n  plugin_settings: []\n")
             config_path = Path(f.name)
 
         try:
             updater = ConfigUpdater(config_path)
-            updater.add_plugin_template(
-                "test-plugin", MockConfigSchema, include_comments=False
-            )
+            updater.add_plugin_template("test-plugin", MockConfigSchema, include_comments=False)
 
             config = yaml.safe_load(config_path.read_text())
             plugin_settings = config["plugins"]["plugin_settings"]

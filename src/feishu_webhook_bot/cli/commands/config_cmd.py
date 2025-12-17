@@ -188,8 +188,7 @@ def _cmd_config_reload(args: argparse.Namespace) -> int:
     console.print("\n[bold]Configuration Reload[/]\n")
     console.print("[yellow]Note: Configuration reload requires a running bot.[/]")
     console.print(
-        "The bot watches for config file changes automatically "
-        "if config_watcher is enabled."
+        "The bot watches for config file changes automatically if config_watcher is enabled."
     )
     console.print("\nAlternatively, restart the bot to load new configuration.")
 
@@ -214,9 +213,7 @@ def _cmd_config_export(args: argparse.Namespace) -> int:
             import yaml
 
             with open(output_path, "w", encoding="utf-8") as f:
-                yaml.dump(
-                    config.model_dump(), f, default_flow_style=False, allow_unicode=True
-                )
+                yaml.dump(config.model_dump(), f, default_flow_style=False, allow_unicode=True)
 
         console = Console()
         console.print(f"[green]Configuration exported to: {output_path}[/]")
@@ -242,9 +239,7 @@ def _cmd_config_import(args: argparse.Namespace) -> int:
     try:
         # Load input file
         with open(input_path, encoding="utf-8") as f:
-            input_data = (
-                json.load(f) if input_path.suffix == ".json" else yaml.safe_load(f)
-            )
+            input_data = json.load(f) if input_path.suffix == ".json" else yaml.safe_load(f)
 
         if args.merge and config_path.exists():
             # Merge with existing config
@@ -254,11 +249,7 @@ def _cmd_config_import(args: argparse.Namespace) -> int:
             # Deep merge
             def deep_merge(base, update):
                 for key, value in update.items():
-                    if (
-                        key in base
-                        and isinstance(base[key], dict)
-                        and isinstance(value, dict)
-                    ):
+                    if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                         deep_merge(base[key], value)
                     else:
                         base[key] = value

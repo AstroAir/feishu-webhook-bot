@@ -381,7 +381,7 @@ def demo_real_world_pattern() -> None:
             failed += 1
             print(f"Call {i + 1}: FAILED - {e}")
 
-    print(f"\n--- Summary ---")
+    print("\n--- Summary ---")
     print(f"Successful: {successful}")
     print(f"Failed: {failed}")
     print(f"Blocked: {blocked}")

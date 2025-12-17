@@ -34,7 +34,6 @@ from feishu_webhook_bot.ai.tools import (
     web_search,
 )
 
-
 # ==============================================================================
 # ai_tool Decorator Tests
 # ==============================================================================
@@ -45,6 +44,7 @@ class TestAiToolDecorator:
 
     def test_decorator_adds_metadata(self):
         """Test decorator adds metadata to function."""
+
         @ai_tool(name="test_tool", description="Test description")
         def my_func():
             pass
@@ -55,6 +55,7 @@ class TestAiToolDecorator:
 
     def test_decorator_with_defaults(self):
         """Test decorator with default values."""
+
         @ai_tool()
         def my_func():
             pass
@@ -64,6 +65,7 @@ class TestAiToolDecorator:
 
     def test_decorator_preserves_function(self):
         """Test decorator preserves original function."""
+
         @ai_tool(name="test")
         def add(a, b):
             return a + b
@@ -178,6 +180,7 @@ class TestToolRegistry:
 
     def test_register_tool(self, registry):
         """Test registering a tool."""
+
         def my_tool(x):
             return x * 2
 
@@ -187,6 +190,7 @@ class TestToolRegistry:
 
     def test_get_tool(self, registry):
         """Test getting a registered tool."""
+
         def my_tool(x):
             return x * 2
 
@@ -204,6 +208,7 @@ class TestToolRegistry:
     @pytest.mark.anyio
     async def test_execute_tool(self, registry):
         """Test executing a tool."""
+
         def add(a, b):
             return a + b
 
@@ -216,6 +221,7 @@ class TestToolRegistry:
     @pytest.mark.anyio
     async def test_execute_async_tool(self, registry):
         """Test executing an async tool."""
+
         async def async_add(a, b):
             return a + b
 
@@ -245,6 +251,7 @@ class TestToolRegistry:
     @pytest.mark.anyio
     async def test_execute_tool_tracks_errors(self, registry):
         """Test tool execution tracks errors."""
+
         def failing_tool():
             raise ValueError("Error")
 
@@ -296,6 +303,7 @@ class TestToolRegistry:
 
     def test_tool_decorator(self, registry):
         """Test tool decorator."""
+
         @registry.tool(name="decorated", description="Decorated tool")
         def my_decorated_tool():
             return "result"
@@ -774,7 +782,7 @@ class TestToolsEdgeCases:
     @pytest.mark.anyio
     async def test_format_json_array(self):
         """Test format_json handles arrays."""
-        input_json = '[1, 2, 3]'
+        input_json = "[1, 2, 3]"
         result = await format_json(input_json)
 
         parsed = json.loads(result)
@@ -876,6 +884,7 @@ class TestToolRegistryAdvanced:
     @pytest.mark.anyio
     async def test_execute_tool_with_kwargs(self, registry):
         """Test executing a tool with keyword arguments."""
+
         def greet(name, greeting="Hello"):
             return f"{greeting}, {name}!"
 
@@ -913,6 +922,7 @@ class TestToolRegistryAdvanced:
 
     def test_tool_decorator_with_category(self, registry):
         """Test tool decorator with category."""
+
         @registry.tool(name="categorized", category="custom")
         def my_tool():
             return "result"
@@ -922,6 +932,7 @@ class TestToolRegistryAdvanced:
 
     def test_tool_decorator_uses_function_name(self, registry):
         """Test tool decorator uses function name if name not provided."""
+
         @registry.tool()
         def auto_named_tool():
             return "result"
@@ -930,6 +941,7 @@ class TestToolRegistryAdvanced:
 
     def test_tool_decorator_uses_docstring(self, registry):
         """Test tool decorator uses docstring if description not provided."""
+
         @registry.tool()
         def documented_tool():
             """This is the tool description."""

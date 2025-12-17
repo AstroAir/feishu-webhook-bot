@@ -44,9 +44,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -59,9 +57,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -79,9 +75,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -93,9 +87,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -107,9 +99,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -121,9 +111,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -135,9 +123,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -149,9 +135,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -190,9 +174,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -231,9 +213,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -255,9 +235,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -276,9 +254,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -294,9 +270,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -308,9 +282,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -336,9 +308,7 @@ class TestBotController:
         from feishu_webhook_bot.core import BotConfig
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
         config = BotConfig(webhooks=[{"name": "test", "url": "https://test2.com"}])
@@ -374,9 +344,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -391,9 +359,7 @@ class TestBotController:
         from feishu_webhook_bot.config_ui import BotController
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         controller = BotController(config_file)
 
@@ -451,7 +417,7 @@ class TestI18nModule:
 
     def test_i18n_module_imports(self):
         """Test that i18n module can be imported."""
-        from feishu_webhook_bot.webui.i18n import t, get_lang, set_lang
+        from feishu_webhook_bot.webui.i18n import get_lang, set_lang, t
 
         assert callable(t)
         assert callable(get_lang)
@@ -479,7 +445,7 @@ class TestI18nModule:
 
     def test_i18n_translation_function(self):
         """Test translation function returns strings."""
-        from feishu_webhook_bot.webui.i18n import t, set_lang, get_lang
+        from feishu_webhook_bot.webui.i18n import get_lang, set_lang, t
 
         original = get_lang()
         try:
@@ -505,7 +471,7 @@ class TestI18nModule:
 
     def test_i18n_has_common_keys(self):
         """Test that common translation keys exist."""
-        from feishu_webhook_bot.webui.i18n import t, set_lang, get_lang
+        from feishu_webhook_bot.webui.i18n import get_lang, set_lang, t
 
         original = get_lang()
         try:
@@ -541,6 +507,7 @@ class TestUIMemoryLogHandler:
     def test_ui_memory_log_handler_init(self):
         """Test UIMemoryLogHandler initialization."""
         from collections import deque
+
         from feishu_webhook_bot.config_ui import UIMemoryLogHandler
 
         ring = deque(maxlen=100)
@@ -552,6 +519,7 @@ class TestUIMemoryLogHandler:
         """Test UIMemoryLogHandler emit method."""
         import logging
         from collections import deque
+
         from feishu_webhook_bot.config_ui import UIMemoryLogHandler
 
         ring = deque(maxlen=100)
@@ -607,8 +575,12 @@ class TestBotControllerAIStats:
         stats = controller.get_ai_stats()
 
         required_keys = [
-            "enabled", "current_model", "requests",
-            "success_rate", "tokens_used", "mcp_servers",
+            "enabled",
+            "current_model",
+            "requests",
+            "success_rate",
+            "tokens_used",
+            "mcp_servers",
         ]
         for key in required_keys:
             assert key in stats, f"Missing key: {key}"

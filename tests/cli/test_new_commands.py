@@ -56,13 +56,7 @@ class TestLoggingCommands:
         """Test logging show command with limit parameter."""
         config_file = tmp_path / "config.yaml"
         log_file = tmp_path / "test.log"
-        log_file.write_text(
-            "Line 1\n"
-            "Line 2\n"
-            "Line 3\n"
-            "Line 4\n"
-            "Line 5\n"
-        )
+        log_file.write_text("Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n")
         config_file.write_text(
             f"webhooks:\n  - name: default\n    url: https://test.com\n"
             f"logging:\n  level: INFO\n  log_file: {str(log_file)}"
@@ -117,16 +111,24 @@ class TestImageCommands:
         image_file = tmp_path / "test.png"
         image_file.write_bytes(b"fake_png_data")
 
-        with patch("feishu_webhook_bot.core.image_uploader.FeishuImageUploader") as mock_uploader_class:
+        with patch(
+            "feishu_webhook_bot.core.image_uploader.FeishuImageUploader"
+        ) as mock_uploader_class:
             mock_uploader_instance = MagicMock()
             mock_uploader_instance.upload_image.return_value = "img_test_key_123"
             mock_uploader_class.return_value = mock_uploader_instance
 
-            exit_code = main([
-                "image", "upload", str(image_file),
-                "--app-id", "test_app_id",
-                "--app-secret", "test_app_secret"
-            ])
+            exit_code = main(
+                [
+                    "image",
+                    "upload",
+                    str(image_file),
+                    "--app-id",
+                    "test_app_id",
+                    "--app-secret",
+                    "test_app_secret",
+                ]
+            )
 
             assert exit_code == 0
             captured = capsys.readouterr()
@@ -136,11 +138,17 @@ class TestImageCommands:
 
     def test_image_upload_file_not_found(self, capsys):
         """Test image upload with non-existent file."""
-        exit_code = main([
-            "image", "upload", "/nonexistent/image.png",
-            "--app-id", "test_app_id",
-            "--app-secret", "test_app_secret"
-        ])
+        exit_code = main(
+            [
+                "image",
+                "upload",
+                "/nonexistent/image.png",
+                "--app-id",
+                "test_app_id",
+                "--app-secret",
+                "test_app_secret",
+            ]
+        )
 
         assert exit_code == 1
         captured = capsys.readouterr()
@@ -159,15 +167,22 @@ class TestImageCommands:
 
     def test_image_permissions(self, capsys):
         """Test image permissions check command."""
-        with patch("feishu_webhook_bot.core.image_uploader.FeishuImageUploader") as mock_uploader_class:
+        with patch(
+            "feishu_webhook_bot.core.image_uploader.FeishuImageUploader"
+        ) as mock_uploader_class:
             mock_uploader_instance = MagicMock()
             mock_uploader_class.return_value = mock_uploader_instance
 
-            exit_code = main([
-                "image", "permissions",
-                "--app-id", "test_app_id",
-                "--app-secret", "test_app_secret"
-            ])
+            exit_code = main(
+                [
+                    "image",
+                    "permissions",
+                    "--app-id",
+                    "test_app_id",
+                    "--app-secret",
+                    "test_app_secret",
+                ]
+            )
 
             assert exit_code == 0
             captured = capsys.readouterr()
@@ -184,22 +199,29 @@ class TestImageCommands:
 
     def test_image_permissions_denied(self, capsys):
         """Test image permissions when permission is denied."""
-        with patch("feishu_webhook_bot.core.image_uploader.FeishuImageUploader") as mock_uploader_class:
+        with patch(
+            "feishu_webhook_bot.core.image_uploader.FeishuImageUploader"
+        ) as mock_uploader_class:
             from feishu_webhook_bot.core.image_uploader import FeishuPermissionDeniedError
 
             mock_uploader_instance = MagicMock()
             mock_uploader_instance.check_permissions.side_effect = FeishuPermissionDeniedError(
                 "Permission denied",
                 required_permissions=["im:image:create"],
-                auth_url="https://auth.example.com"
+                auth_url="https://auth.example.com",
             )
             mock_uploader_class.return_value = mock_uploader_instance
 
-            exit_code = main([
-                "image", "permissions",
-                "--app-id", "test_app_id",
-                "--app-secret", "test_app_secret"
-            ])
+            exit_code = main(
+                [
+                    "image",
+                    "permissions",
+                    "--app-id",
+                    "test_app_id",
+                    "--app-secret",
+                    "test_app_secret",
+                ]
+            )
 
             assert exit_code == 1
             captured = capsys.readouterr()
@@ -208,32 +230,34 @@ class TestImageCommands:
     def test_image_configure(self, tmp_path, capsys):
         """Test image configure command updates configuration."""
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            "webhooks:\n  - name: default\n    url: https://test.com"
-        )
+        config_file.write_text("webhooks:\n  - name: default\n    url: https://test.com")
 
         # The test should verify that the configure command processes app_id and app_secret
         # Even though BotConfig doesn't use them, the command should not raise an error
-        exit_code = main([
-            "image", "configure",
-            "-c", str(config_file),
-            "--app-id", "new_app_id",
-            "--app-secret", "new_app_secret"
-        ])
+        exit_code = main(
+            [
+                "image",
+                "configure",
+                "-c",
+                str(config_file),
+                "--app-id",
+                "new_app_id",
+                "--app-secret",
+                "new_app_secret",
+            ]
+        )
 
         # The command may fail because BotConfig doesn't have app_id/app_secret fields
         # but we're testing that it attempts to configure them
-        captured = capsys.readouterr()
+        capsys.readouterr()
         # Either success or clear error message
         assert exit_code in [0, 1]
 
     def test_image_configure_missing_config_file(self, capsys):
         """Test image configure with missing configuration file."""
-        exit_code = main([
-            "image", "configure",
-            "-c", "/nonexistent/config.yaml",
-            "--app-id", "test_app_id"
-        ])
+        exit_code = main(
+            ["image", "configure", "-c", "/nonexistent/config.yaml", "--app-id", "test_app_id"]
+        )
 
         assert exit_code == 1
         captured = capsys.readouterr()

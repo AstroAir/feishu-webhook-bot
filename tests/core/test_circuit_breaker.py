@@ -26,7 +26,6 @@ from feishu_webhook_bot.core.circuit_breaker import (
     circuit_breaker,
 )
 
-
 # ==============================================================================
 # CircuitState Tests
 # ==============================================================================
@@ -389,6 +388,7 @@ class TestCircuitBreakerDecorator:
 
     def test_decorator_wraps_function(self):
         """Test decorator wraps function."""
+
         @circuit_breaker(name="test_func")
         def my_func():
             return "result"
@@ -399,6 +399,7 @@ class TestCircuitBreakerDecorator:
 
     def test_decorator_uses_function_name(self):
         """Test decorator uses function name when name not provided."""
+
         @circuit_breaker()
         def named_function():
             return "result"

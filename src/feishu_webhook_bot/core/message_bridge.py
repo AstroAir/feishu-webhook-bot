@@ -37,11 +37,15 @@ class BridgeStatistics:
     total_forwarded: int = 0
     total_failed: int = 0
     total_filtered: int = 0
-    by_rule: dict[str, dict[str, int]] = field(default_factory=lambda: defaultdict(lambda: {
-        "forwarded": 0,
-        "failed": 0,
-        "filtered": 0,
-    }))
+    by_rule: dict[str, dict[str, int]] = field(
+        default_factory=lambda: defaultdict(
+            lambda: {
+                "forwarded": 0,
+                "failed": 0,
+                "filtered": 0,
+            }
+        )
+    )
     last_forward_time: datetime | None = None
     start_time: datetime = field(default_factory=datetime.now)
 
@@ -104,9 +108,7 @@ class RateLimiter:
         """Get remaining allowed messages for a rule."""
         now = time.time()
         window_start = now - 60.0
-        current_count = len([
-            ts for ts in self._timestamps[rule_name] if ts > window_start
-        ])
+        current_count = len([ts for ts in self._timestamps[rule_name] if ts > window_start])
         return max(0, self.max_per_minute - current_count)
 
 
@@ -290,10 +292,7 @@ class MessageBridgeEngine:
             return False
 
         # Check whitelist (if specified, sender must be in it)
-        if rule.sender_whitelist and sender_id not in rule.sender_whitelist:
-            return False
-
-        return True
+        return not (rule.sender_whitelist and sender_id not in rule.sender_whitelist)
 
     def _check_keyword_filter(
         self,

@@ -1,6 +1,6 @@
 """Example usage of MessageTracker for message delivery tracking."""
 
-from feishu_webhook_bot.core.message_tracker import MessageTracker, MessageStatus
+from feishu_webhook_bot.core.message_tracker import MessageStatus, MessageTracker
 
 
 def basic_usage_example() -> None:
@@ -119,9 +119,7 @@ def error_handling_example() -> None:
     tracker.track(msg_id, "feishu", "webhook-1", "Will retry")
 
     # First attempt fails
-    tracker.update_status(
-        msg_id, MessageStatus.FAILED, error="Connection timeout", retry_count=1
-    )
+    tracker.update_status(msg_id, MessageStatus.FAILED, error="Connection timeout", retry_count=1)
     msg = tracker.get_message(msg_id)
     print(f"First attempt failed: {msg.error}, Retry count: {msg.retry_count}")
 

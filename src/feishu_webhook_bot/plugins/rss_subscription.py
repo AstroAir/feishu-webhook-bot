@@ -1,16 +1,19 @@
-"""RSS Subscription Plugin with AI enhancement.
+"""RSS Subscription Plugin with AI enhancement and Daily Report.
 
 This plugin provides RSS feed monitoring with:
 - Multiple feed support with per-feed configuration
 - AI-powered summarization, classification, and keyword extraction
 - Intelligent aggregation for batch notifications
-- Beautiful card-based display
+- Beautiful card-based display with multiple templates
+- Daily report generation with AI-powered comprehensive summary
 - Command interface for managing subscriptions
+- Cross-source trend analysis and hot topic extraction
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -25,7 +28,7 @@ from pydantic import Field
 from ..core.client import CardBuilder
 from ..core.logger import get_logger
 from .base import BasePlugin, PluginMetadata
-from .config_schema import FieldType, PluginConfigSchema
+from .config_schema import PluginConfigSchema
 from .manifest import PackageDependency, PermissionRequest, PermissionType
 
 if TYPE_CHECKING:
@@ -121,6 +124,39 @@ class FeedCheckResult:
     new_count: int = 0
     error: str | None = None
     check_time: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class DailyReportData:
+    """Data structure for daily report generation."""
+
+    date: datetime
+    entries: list[RSSEntry] = field(default_factory=list)
+    feeds_summary: dict[str, int] = field(default_factory=dict)
+    categories_summary: dict[str, int] = field(default_factory=dict)
+    keywords_summary: list[str] = field(default_factory=list)
+
+    # AI-generated content
+    ai_summary: str = ""
+    trends: list[str] = field(default_factory=list)
+    hot_topics: list[str] = field(default_factory=list)
+
+    def get_total_entries(self) -> int:
+        """Get total number of entries."""
+        return len(self.entries)
+
+    def get_feed_count(self) -> int:
+        """Get number of feeds with entries."""
+        return len(self.feeds_summary)
+
+    def get_top_categories(self, limit: int = 5) -> list[tuple[str, int]]:
+        """Get top categories by count."""
+        sorted_cats = sorted(self.categories_summary.items(), key=lambda x: x[1], reverse=True)
+        return sorted_cats[:limit]
+
+    def get_date_str(self) -> str:
+        """Get formatted date string."""
+        return self.date.strftime("%Y-%m-%d")
 
 
 # =============================================================================
@@ -219,6 +255,37 @@ class RSSConfigSchema(PluginConfigSchema):
         le=30,
     )
 
+    # Daily Report Settings
+    daily_report_enabled: bool = Field(
+        default=True,
+        description="Enable daily RSS digest report",
+    )
+
+    daily_report_time: str = Field(
+        default="09:00",
+        description="Time to send daily report (HH:MM format, 24-hour)",
+        json_schema_extra={"pattern": r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$"},
+    )
+
+    daily_report_ai_summary: bool = Field(
+        default=True,
+        description="Generate AI comprehensive summary for daily report",
+        json_schema_extra={"depends_on": "daily_report_enabled"},
+    )
+
+    daily_report_max_entries: int = Field(
+        default=20,
+        description="Maximum entries to include in daily report",
+        ge=5,
+        le=50,
+    )
+
+    daily_report_include_trends: bool = Field(
+        default=True,
+        description="Include trend analysis in daily report",
+        json_schema_extra={"depends_on": "daily_report_enabled"},
+    )
+
     _field_groups = {
         "Feed Management": ["feeds", "default_check_interval_minutes"],
         "AI Processing": [
@@ -235,6 +302,13 @@ class RSSConfigSchema(PluginConfigSchema):
         ],
         "Notifications": ["webhook_name", "card_template"],
         "Storage": ["history_days"],
+        "Daily Report": [
+            "daily_report_enabled",
+            "daily_report_time",
+            "daily_report_ai_summary",
+            "daily_report_max_entries",
+            "daily_report_include_trends",
+        ],
     }
 
 
@@ -264,6 +338,40 @@ KEYWORD_PROMPT = """请从这篇文章中提取3-5个关键词或短语，用于
 内容：{content}
 
 关键词（用逗号分隔）："""
+
+# Daily Report AI Prompts
+DAILY_SUMMARY_PROMPT = """你是一位专业的科技资讯编辑。请根据以下今日RSS订阅内容，
+生成一份简洁的每日摘要。
+
+要求：
+1. 用中文撰写，不超过300字
+2. 提炼今日最重要的3-5个要点
+3. 指出值得关注的趋势或热点
+4. 语言简洁专业，适合快速阅读
+
+今日内容汇总：
+{content}
+
+每日摘要："""
+
+TREND_ANALYSIS_PROMPT = """分析以下今日RSS订阅内容，提取关键趋势和热点话题。
+
+要求：
+1. 识别出3-5个热门话题/趋势
+2. 每个话题用一句话概括
+3. 按重要性排序
+
+今日内容：
+{content}
+
+热点趋势（每行一个）："""
+
+HOT_TOPICS_PROMPT = """根据以下RSS内容，提取今日最热门的话题标签。
+
+内容：
+{content}
+
+请返回5-8个热门话题标签，用逗号分隔："""
 
 
 # =============================================================================
@@ -324,8 +432,13 @@ class RSSSubscriptionPlugin(BasePlugin):
         self._aggregation_buffer: dict[str, list[RSSEntry]] = {}
         self._last_flush_time: datetime = datetime.now(UTC)
 
+        # Daily report storage: date_str -> list of entries
+        self._daily_entries: dict[str, list[RSSEntry]] = {}
+        self._last_daily_report: datetime | None = None
+
         # Storage path for persistence
         self._storage_path: Path | None = None
+        self._daily_storage_path: Path | None = None
 
         # AI agent reference (set by bot)
         self._ai_agent: AIAgent | None = None
@@ -340,8 +453,8 @@ class RSSSubscriptionPlugin(BasePlugin):
         """Return plugin metadata."""
         return PluginMetadata(
             name="rss-subscription",
-            version="1.0.0",
-            description="RSS 订阅与 AI 增强插件",
+            version="2.0.0",
+            description="RSS 订阅与 AI 增强插件 - 支持日报生成",
             author="Feishu Bot",
             enabled=True,
         )
@@ -366,9 +479,11 @@ class RSSSubscriptionPlugin(BasePlugin):
         storage_dir = Path.home() / ".feishu-bot" / "rss"
         storage_dir.mkdir(parents=True, exist_ok=True)
         self._storage_path = storage_dir / "history.json"
+        self._daily_storage_path = storage_dir / "daily_entries.json"
 
         # Load entry history
         self._load_history()
+        self._load_daily_entries()
 
         self.logger.info("Loaded %d RSS feeds", len(self._feeds))
 
@@ -402,13 +517,30 @@ class RSSSubscriptionPlugin(BasePlugin):
                 minutes=agg_window,
             )
 
+        # Register daily report job if enabled
+        if self.get_config_value("daily_report_enabled", True):
+            report_time = self.get_config_value("daily_report_time", "09:00")
+            try:
+                hour, minute = map(int, report_time.split(":"))
+                self.register_job(
+                    self._generate_daily_report_sync,
+                    trigger="cron",
+                    job_id="rss_daily_report",
+                    hour=hour,
+                    minute=minute,
+                )
+                self.logger.info("Daily report scheduled at %s", report_time)
+            except ValueError:
+                self.logger.error("Invalid daily_report_time format: %s", report_time)
+
         # Register commands if handler is available
         self._register_commands()
 
         self.logger.info(
-            "RSS plugin enabled with check interval=%d min, aggregation window=%d min",
+            "RSS plugin enabled: check=%d min, aggregation=%d min, daily_report=%s",
             check_interval,
             agg_window,
+            self.get_config_value("daily_report_enabled", True),
         )
 
     def on_disable(self) -> None:
@@ -421,15 +553,18 @@ class RSSSubscriptionPlugin(BasePlugin):
         except Exception as e:
             self.logger.error("Error flushing aggregations: %s", e)
 
+        # Save daily entries
+        self._save_daily_entries()
+
         # Save history
         self._save_history()
 
         # Close HTTP client
         if self._http_client:
-            try:
+            import contextlib
+
+            with contextlib.suppress(Exception):
                 asyncio.run(self._http_client.aclose())
-            except Exception:
-                pass
             self._http_client = None
 
         # Cleanup jobs
@@ -527,15 +662,15 @@ class RSSSubscriptionPlugin(BasePlugin):
         if self.get_config_value("aggregation_enabled", True):
             for entry in result.entries:
                 self._add_to_aggregation_buffer(entry, feed.webhook_target)
+                self._add_to_daily_entries(entry)  # Add to daily report storage
                 self._store_entry(entry.id)
         else:
             for entry in result.entries:
                 await self._send_single_entry(entry, feed.webhook_target)
+                self._add_to_daily_entries(entry)  # Add to daily report storage
                 self._store_entry(entry.id)
 
-        self.logger.info(
-            "Feed %s: %d new entries processed", feed.name, result.new_count
-        )
+        self.logger.info("Feed %s: %d new entries processed", feed.name, result.new_count)
 
         return result
 
@@ -557,17 +692,13 @@ class RSSSubscriptionPlugin(BasePlugin):
             try:
                 await self.check_feed(feed)
             except Exception as e:
-                self.logger.error(
-                    "Error checking feed %s: %s", feed.name, e, exc_info=True
-                )
+                self.logger.error("Error checking feed %s: %s", feed.name, e, exc_info=True)
 
         # Check if aggregation should be flushed
         if self._should_flush_aggregation():
             await self._flush_all_aggregations()
 
-    async def add_feed(
-        self, name: str, url: str, **options: Any
-    ) -> tuple[bool, str]:
+    async def add_feed(self, name: str, url: str, **options: Any) -> tuple[bool, str]:
         """Add a new RSS feed subscription.
 
         Args:
@@ -654,17 +785,19 @@ class RSSSubscriptionPlugin(BasePlugin):
             entry_id = self._generate_entry_id(entry_data, feed.url)
 
             # Get published date
+            import contextlib
+
             published = None
             if hasattr(entry_data, "published_parsed") and entry_data.published_parsed:
-                try:
+                with contextlib.suppress(Exception):
                     published = datetime(*entry_data.published_parsed[:6], tzinfo=UTC)
-                except Exception:
-                    pass
-            elif hasattr(entry_data, "updated_parsed") and entry_data.updated_parsed:
-                try:
+            if (
+                published is None
+                and hasattr(entry_data, "updated_parsed")
+                and entry_data.updated_parsed
+            ):
+                with contextlib.suppress(Exception):
                     published = datetime(*entry_data.updated_parsed[:6], tzinfo=UTC)
-                except Exception:
-                    pass
 
             # Get description/content
             description = ""
@@ -748,9 +881,7 @@ class RSSSubscriptionPlugin(BasePlugin):
         history_days = self.get_config_value("history_days", 7)
         cutoff = datetime.now(UTC) - timedelta(days=history_days)
 
-        old_keys = [
-            key for key, timestamp in self._seen_entries.items() if timestamp < cutoff
-        ]
+        old_keys = [key for key, timestamp in self._seen_entries.items() if timestamp < cutoff]
 
         for key in old_keys:
             del self._seen_entries[key]
@@ -882,9 +1013,7 @@ class RSSSubscriptionPlugin(BasePlugin):
     # Aggregation
     # =========================================================================
 
-    def _add_to_aggregation_buffer(
-        self, entry: RSSEntry, webhook_target: str = "default"
-    ) -> None:
+    def _add_to_aggregation_buffer(self, entry: RSSEntry, webhook_target: str = "default") -> None:
         """Add entry to aggregation buffer.
 
         Args:
@@ -1031,9 +1160,7 @@ class RSSSubscriptionPlugin(BasePlugin):
 
         # Summary line
         feed_count = len(feeds)
-        builder.add_markdown(
-            f"**{len(entries)}** 条更新来自 **{feed_count}** 个订阅源"
-        )
+        builder.add_markdown(f"**{len(entries)}** 条更新来自 **{feed_count}** 个订阅源")
 
         builder.add_divider()
 
@@ -1097,9 +1224,7 @@ class RSSSubscriptionPlugin(BasePlugin):
     # Message Sending
     # =========================================================================
 
-    async def _send_card(
-        self, card: dict[str, Any], webhook_target: str = "default"
-    ) -> bool:
+    async def _send_card(self, card: dict[str, Any], webhook_target: str = "default") -> bool:
         """Send card to webhook.
 
         Args:
@@ -1120,9 +1245,7 @@ class RSSSubscriptionPlugin(BasePlugin):
             self.logger.error("Error sending card: %s", e, exc_info=True)
             return False
 
-    async def _send_single_entry(
-        self, entry: RSSEntry, webhook_target: str = "default"
-    ) -> bool:
+    async def _send_single_entry(self, entry: RSSEntry, webhook_target: str = "default") -> bool:
         """Send single entry card.
 
         Args:
@@ -1145,9 +1268,7 @@ class RSSSubscriptionPlugin(BasePlugin):
         # This is a placeholder for future integration
         pass
 
-    async def handle_rss_command(
-        self, message: IncomingMessage, args: list[str]
-    ) -> CommandResult:
+    async def handle_rss_command(self, message: IncomingMessage, args: list[str]) -> CommandResult:
         """Handle /rss commands.
 
         Args:
@@ -1171,6 +1292,7 @@ class RSSSubscriptionPlugin(BasePlugin):
             "list": self._cmd_list,
             "check": self._cmd_check,
             "status": self._cmd_status,
+            "daily": self._cmd_daily,
             "help": self._cmd_help,
         }
 
@@ -1183,9 +1305,7 @@ class RSSSubscriptionPlugin(BasePlugin):
             response=f"未知子命令: {subcommand}\n使用 /rss help 查看帮助",
         )
 
-    async def _cmd_add(
-        self, message: IncomingMessage, args: list[str]
-    ) -> CommandResult:
+    async def _cmd_add(self, message: IncomingMessage, args: list[str]) -> CommandResult:
         """Handle /rss add <url> [name]."""
         from ..ai.commands import CommandResult
 
@@ -1201,9 +1321,7 @@ class RSSSubscriptionPlugin(BasePlugin):
         success, msg = await self.add_feed(name, url)
         return CommandResult(success=success, response=msg)
 
-    async def _cmd_remove(
-        self, message: IncomingMessage, args: list[str]
-    ) -> CommandResult:
+    async def _cmd_remove(self, message: IncomingMessage, args: list[str]) -> CommandResult:
         """Handle /rss remove <name|url>."""
         from ..ai.commands import CommandResult
 
@@ -1216,9 +1334,7 @@ class RSSSubscriptionPlugin(BasePlugin):
         success, msg = await self.remove_feed(args[0])
         return CommandResult(success=success, response=msg)
 
-    async def _cmd_list(
-        self, message: IncomingMessage, args: list[str]
-    ) -> CommandResult:
+    async def _cmd_list(self, message: IncomingMessage, args: list[str]) -> CommandResult:
         """Handle /rss list."""
         from ..ai.commands import CommandResult
 
@@ -1238,9 +1354,7 @@ class RSSSubscriptionPlugin(BasePlugin):
 
         return CommandResult(success=True, response="\n".join(lines))
 
-    async def _cmd_check(
-        self, message: IncomingMessage, args: list[str]
-    ) -> CommandResult:
+    async def _cmd_check(self, message: IncomingMessage, args: list[str]) -> CommandResult:
         """Handle /rss check [name]."""
         from ..ai.commands import CommandResult
 
@@ -1271,9 +1385,7 @@ class RSSSubscriptionPlugin(BasePlugin):
                 response="已触发所有订阅源检查",
             )
 
-    async def _cmd_status(
-        self, message: IncomingMessage, args: list[str]
-    ) -> CommandResult:
+    async def _cmd_status(self, message: IncomingMessage, args: list[str]) -> CommandResult:
         """Handle /rss status."""
         from ..ai.commands import CommandResult
 
@@ -1289,9 +1401,7 @@ class RSSSubscriptionPlugin(BasePlugin):
 
         return CommandResult(success=True, response="\n".join(lines))
 
-    async def _cmd_help(
-        self, message: IncomingMessage, args: list[str]
-    ) -> CommandResult:
+    async def _cmd_help(self, message: IncomingMessage, args: list[str]) -> CommandResult:
         """Handle /rss help."""
         from ..ai.commands import CommandResult
 
@@ -1301,6 +1411,7 @@ class RSSSubscriptionPlugin(BasePlugin):
 `/rss remove <name|url>` - 移除订阅源
 `/rss list` - 列出所有订阅
 `/rss check [name]` - 立即检查更新
+`/rss daily [date]` - 生成日报 (日期格式: YYYY-MM-DD)
 `/rss status` - 查看插件状态
 `/rss help` - 显示帮助"""
 
@@ -1372,3 +1483,564 @@ class RSSSubscriptionPlugin(BasePlugin):
             handler: CommandHandler instance
         """
         self._command_handler = handler
+
+    # =========================================================================
+    # Daily Report Generation
+    # =========================================================================
+
+    def _generate_daily_report_sync(self) -> None:
+        """Sync wrapper for daily report generation (for scheduler)."""
+        try:
+            asyncio.run(self.generate_daily_report())
+        except Exception as e:
+            self.logger.error("Error generating daily report: %s", e, exc_info=True)
+
+    async def generate_daily_report(
+        self, target_date: datetime | None = None
+    ) -> DailyReportData | None:
+        """Generate and send daily RSS digest report.
+
+        Args:
+            target_date: Date to generate report for (default: yesterday)
+
+        Returns:
+            DailyReportData if successful, None otherwise
+        """
+        if target_date is None:
+            target_date = datetime.now(UTC) - timedelta(days=1)
+
+        date_str = target_date.strftime("%Y-%m-%d")
+        self.logger.info("Generating daily report for %s", date_str)
+
+        # Get entries for the target date
+        entries = self._get_entries_for_date(target_date)
+
+        if not entries:
+            self.logger.info("No entries for daily report on %s", date_str)
+            return None
+
+        # Limit entries
+        max_entries = self.get_config_value("daily_report_max_entries", 20)
+        entries = entries[:max_entries]
+
+        # Build report data
+        report = DailyReportData(
+            date=target_date,
+            entries=entries,
+            feeds_summary=self._count_by_feed(entries),
+            categories_summary=self._count_by_category(entries),
+            keywords_summary=self._extract_top_keywords(entries),
+        )
+
+        # Generate AI content if enabled
+        ai_enabled = self.get_config_value("ai_enabled", False)
+        ai_summary_enabled = self.get_config_value("daily_report_ai_summary", True)
+
+        if ai_enabled and ai_summary_enabled and self._ai_agent:
+            try:
+                report = await self._enhance_report_with_ai(report)
+            except Exception as e:
+                self.logger.error("AI enhancement failed for daily report: %s", e)
+
+        # Build and send the daily report card
+        card = self.build_daily_report_card(report)
+        webhook_target = self.get_config_value("webhook_name", "default")
+        await self._send_card(card, webhook_target)
+
+        self._last_daily_report = datetime.now(UTC)
+        self.logger.info(
+            "Daily report sent: %d entries from %d feeds",
+            len(entries),
+            len(report.feeds_summary),
+        )
+
+        return report
+
+    def _get_entries_for_date(self, target_date: datetime) -> list[RSSEntry]:
+        """Get all entries for a specific date.
+
+        Args:
+            target_date: Target date
+
+        Returns:
+            List of entries
+        """
+        date_str = target_date.strftime("%Y-%m-%d")
+        return self._daily_entries.get(date_str, [])
+
+    def _add_to_daily_entries(self, entry: RSSEntry) -> None:
+        """Add entry to daily entries storage.
+
+        Args:
+            entry: Entry to add
+        """
+        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        if date_str not in self._daily_entries:
+            self._daily_entries[date_str] = []
+        self._daily_entries[date_str].append(entry)
+
+    def _count_by_feed(self, entries: list[RSSEntry]) -> dict[str, int]:
+        """Count entries by feed name.
+
+        Args:
+            entries: List of entries
+
+        Returns:
+            Dict of feed_name -> count
+        """
+        counts: dict[str, int] = {}
+        for entry in entries:
+            counts[entry.feed_name] = counts.get(entry.feed_name, 0) + 1
+        return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True))
+
+    def _count_by_category(self, entries: list[RSSEntry]) -> dict[str, int]:
+        """Count entries by category.
+
+        Args:
+            entries: List of entries
+
+        Returns:
+            Dict of category -> count
+        """
+        counts: dict[str, int] = {}
+        for entry in entries:
+            for cat in entry.categories:
+                counts[cat] = counts.get(cat, 0) + 1
+        return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True))
+
+    def _extract_top_keywords(self, entries: list[RSSEntry], limit: int = 10) -> list[str]:
+        """Extract top keywords from entries.
+
+        Args:
+            entries: List of entries
+            limit: Maximum keywords to return
+
+        Returns:
+            List of top keywords
+        """
+        keyword_counts: dict[str, int] = {}
+        for entry in entries:
+            for kw in entry.keywords:
+                keyword_counts[kw] = keyword_counts.get(kw, 0) + 1
+
+        sorted_kw = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)
+        return [kw for kw, _ in sorted_kw[:limit]]
+
+    async def _enhance_report_with_ai(self, report: DailyReportData) -> DailyReportData:
+        """Enhance daily report with AI-generated content.
+
+        Args:
+            report: Report data to enhance
+
+        Returns:
+            Enhanced report data
+        """
+        if not self._ai_agent:
+            return report
+
+        # Prepare content summary for AI
+        content_parts = []
+        for entry in report.entries[:15]:  # Limit for AI context
+            content_parts.append(f"- {entry.title}")
+            if entry.summary:
+                content_parts.append(f"  摘要: {entry.summary[:100]}")
+            elif entry.description:
+                content_parts.append(f"  内容: {entry.description[:100]}")
+
+        content = "\n".join(content_parts)
+
+        # Generate AI summary
+        try:
+            prompt = DAILY_SUMMARY_PROMPT.format(content=content)
+            report.ai_summary = await self._ai_agent.chat(prompt, user_id="rss-daily-report")
+            report.ai_summary = report.ai_summary.strip()
+        except Exception as e:
+            self.logger.error("AI summary generation failed: %s", e)
+
+        # Generate trend analysis if enabled
+        if self.get_config_value("daily_report_include_trends", True):
+            try:
+                prompt = TREND_ANALYSIS_PROMPT.format(content=content)
+                trends_text = await self._ai_agent.chat(prompt, user_id="rss-daily-report")
+                report.trends = [t.strip() for t in trends_text.strip().split("\n") if t.strip()][
+                    :5
+                ]
+            except Exception as e:
+                self.logger.error("Trend analysis failed: %s", e)
+
+            try:
+                prompt = HOT_TOPICS_PROMPT.format(content=content)
+                topics_text = await self._ai_agent.chat(prompt, user_id="rss-daily-report")
+                report.hot_topics = [t.strip() for t in topics_text.split(",") if t.strip()][:8]
+            except Exception as e:
+                self.logger.error("Hot topics extraction failed: %s", e)
+
+        return report
+
+    # =========================================================================
+    # Enhanced Card Building
+    # =========================================================================
+
+    def build_daily_report_card(self, report: DailyReportData) -> dict[str, Any]:
+        """Build beautiful daily report card.
+
+        Args:
+            report: Daily report data
+
+        Returns:
+            Card dict
+        """
+        builder = CardBuilder()
+
+        # Header with date and stats
+        date_str = report.get_date_str()
+        builder.set_header(
+            f"📰 RSS 日报 - {date_str}",
+            template="purple",
+            subtitle=f"{report.get_total_entries()} 条内容 · {report.get_feed_count()} 个来源",
+        )
+
+        # AI Summary section (if available)
+        if report.ai_summary:
+            builder.add_markdown("## 📋 今日摘要")
+            builder.add_markdown(report.ai_summary)
+            builder.add_divider()
+
+        # Hot Topics (if available)
+        if report.hot_topics:
+            topics_str = " · ".join([f"`{t}`" for t in report.hot_topics[:6]])
+            builder.add_markdown(f"🔥 **热门话题**: {topics_str}")
+            builder.add_divider()
+
+        # Trends section (if available)
+        if report.trends:
+            builder.add_markdown("## 📈 趋势洞察")
+            for i, trend in enumerate(report.trends[:5], 1):
+                builder.add_markdown(f"{i}. {trend}")
+            builder.add_divider()
+
+        # Category distribution
+        top_cats = report.get_top_categories(5)
+        if top_cats:
+            cat_parts = [f"**{cat}**({count})" for cat, count in top_cats]
+            builder.add_markdown(f"📂 **分类分布**: {' · '.join(cat_parts)}")
+            builder.add_divider()
+
+        # Feed summary with entries
+        builder.add_markdown("## 📚 内容概览")
+
+        # Group entries by feed
+        feeds_entries: dict[str, list[RSSEntry]] = {}
+        for entry in report.entries:
+            if entry.feed_name not in feeds_entries:
+                feeds_entries[entry.feed_name] = []
+            feeds_entries[entry.feed_name].append(entry)
+
+        # Sort feeds by entry count
+        sorted_feeds = sorted(feeds_entries.items(), key=lambda x: len(x[1]), reverse=True)
+
+        for feed_name, entries in sorted_feeds[:8]:  # Limit feeds shown
+            count = len(entries)
+            builder.add_markdown(f"**{feed_name}** ({count}条)")
+
+            for entry in entries[:3]:  # Limit entries per feed
+                time_str = entry.get_display_time()
+                title_short = entry.title[:40] + "..." if len(entry.title) > 40 else entry.title
+                line = f"  • [{title_short}]({entry.link})"
+                if time_str:
+                    line += f" _{time_str}_"
+                builder.add_markdown(line)
+
+            if count > 3:
+                builder.add_markdown(f"  _...还有 {count - 3} 条_")
+
+        builder.add_divider()
+
+        # Footer
+        builder.add_markdown(
+            f"_生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')} · via RSS 订阅插件 v2.0_"
+        )
+
+        return builder.build()
+
+    def build_enhanced_single_card(self, entry: RSSEntry) -> dict[str, Any]:
+        """Build enhanced single entry card with better visuals.
+
+        Args:
+            entry: Entry to display
+
+        Returns:
+            Card dict
+        """
+        builder = CardBuilder()
+
+        # Determine color based on category
+        color_map = {
+            "科技": "blue",
+            "AI/机器学习": "purple",
+            "编程": "green",
+            "安全": "red",
+            "商业": "orange",
+            "新闻": "turquoise",
+        }
+        template_color = "blue"
+        for cat in entry.categories:
+            if cat in color_map:
+                template_color = color_map[cat]
+                break
+
+        # Header
+        builder.set_header(
+            f"📄 {entry.feed_name}",
+            template=template_color,
+            subtitle=entry.get_display_time() or "刚刚",
+        )
+
+        # Title
+        builder.add_markdown(f"## [{entry.title}]({entry.link})")
+
+        # Categories as tags
+        if entry.categories:
+            tags = " ".join([f"`{cat}`" for cat in entry.categories[:3]])
+            builder.add_markdown(tags)
+
+        builder.add_divider()
+
+        # Summary or description
+        if entry.summary:
+            builder.add_markdown(f"**📝 摘要**\n{entry.summary}")
+        elif entry.description:
+            desc = entry.description[:300]
+            if len(entry.description) > 300:
+                desc += "..."
+            builder.add_markdown(desc)
+
+        # Keywords
+        if entry.keywords:
+            kw_str = " · ".join(entry.keywords[:5])
+            builder.add_markdown(f"\n🏷️ **关键词**: {kw_str}")
+
+        builder.add_divider()
+
+        # Action button
+        builder.add_button("📖 阅读原文", url=entry.link, button_type="primary")
+
+        # Footer
+        if entry.author:
+            builder.add_markdown(f"_作者: {entry.author} · via RSS订阅_")
+        else:
+            builder.add_markdown("_via RSS订阅插件_")
+
+        return builder.build()
+
+    def build_enhanced_aggregated_card(self, entries: list[RSSEntry]) -> dict[str, Any]:
+        """Build enhanced aggregated card with better layout.
+
+        Args:
+            entries: List of entries
+
+        Returns:
+            Card dict
+        """
+        if not entries:
+            return {}
+
+        builder = CardBuilder()
+
+        # Count by feed and category
+        feed_counts = self._count_by_feed(entries)
+        cat_counts = self._count_by_category(entries)
+
+        # Header
+        builder.set_header(
+            "📬 RSS 更新汇总",
+            template="green",
+            subtitle=f"{len(entries)} 条新内容 · {datetime.now().strftime('%H:%M')}",
+        )
+
+        # Quick stats
+        stats_parts = [f"**{len(feed_counts)}** 个来源"]
+        if cat_counts:
+            top_cat = list(cat_counts.keys())[0] if cat_counts else ""
+            if top_cat:
+                stats_parts.append(f"热门分类: **{top_cat}**")
+        builder.add_markdown(" · ".join(stats_parts))
+
+        # Category tags
+        if cat_counts:
+            top_cats = list(cat_counts.keys())[:5]
+            tags = " ".join([f"`{cat}`" for cat in top_cats])
+            builder.add_markdown(tags)
+
+        builder.add_divider()
+
+        # Entries grouped by feed
+        feeds_entries: dict[str, list[RSSEntry]] = {}
+        for entry in entries:
+            if entry.feed_name not in feeds_entries:
+                feeds_entries[entry.feed_name] = []
+            feeds_entries[entry.feed_name].append(entry)
+
+        for feed_name, feed_entries in list(feeds_entries.items())[:6]:
+            builder.add_markdown(f"**📰 {feed_name}** ({len(feed_entries)})")
+
+            for entry in feed_entries[:4]:
+                time_str = entry.get_display_time()
+                title = entry.title[:45] + "..." if len(entry.title) > 45 else entry.title
+                line = f"• [{title}]({entry.link})"
+                if time_str:
+                    line += f" _{time_str}_"
+                builder.add_markdown(line)
+
+                # Add brief summary if available
+                if entry.summary:
+                    builder.add_markdown(f"  _{entry.summary[:80]}..._")
+
+            if len(feed_entries) > 4:
+                builder.add_markdown(f"  _...还有 {len(feed_entries) - 4} 条_")
+
+            builder.add_divider()
+
+        # Footer
+        builder.add_markdown("_via RSS订阅插件 v2.0_")
+
+        return builder.build()
+
+    # =========================================================================
+    # Daily Entries Persistence
+    # =========================================================================
+
+    def _load_daily_entries(self) -> None:
+        """Load daily entries from file."""
+        if not self._daily_storage_path or not self._daily_storage_path.exists():
+            return
+
+        try:
+            with open(self._daily_storage_path, encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Clean up old dates (keep only last 7 days)
+            cutoff = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%d")
+
+            for date_str, entries_data in data.get("daily_entries", {}).items():
+                if date_str >= cutoff:
+                    self._daily_entries[date_str] = [self._dict_to_entry(e) for e in entries_data]
+
+            self.logger.debug("Loaded daily entries for %d days", len(self._daily_entries))
+
+        except Exception as e:
+            self.logger.error("Error loading daily entries: %s", e)
+
+    def _save_daily_entries(self) -> None:
+        """Save daily entries to file."""
+        if not self._daily_storage_path:
+            return
+
+        try:
+            # Clean up old dates before saving
+            cutoff = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%d")
+            entries_to_save = {
+                date_str: [self._entry_to_dict(e) for e in entries]
+                for date_str, entries in self._daily_entries.items()
+                if date_str >= cutoff
+            }
+
+            data = {"daily_entries": entries_to_save}
+
+            with open(self._daily_storage_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+
+            self.logger.debug("Saved daily entries for %d days", len(entries_to_save))
+
+        except Exception as e:
+            self.logger.error("Error saving daily entries: %s", e)
+
+    def _entry_to_dict(self, entry: RSSEntry) -> dict[str, Any]:
+        """Convert RSSEntry to dict for serialization.
+
+        Args:
+            entry: Entry to convert
+
+        Returns:
+            Dict representation
+        """
+        return {
+            "id": entry.id,
+            "title": entry.title,
+            "link": entry.link,
+            "description": entry.description,
+            "published": entry.published.isoformat() if entry.published else None,
+            "author": entry.author,
+            "feed_name": entry.feed_name,
+            "feed_url": entry.feed_url,
+            "summary": entry.summary,
+            "categories": entry.categories,
+            "keywords": entry.keywords,
+        }
+
+    def _dict_to_entry(self, data: dict[str, Any]) -> RSSEntry:
+        """Convert dict to RSSEntry.
+
+        Args:
+            data: Dict data
+
+        Returns:
+            RSSEntry instance
+        """
+        published = None
+        if data.get("published"):
+            with contextlib.suppress(Exception):
+                published = datetime.fromisoformat(data["published"])
+
+        return RSSEntry(
+            id=data.get("id", ""),
+            title=data.get("title", ""),
+            link=data.get("link", ""),
+            description=data.get("description", ""),
+            published=published,
+            author=data.get("author", ""),
+            feed_name=data.get("feed_name", ""),
+            feed_url=data.get("feed_url", ""),
+            summary=data.get("summary", ""),
+            categories=data.get("categories", []),
+            keywords=data.get("keywords", []),
+        )
+
+    # =========================================================================
+    # Enhanced Command Handlers
+    # =========================================================================
+
+    async def _cmd_daily(self, message: IncomingMessage, args: list[str]) -> CommandResult:
+        """Handle /rss daily [date] command.
+
+        Args:
+            message: Incoming message
+            args: Command arguments (optional date in YYYY-MM-DD format)
+
+        Returns:
+            CommandResult
+        """
+        from ..ai.commands import CommandResult
+
+        target_date = None
+        if args:
+            try:
+                target_date = datetime.strptime(args[0], "%Y-%m-%d").replace(tzinfo=UTC)
+            except ValueError:
+                return CommandResult(
+                    success=False,
+                    response="日期格式错误，请使用 YYYY-MM-DD 格式",
+                )
+
+        report = await self.generate_daily_report(target_date)
+
+        if report:
+            return CommandResult(
+                success=True,
+                response=f"日报已生成: {report.get_total_entries()} 条内容",
+            )
+        else:
+            return CommandResult(
+                success=True,
+                response="该日期没有 RSS 内容",
+            )

@@ -18,7 +18,9 @@ def cmd_task(args: argparse.Namespace) -> int:
     if not args.task_command:
         print("Usage: feishu-webhook-bot task <subcommand>")
         print("Subcommands: list, run, status, enable, disable, history, pause, resume,")
-        print("             details, stats, templates, create-from-template, update, reload, delete")
+        print(
+            "             details, stats, templates, create-from-template, update, reload, delete"
+        )
         return 1
 
     handlers = {
@@ -158,19 +160,13 @@ def _cmd_task_status(args: argparse.Namespace) -> int:
         if task.schedule:
             info_lines.append(f"[bold]Schedule Mode:[/] {task.schedule.mode}")
 
-        info_lines.append(
-            f"[bold]Actions:[/] {len(task.actions) if task.actions else 0}"
-        )
+        info_lines.append(f"[bold]Actions:[/] {len(task.actions) if task.actions else 0}")
 
         if task.error_handling:
             info_lines.append("\n[bold]Error Handling:[/]")
-            info_lines.append(
-                f"  Retry on failure: {task.error_handling.retry_on_failure}"
-            )
+            info_lines.append(f"  Retry on failure: {task.error_handling.retry_on_failure}")
             info_lines.append(f"  Max retries: {task.error_handling.max_retries}")
-            info_lines.append(
-                f"  On failure: {task.error_handling.on_failure_action}"
-            )
+            info_lines.append(f"  On failure: {task.error_handling.on_failure_action}")
 
         console.print("\n".join(info_lines))
         return 0
@@ -365,9 +361,7 @@ def _cmd_task_details(args: argparse.Namespace) -> int:
 
         info_lines.append(f"[bold]Timeout:[/] {task.timeout}s")
         info_lines.append(f"[bold]Max Concurrent:[/] {task.max_concurrent}")
-        info_lines.append(
-            f"[bold]Actions:[/] {len(task.actions) if task.actions else 0}"
-        )
+        info_lines.append(f"[bold]Actions:[/] {len(task.actions) if task.actions else 0}")
 
         if task.conditions:
             info_lines.append(f"[bold]Conditions:[/] {len(task.conditions)}")
@@ -375,24 +369,18 @@ def _cmd_task_details(args: argparse.Namespace) -> int:
         # Error handling
         if task.error_handling:
             info_lines.append("\n[bold]Error Handling:[/]")
-            info_lines.append(
-                f"  Retry on failure: {task.error_handling.retry_on_failure}"
-            )
+            info_lines.append(f"  Retry on failure: {task.error_handling.retry_on_failure}")
             info_lines.append(f"  Max retries: {task.error_handling.max_retries}")
-            info_lines.append(
-                f"  On failure: {task.error_handling.on_failure_action}"
-            )
+            info_lines.append(f"  On failure: {task.error_handling.on_failure_action}")
 
         # Actions details
         if task.actions:
             info_lines.append("\n[bold]Actions:[/]")
             for i, action in enumerate(task.actions, 1):
-                action_type = action.type if hasattr(action, 'type') else 'unknown'
+                action_type = action.type if hasattr(action, "type") else "unknown"
                 info_lines.append(f"  {i}. {action_type}")
 
-        console.print(
-            Panel("\n".join(info_lines), title=f"Task Details: {args.task_name}")
-        )
+        console.print(Panel("\n".join(info_lines), title=f"Task Details: {args.task_name}"))
         return 0
 
     except Exception as e:
@@ -488,11 +476,7 @@ def _cmd_task_templates(args: argparse.Namespace) -> int:
                 if hasattr(tpl, "description")
                 else str(tpl.get("description", "N/A"))
             )
-            params = (
-                tpl.parameters
-                if hasattr(tpl, "parameters")
-                else tpl.get("parameters", [])
-            )
+            params = tpl.parameters if hasattr(tpl, "parameters") else tpl.get("parameters", [])
             param_count = len(params) if params else 0
             table.add_row(name, desc, str(param_count))
 
@@ -544,17 +528,14 @@ def _cmd_task_create_from_template(args: argparse.Namespace) -> int:
         from ...tasks.templates import TaskTemplateEngine
 
         engine = TaskTemplateEngine([template])
-        new_task = engine.create_task_from_template(
-            args.template_name, args.task_name, params
-        )
+        new_task = engine.create_task_from_template(args.template_name, args.task_name, params)
 
         # Add to config
         config.tasks.append(new_task)
         config.save_yaml(config_path)
 
         console.print(
-            f"[green]Created task '{args.task_name}' from template "
-            f"'{args.template_name}'[/]"
+            f"[green]Created task '{args.task_name}' from template '{args.template_name}'[/]"
         )
         return 0
 
@@ -603,9 +584,7 @@ def _cmd_task_update(args: argparse.Namespace) -> int:
             return 0
 
         config.save_yaml(config_path)
-        console.print(
-            f"[green]Updated task '{args.task_name}': {', '.join(updated)}[/]"
-        )
+        console.print(f"[green]Updated task '{args.task_name}': {', '.join(updated)}[/]")
         return 0
 
     except Exception as e:
@@ -665,9 +644,7 @@ def _cmd_task_delete(args: argparse.Namespace) -> int:
 
         # Confirm deletion
         if not args.yes:
-            console.print(
-                f"\n[bold yellow]Warning:[/] About to delete task '{args.task_name}'"
-            )
+            console.print(f"\n[bold yellow]Warning:[/] About to delete task '{args.task_name}'")
             console.print("This action cannot be undone.\n")
             confirm = input("Type 'yes' to confirm deletion: ")
             if confirm.lower() != "yes":

@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .persona import PersonaConfig
+
 
 class ModelProviderConfig(BaseModel):
     """Provider-specific configuration for AI models.
@@ -58,6 +60,88 @@ class ModelProviderConfig(BaseModel):
     )
 
 
+class SearchProviderConfig(BaseModel):
+    """Configuration for a search provider.
+
+    Attributes:
+        provider: Provider type (duckduckgo, tavily, exa, brave, bing, google)
+        enabled: Whether this provider is enabled
+        api_key: API key for the provider (if required)
+        priority: Priority order (lower = higher priority)
+        options: Provider-specific options
+    """
+
+    provider: str = Field(
+        ...,
+        description="Provider type (duckduckgo, tavily, exa, brave, bing, google)",
+    )
+    enabled: bool = Field(default=True, description="Enable this provider")
+    api_key: str | None = Field(
+        default=None,
+        description="API key for the provider (if required)",
+    )
+    priority: int = Field(
+        default=100,
+        ge=0,
+        description="Priority order (lower = higher priority)",
+    )
+    options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Provider-specific options",
+    )
+
+
+class WebSearchConfig(BaseModel):
+    """Configuration for web search capabilities.
+
+    Attributes:
+        enabled: Whether web search is enabled
+        default_provider: Default search provider to use
+        max_results: Maximum number of search results
+        cache_enabled: Whether to cache search results
+        cache_ttl_minutes: Cache TTL in minutes
+        enable_failover: Whether to failover to backup providers
+        concurrent_search: Whether to search multiple providers concurrently
+        providers: List of search provider configurations
+    """
+
+    enabled: bool = Field(default=True, description="Enable web search")
+    default_provider: str = Field(
+        default="duckduckgo",
+        description="Default search provider",
+    )
+    max_results: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum number of search results",
+    )
+    cache_enabled: bool = Field(
+        default=True,
+        description="Enable search result caching",
+    )
+    cache_ttl_minutes: int = Field(
+        default=60,
+        ge=1,
+        le=1440,
+        description="Cache TTL in minutes",
+    )
+    enable_failover: bool = Field(
+        default=True,
+        description="Failover to backup providers on failure",
+    )
+    concurrent_search: bool = Field(
+        default=False,
+        description="Search multiple providers concurrently",
+    )
+    providers: list[SearchProviderConfig] = Field(
+        default_factory=lambda: [
+            SearchProviderConfig(provider="duckduckgo", priority=0),
+        ],
+        description="List of search provider configurations",
+    )
+
+
 class MCPConfig(BaseModel):
     """Configuration for Model Context Protocol (MCP) support.
 
@@ -79,25 +163,253 @@ class MCPConfig(BaseModel):
     )
 
 
+class BudgetTrackingConfig(BaseModel):
+    """Configuration for budget tracking and cost management.
+
+    Attributes:
+        enabled: Whether budget tracking is enabled
+        period: Budget period (hourly, daily, weekly, monthly)
+        limit: Budget limit in dollars
+        warning_threshold: Percentage of budget to trigger warning (0.0-1.0)
+        hard_limit: Whether to block requests when budget exceeded
+        notify_on_warning: Whether to send notifications on warning
+        notify_on_exceeded: Whether to send notifications when exceeded
+    """
+
+    enabled: bool = Field(default=False, description="Enable budget tracking")
+    period: Literal["hourly", "daily", "weekly", "monthly"] = Field(
+        default="daily",
+        description="Budget period",
+    )
+    limit: float = Field(
+        default=10.0,
+        ge=0.0,
+        description="Budget limit in dollars",
+    )
+    warning_threshold: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=1.0,
+        description="Warning threshold (0.0-1.0)",
+    )
+    hard_limit: bool = Field(
+        default=False,
+        description="Block requests when budget exceeded",
+    )
+    notify_on_warning: bool = Field(
+        default=True,
+        description="Send notification on warning",
+    )
+    notify_on_exceeded: bool = Field(
+        default=True,
+        description="Send notification when exceeded",
+    )
+
+
+class HealthCheckConfig(BaseModel):
+    """Configuration for model health monitoring.
+
+    Attributes:
+        enabled: Whether health checking is enabled
+        check_interval_seconds: Interval between health checks
+        unhealthy_threshold: Number of failures before marking unhealthy
+        recovery_threshold: Number of successes before marking healthy
+        auto_disable_unhealthy: Automatically disable unhealthy models
+        failover_enabled: Enable automatic failover to healthy models
+    """
+
+    enabled: bool = Field(default=True, description="Enable health checking")
+    check_interval_seconds: int = Field(
+        default=300,
+        ge=60,
+        le=3600,
+        description="Interval between health checks in seconds",
+    )
+    unhealthy_threshold: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Failures before marking unhealthy",
+    )
+    recovery_threshold: int = Field(
+        default=2,
+        ge=1,
+        le=10,
+        description="Successes before marking healthy",
+    )
+    auto_disable_unhealthy: bool = Field(
+        default=False,
+        description="Auto-disable unhealthy models",
+    )
+    failover_enabled: bool = Field(
+        default=True,
+        description="Enable automatic failover",
+    )
+
+
+class ABTestConfig(BaseModel):
+    """Configuration for A/B testing of models.
+
+    Attributes:
+        enabled: Whether A/B testing is enabled
+        test_ratio: Ratio of requests to use for testing (0.0-1.0)
+        test_models: List of models to include in A/B test
+        min_samples: Minimum samples before drawing conclusions
+        auto_promote: Automatically promote winning model
+    """
+
+    enabled: bool = Field(default=False, description="Enable A/B testing")
+    test_ratio: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=0.5,
+        description="Ratio of requests for testing",
+    )
+    test_models: list[str] = Field(
+        default_factory=list,
+        description="Models to include in A/B test",
+    )
+    min_samples: int = Field(
+        default=100,
+        ge=10,
+        description="Minimum samples before conclusions",
+    )
+    auto_promote: bool = Field(
+        default=False,
+        description="Auto-promote winning model",
+    )
+
+
+class ModelRouterConfig(BaseModel):
+    """Configuration for automatic model routing.
+
+    Attributes:
+        enabled: Whether model routing is enabled
+        strategy: Routing strategy to use
+        default_model: Default model when routing fails
+        cost_threshold: Maximum cost per 1K tokens for cost-optimized routing
+        min_speed_rating: Minimum speed rating for speed-optimized routing
+        min_quality_rating: Minimum quality rating for quality-optimized routing
+        budget: Budget tracking configuration
+        health_check: Health check configuration
+        ab_test: A/B testing configuration
+        language_routing: Enable language-based model routing
+        adaptive_learning: Enable adaptive routing based on performance
+    """
+
+    enabled: bool = Field(default=True, description="Enable model routing")
+    strategy: Literal[
+        "cost_optimized",
+        "speed_optimized",
+        "quality_optimized",
+        "balanced",
+        "round_robin",
+        "capability_based",
+        "context_aware",
+        "adaptive",
+        "budget_aware",
+        "latency_optimized",
+    ] = Field(
+        default="balanced",
+        description="Routing strategy",
+    )
+    default_model: str = Field(
+        default="openai:gpt-4o",
+        description="Default model when routing fails",
+    )
+    cost_threshold: float = Field(
+        default=0.01,
+        ge=0.0,
+        description="Max cost per 1K tokens for cost-optimized routing",
+    )
+    min_speed_rating: int = Field(
+        default=7,
+        ge=1,
+        le=10,
+        description="Min speed rating for speed-optimized routing",
+    )
+    min_quality_rating: int = Field(
+        default=8,
+        ge=1,
+        le=10,
+        description="Min quality rating for quality-optimized routing",
+    )
+    budget: BudgetTrackingConfig = Field(
+        default_factory=BudgetTrackingConfig,
+        description="Budget tracking configuration",
+    )
+    health_check: HealthCheckConfig = Field(
+        default_factory=HealthCheckConfig,
+        description="Health check configuration",
+    )
+    ab_test: ABTestConfig = Field(
+        default_factory=ABTestConfig,
+        description="A/B testing configuration",
+    )
+    language_routing: bool = Field(
+        default=True,
+        description="Enable language-based model routing",
+    )
+    adaptive_learning: bool = Field(
+        default=True,
+        description="Enable adaptive routing based on performance",
+    )
+
+
 class MultiAgentConfig(BaseModel):
     """Configuration for multi-agent (A2A) support.
 
     Attributes:
         enabled: Whether multi-agent support is enabled
-        orchestration_mode: How agents are orchestrated (sequential, concurrent, hierarchical)
+        orchestration_mode: How agents are orchestrated
         max_agents: Maximum number of agents that can run concurrently
+        auto_decompose: Whether to automatically decompose complex tasks
+        decompose_threshold: Complexity threshold for auto-decomposition (1-10)
+        router: Model router configuration
+        default_agents: List of default agent roles to initialize
     """
 
     enabled: bool = Field(default=False, description="Enable multi-agent support")
-    orchestration_mode: Literal["sequential", "concurrent", "hierarchical"] = Field(
+    orchestration_mode: Literal[
+        "sequential", "concurrent", "hierarchical", "dynamic", "pipeline"
+    ] = Field(
         default="sequential",
         description="Agent orchestration mode",
     )
     max_agents: int = Field(
-        default=3,
+        default=10,
+        ge=1,
+        le=20,
+        description="Maximum concurrent agents",
+    )
+    auto_decompose: bool = Field(
+        default=True,
+        description="Automatically decompose complex tasks",
+    )
+    decompose_threshold: int = Field(
+        default=7,
         ge=1,
         le=10,
-        description="Maximum concurrent agents",
+        description="Complexity threshold for auto-decomposition",
+    )
+    router: ModelRouterConfig = Field(
+        default_factory=ModelRouterConfig,
+        description="Model router configuration",
+    )
+    default_agents: list[str] = Field(
+        default_factory=lambda: [
+            "search",
+            "analysis",
+            "response",
+            "code",
+            "summary",
+            "translation",
+            "reasoning",
+            "planning",
+            "creative",
+            "math",
+        ],
+        description="Default agent roles to initialize",
     )
 
 
@@ -175,6 +487,8 @@ class AIConfig(BaseModel):
         mcp: MCP configuration
         multi_agent: Multi-agent configuration
         streaming: Streaming configuration
+        personas: Persona presets
+        default_persona: Default persona id
     """
 
     enabled: bool = Field(default=False, description="Enable AI features")
@@ -193,14 +507,21 @@ class AIConfig(BaseModel):
     fallback_models: list[str] = Field(
         default_factory=list,
         description=(
-            "List of fallback models to try if primary model fails "
-            "(format: 'provider:model-name')"
+            "List of fallback models to try if primary model fails (format: 'provider:model-name')"
         ),
     )
     system_prompt: str = Field(
         default="You are a helpful AI assistant integrated with Feishu. "
         "Provide clear, concise, and accurate responses to user queries.",
         description="Default system prompt for the AI agent",
+    )
+    personas: dict[str, PersonaConfig] = Field(
+        default_factory=dict,
+        description="Persona presets",
+    )
+    default_persona: str | None = Field(
+        default=None,
+        description="Default persona id",
     )
     max_conversation_turns: int = Field(
         default=10,
@@ -221,13 +542,17 @@ class AIConfig(BaseModel):
     )
     web_search_enabled: bool = Field(
         default=True,
-        description="Enable web search capabilities",
+        description="Enable web search capabilities (legacy, use web_search.enabled)",
     )
     web_search_max_results: int = Field(
         default=5,
         ge=1,
         le=20,
-        description="Maximum number of search results",
+        description="Maximum number of search results (legacy, use web_search.max_results)",
+    )
+    web_search: WebSearchConfig = Field(
+        default_factory=WebSearchConfig,
+        description="Web search configuration with multiple providers",
     )
     conversation_timeout_minutes: int = Field(
         default=30,

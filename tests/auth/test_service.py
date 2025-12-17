@@ -13,7 +13,7 @@ Tests cover:
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -24,7 +24,6 @@ from feishu_webhook_bot.auth.service import (
     AuthService,
     RegistrationError,
 )
-
 
 # ==============================================================================
 # Fixtures

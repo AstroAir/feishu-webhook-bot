@@ -10,7 +10,6 @@ from rich.console import Console
 from rich.table import Table
 
 
-
 def cmd_auth(args: argparse.Namespace) -> int:
     """Handle authentication commands."""
     if not args.auth_command:

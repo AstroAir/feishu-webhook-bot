@@ -203,9 +203,7 @@ class MessageTracker:
             self._cleanup_thread.join(timeout=5.0)
             logger.debug("Stopped cleanup thread")
 
-    def track(
-        self, message_id: str, provider: str, target: str, content: Any
-    ) -> TrackedMessage:
+    def track(self, message_id: str, provider: str, target: str, content: Any) -> TrackedMessage:
         """Track a new message.
 
         Args:
@@ -365,9 +363,7 @@ class MessageTracker:
 
         with self._lock:
             to_remove = [
-                msg_id
-                for msg_id, msg in self.messages.items()
-                if msg.created_at < cutoff_time
+                msg_id for msg_id, msg in self.messages.items() if msg.created_at < cutoff_time
             ]
 
             for msg_id in to_remove:
@@ -420,9 +416,7 @@ class MessageTracker:
 
             return stats
 
-    def is_duplicate(
-        self, content_hash: str, target: str, within_seconds: float = 60.0
-    ) -> bool:
+    def is_duplicate(self, content_hash: str, target: str, within_seconds: float = 60.0) -> bool:
         """Check if a message with the same content hash was recently sent to the same target.
 
         Args:

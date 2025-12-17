@@ -58,10 +58,10 @@ def _cmd_logging_show(args: argparse.Namespace) -> int:
             print("Error: Log file not found")
             return 1
 
-        with open(log_path, "r", encoding="utf-8") as f:
+        with open(log_path, encoding="utf-8") as f:
             lines = f.readlines()
 
-        display_lines = lines[-args.limit:] if len(lines) > args.limit else lines
+        display_lines = lines[-args.limit :] if len(lines) > args.limit else lines
         for line in display_lines:
             print(line.rstrip())
 
@@ -94,7 +94,7 @@ def _cmd_logging_tail(args: argparse.Namespace) -> int:
 
         print(f"Following log file: {log_path}")
 
-        with open(log_path, "r", encoding="utf-8") as f:
+        with open(log_path, encoding="utf-8") as f:
             f.seek(0, 2)  # Go to end of file
 
             try:

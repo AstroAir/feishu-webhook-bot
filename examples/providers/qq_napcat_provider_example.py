@@ -24,7 +24,6 @@ from feishu_webhook_bot.core import (
     get_logger,
     setup_logging,
 )
-from feishu_webhook_bot.core.provider import Message, MessageType
 from feishu_webhook_bot.providers.qq_napcat import NapcatProvider, NapcatProviderConfig
 
 # Setup logging
@@ -88,7 +87,7 @@ def demo_with_access_token() -> None:
     print(f"  Access Token: {'*' * 10 if config.access_token else 'None'}")
 
     # Create provider
-    provider = NapcatProvider(config)
+    NapcatProvider(config)
 
     print("\nNote: When access_token is configured, the provider will:")
     print("  - Include 'Authorization: Bearer <token>' header")
@@ -259,7 +258,9 @@ def demo_rich_text_conversion() -> None:
     print_json(rich_text)
 
     # Converted output
-    converted = "Report Title\n\nHello \n[CQ:at,qq=123456]\n Check this: \nLink (https://example.com)"
+    converted = (
+        "Report Title\n\nHello \n[CQ:at,qq=123456]\n Check this: \nLink (https://example.com)"
+    )
     print("\nConverted to CQ code format:")
     print(f"  {converted}")
 
@@ -319,6 +320,7 @@ def demo_message_tracking() -> None:
     # Simulate tracking
     print("\n--- Simulating message tracking ---")
     import uuid
+
     msg_id = str(uuid.uuid4())
     tracker.track(
         message_id=msg_id,
@@ -409,7 +411,7 @@ def demo_real_world_pattern() -> None:
     # Usage example
     http_url = os.environ.get("NAPCAT_HTTP_URL", "http://127.0.0.1:3000")
 
-    service = QQNotificationService(http_url)
+    QQNotificationService(http_url)
 
     print("QQNotificationService created")
     print("\nUsage examples:")

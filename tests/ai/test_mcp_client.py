@@ -1,5 +1,8 @@
 """Comprehensive tests for MCP (Model Context Protocol) client.
 
+This module re-exports tests from the mcp/ subpackage for backward compatibility.
+For new tests, add them to tests/ai/mcp/ directory.
+
 Tests cover:
 - MCPClient initialization
 - Server connection handling
@@ -16,8 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from feishu_webhook_bot.ai.config import MCPConfig
-from feishu_webhook_bot.ai.mcp_client import MCPClient
-
+from feishu_webhook_bot.ai.mcp import MCPClient
 
 # ==============================================================================
 # MCPClient Initialization Tests

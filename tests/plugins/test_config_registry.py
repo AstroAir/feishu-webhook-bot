@@ -113,9 +113,7 @@ class TestConfigSchemaRegistry:
         """Test validating invalid plugin config."""
         ConfigSchemaRegistry.register("test-plugin", MockConfigSchema)
 
-        is_valid, errors = ConfigSchemaRegistry.validate_plugin_config(
-            "test-plugin", {}
-        )
+        is_valid, errors = ConfigSchemaRegistry.validate_plugin_config("test-plugin", {})
 
         assert is_valid is False
         assert len(errors) > 0

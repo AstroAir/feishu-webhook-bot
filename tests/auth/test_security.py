@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -28,7 +28,6 @@ from feishu_webhook_bot.auth.security import (
     validate_password_strength,
     verify_password,
 )
-
 
 # ==============================================================================
 # Password Hashing Tests
@@ -292,6 +291,7 @@ class TestSecurityConfiguration:
         """Test update_security_config updates module variables."""
         # Save original values
         from feishu_webhook_bot.auth import security
+
         original_key = security.SECRET_KEY
         original_algo = security.ALGORITHM
         original_expire = security.ACCESS_TOKEN_EXPIRE_MINUTES

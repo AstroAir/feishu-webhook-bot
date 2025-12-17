@@ -15,7 +15,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 import yaml
 
 from feishu_webhook_bot.core.validation import (
@@ -26,7 +25,6 @@ from feishu_webhook_bot.core.validation import (
     validate_config_dict,
     validate_yaml_config,
 )
-
 
 # ==============================================================================
 # JSON Schema Generation Tests
@@ -85,9 +83,7 @@ class TestValidateYamlConfig:
             "webhooks": [{"name": "default", "url": "https://example.com/webhook"}],
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -109,9 +105,7 @@ class TestValidateYamlConfig:
 
     def test_validate_invalid_yaml_syntax(self):
         """Test validation with invalid YAML syntax."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("invalid: yaml: syntax: [")
             config_path = f.name
 
@@ -130,9 +124,7 @@ class TestValidateYamlConfig:
             "webhooks": "not a list",  # Should be a list
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -241,9 +233,7 @@ class TestCheckConfigCompleteness:
             "logging": {"level": "INFO"},
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -272,9 +262,7 @@ class TestCheckConfigCompleteness:
             "logging": {"level": "INFO"},
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -291,9 +279,7 @@ class TestCheckConfigCompleteness:
             "webhooks": [{"name": "default", "url": "https://example.com/webhook"}],
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -301,7 +287,9 @@ class TestCheckConfigCompleteness:
             result = check_config_completeness(config_path)
 
             # Should identify optional sections as missing
-            assert len(result["optional_sections"]) > 0 or len(result["missing_optional_fields"]) > 0
+            assert (
+                len(result["optional_sections"]) > 0 or len(result["missing_optional_fields"]) > 0
+            )
         finally:
             Path(config_path).unlink()
 
@@ -320,9 +308,7 @@ class TestSuggestConfigImprovements:
             "webhooks": [{"name": "default", "url": "https://example.com/webhook"}],
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -347,9 +333,7 @@ class TestSuggestConfigImprovements:
             "scheduler": {"enabled": False},
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -367,9 +351,7 @@ class TestSuggestConfigImprovements:
             "logging": {"level": "DEBUG"},
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -388,9 +370,7 @@ class TestSuggestConfigImprovements:
             "automations": [],
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -420,9 +400,7 @@ class TestValidationIntegration:
             "logging": {"level": "INFO"},
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 
@@ -445,7 +423,7 @@ class TestValidationIntegration:
     def test_schema_validates_template(self):
         """Test that generated schema validates template."""
         template = get_config_template()
-        schema = generate_json_schema()
+        generate_json_schema()
 
         # Template should be valid according to schema
         is_valid, errors = validate_config_dict(template)

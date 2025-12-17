@@ -9,7 +9,6 @@ from feishu_webhook_bot.core.config import BotConfig
 from feishu_webhook_bot.tasks import TaskManager
 from feishu_webhook_bot.tasks.executor import TaskExecutor
 from feishu_webhook_bot.tasks.templates import TaskTemplateEngine
-
 from tests.mocks import MockPlugin, MockScheduler
 
 

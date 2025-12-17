@@ -180,9 +180,7 @@ async def demo_rate_limit_handling() -> None:
             """Execute function with rate limiting."""
             # Clean old requests
             current_time = time.time()
-            self.request_times = [
-                t for t in self.request_times if current_time - t < 60
-            ]
+            self.request_times = [t for t in self.request_times if current_time - t < 60]
 
             # Check rate limit
             if len(self.request_times) >= self.requests_per_minute:
@@ -229,7 +227,7 @@ async def demo_timeout_management() -> None:
         try:
             result = await asyncio.wait_for(slow_ai_call(delay), timeout=timeout)
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
     print("Testing timeout behavior:")
@@ -293,21 +291,21 @@ def demo_error_classification() -> None:
     async def call_ai_with_error_handling(prompt: str) -> str:
         try:
             return await ai_agent.run(prompt)
-        
+
         except RateLimitError as e:
             # Wait and retry
             await asyncio.sleep(e.retry_after or 60)
             return await call_ai_with_error_handling(prompt)
-        
+
         except AIServiceUnavailableError:
             # Retry with exponential backoff
             raise  # Let retry decorator handle
-        
+
         except TokenLimitExceededError:
             # Truncate input and retry
             truncated = prompt[:len(prompt) // 2]
             return await call_ai_with_error_handling(truncated)
-        
+
         except ConfigurationError:
             # Cannot recover, re-raise
             raise
@@ -413,7 +411,7 @@ async def demo_adaptive_retry() -> None:
 
         def get_retry_config(self, error: Exception) -> dict[str, Any]:
             """Get retry configuration based on error type."""
-            error_type = type(error).__name__
+            type(error).__name__
 
             if isinstance(error, RateLimitError):
                 return {
@@ -562,7 +560,7 @@ async def demo_real_world_pattern() -> None:
         except Exception as e:
             print(f"    Failed: {e}")
 
-    print(f"\n--- Client Statistics ---")
+    print("\n--- Client Statistics ---")
     stats = client.get_stats()
     for key, value in stats.items():
         if isinstance(value, float):

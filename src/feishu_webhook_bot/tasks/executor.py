@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from datetime import datetime
 from datetime import time as dt_time
 from typing import TYPE_CHECKING, Any
@@ -87,8 +88,8 @@ class TaskExecutor:
             future = executor.submit(func, *args, **kwargs)
             try:
                 return future.result(timeout=timeout)
-            except FutureTimeout:
-                raise TimeoutError(f"Execution timed out after {timeout}s")
+            except FutureTimeout as err:
+                raise TimeoutError(f"Execution timed out after {timeout}s") from err
 
     def can_execute(self) -> tuple[bool, str]:
         """Check if task conditions are met.
@@ -216,9 +217,7 @@ class TaskExecutor:
                             raise TimeoutError(
                                 f"Task {self.task.name} timed out after {task_timeout}s"
                             )
-                        self._execute_with_timeout(
-                            self._execute_action, remaining, action
-                        )
+                        self._execute_with_timeout(self._execute_action, remaining, action)
                     else:
                         self._execute_action(action)
 
@@ -355,9 +354,7 @@ class TaskExecutor:
             else:
                 sender.send_text(message)
 
-    def _send_rendered_template(
-        self, rendered: RenderedTemplate, webhooks: list[str]
-    ) -> None:
+    def _send_rendered_template(self, rendered: RenderedTemplate, webhooks: list[str]) -> None:
         """Send a rendered template to specified webhooks.
 
         Args:
@@ -386,8 +383,7 @@ class TaskExecutor:
                         sender.send_card(content)
                     else:
                         self.logger.warning(
-                            f"Sender {webhook_name} does not support cards, "
-                            "sending as text"
+                            f"Sender {webhook_name} does not support cards, sending as text"
                         )
                         text = str(content)
                         if isinstance(sender, BaseProvider):
@@ -405,8 +401,7 @@ class TaskExecutor:
                         sender.send_rich_text(title, rich_content, language=language)
                     else:
                         self.logger.warning(
-                            f"Sender {webhook_name} does not support rich text, "
-                            "sending as text"
+                            f"Sender {webhook_name} does not support rich text, sending as text"
                         )
                         text = str(content)
                         if isinstance(sender, BaseProvider):
@@ -422,9 +417,7 @@ class TaskExecutor:
                     else:
                         sender.send_text(text)
 
-                self.logger.debug(
-                    f"Sent {message_type} template to {webhook_name}"
-                )
+                self.logger.debug(f"Sent {message_type} template to {webhook_name}")
 
             except Exception as e:
                 self.logger.error(
@@ -570,11 +563,11 @@ class TaskExecutor:
         timeout = getattr(self.task, "timeout", None) or 30.0
 
         # Import safe modules once
+        import collections as collections_module
         import datetime as datetime_module
         import json as json_module
-        import re as re_module
         import math as math_module
-        import collections as collections_module
+        import re as re_module
         import time as time_module
 
         # Create restricted execution environment
@@ -612,8 +605,9 @@ class TaskExecutor:
             raise RuntimeError("AI agent not available - ensure AI is enabled in bot configuration")
 
         # Import here to avoid circular dependency
-        from ..ai.task_integration import execute_ai_task_action
         import concurrent.futures
+
+        from ..ai.task_integration import execute_ai_task_action
 
         # Execute AI action with proper async handling
         # Handle both sync and async contexts safely

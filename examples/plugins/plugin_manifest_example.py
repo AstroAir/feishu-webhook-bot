@@ -94,7 +94,7 @@ def demo_manifest_dependencies() -> None:
             PackageDependency(name="pydantic", version=">=2.0.0"),
         ],
         plugin_dependencies=[
-            PluginDependency(name="base-plugin", version=">=1.0.0"),
+            PluginDependency(plugin_name="base-plugin", min_version="1.0.0"),
         ],
     )
 
@@ -105,7 +105,8 @@ def demo_manifest_dependencies() -> None:
 
     print("\n  Plugin dependencies:")
     for dep in manifest.plugin_dependencies:
-        print(f"    - {dep.name}{dep.version}")
+        version_str = f">={dep.min_version}" if dep.min_version else ""
+        print(f"    - {dep.plugin_name}{version_str}")
 
 
 def demo_plugin_permissions() -> None:
@@ -198,6 +199,7 @@ def main() -> None:
         except Exception as e:
             print(f"\nDemo {i} ({name}) failed with error: {e}")
             import traceback
+
             traceback.print_exc()
 
     print("\n" + "=" * 60)

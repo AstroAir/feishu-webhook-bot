@@ -81,7 +81,7 @@ def demo_basic_tracking() -> None:
     # Get message status
     message = tracker.get_message(message_id)
     if message:
-        print(f"\nMessage details:")
+        print("\nMessage details:")
         print(f"  Status: {message.status.value}")
         print(f"  Provider: {message.provider}")
         print(f"  Target: {message.target}")
@@ -485,9 +485,7 @@ def demo_real_world_pattern() -> None:
                 self.tracker.update_status(msg_id, MessageStatus.DELIVERED)
                 return msg_id, True
             else:
-                self.tracker.update_status(
-                    msg_id, MessageStatus.FAILED, error="Simulated failure"
-                )
+                self.tracker.update_status(msg_id, MessageStatus.FAILED, error="Simulated failure")
                 return msg_id, False
 
         def retry_failed(self) -> int:

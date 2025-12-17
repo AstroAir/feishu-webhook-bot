@@ -48,9 +48,7 @@ class TestFeishuPermissionChecker:
             },
         }
 
-        result = FeishuPermissionChecker.parse_permission_error(
-            response_data, "cli_test123"
-        )
+        result = FeishuPermissionChecker.parse_permission_error(response_data, "cli_test123")
 
         assert result is not None
         assert result.code == PERMISSION_DENIED_CODE
@@ -66,9 +64,7 @@ class TestFeishuPermissionChecker:
             "msg": "Invalid app",
         }
 
-        result = FeishuPermissionChecker.parse_permission_error(
-            response_data, "cli_test123"
-        )
+        result = FeishuPermissionChecker.parse_permission_error(response_data, "cli_test123")
 
         assert result is None
 
@@ -80,9 +76,7 @@ class TestFeishuPermissionChecker:
             "error": {},
         }
 
-        result = FeishuPermissionChecker.parse_permission_error(
-            response_data, "cli_test123"
-        )
+        result = FeishuPermissionChecker.parse_permission_error(response_data, "cli_test123")
 
         assert result is not None
         # Should use default permissions

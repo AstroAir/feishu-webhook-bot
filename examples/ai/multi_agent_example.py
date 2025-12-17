@@ -13,7 +13,6 @@ The multi-agent system enables complex task decomposition and parallel processin
 """
 
 import asyncio
-import os
 from typing import Any
 
 from feishu_webhook_bot.core import LoggingConfig, get_logger, setup_logging
@@ -58,7 +57,7 @@ def demo_specialized_agent() -> None:
     agent = SpecializedAgent(
         name="code_reviewer",
         role="Code Review Expert",
-        system_prompt="""You are an expert code reviewer. 
+        system_prompt="""You are an expert code reviewer.
         Analyze code for:
         - Best practices
         - Potential bugs
@@ -68,7 +67,7 @@ def demo_specialized_agent() -> None:
         model="openai:gpt-4o",
     )
 
-    print(f"Created specialized agent:")
+    print("Created specialized agent:")
     print(f"  Name: {agent.name}")
     print(f"  Role: {agent.role}")
     print(f"  Model: {agent.model}")
@@ -89,19 +88,19 @@ def demo_prebuilt_agents() -> None:
 
     # SearchAgent - for information retrieval
     search_agent = SearchAgent(model="openai:gpt-4o")
-    print(f"SearchAgent:")
+    print("SearchAgent:")
     print(f"  Name: {search_agent.name}")
     print(f"  Role: {search_agent.role}")
 
     # AnalysisAgent - for data analysis
     analysis_agent = AnalysisAgent(model="openai:gpt-4o")
-    print(f"\nAnalysisAgent:")
+    print("\nAnalysisAgent:")
     print(f"  Name: {analysis_agent.name}")
     print(f"  Role: {analysis_agent.role}")
 
     # ResponseAgent - for generating responses
     response_agent = ResponseAgent(model="openai:gpt-4o")
-    print(f"\nResponseAgent:")
+    print("\nResponseAgent:")
     print(f"  Name: {response_agent.name}")
     print(f"  Role: {response_agent.role}")
 
@@ -223,7 +222,7 @@ async def demo_orchestrator_setup() -> None:
     print(f"  Orchestration mode: {config.orchestration_mode}")
 
     # Create orchestrator
-    orchestrator = AgentOrchestrator(config)
+    AgentOrchestrator(config)
 
     print("\nAgentOrchestrator created")
     print("Orchestration modes available:")
@@ -251,7 +250,7 @@ async def demo_sequential_orchestration() -> None:
     │   Search    │ ──> │  Analysis   │ ──> │  Response   │
     │   Agent     │     │   Agent     │     │   Agent     │
     └─────────────┘     └─────────────┘     └─────────────┘
-    
+
     1. Search Agent finds relevant information
     2. Analysis Agent processes and summarizes
     3. Response Agent generates final output
@@ -296,7 +295,7 @@ async def demo_concurrent_orchestration() -> None:
                 │   ┌─────────────┐  │
                 └──>│  Agent C    │──┘
                     └─────────────┘
-    
+
     All agents run in parallel, results are aggregated.
     """)
 
@@ -355,7 +354,7 @@ async def demo_hierarchical_orchestration() -> None:
        ┌────┴────┐      ┌────┴────┐      ┌────┴────┐
        │ Workers │      │ Workers │      │ Workers │
        └─────────┘      └─────────┘      └─────────┘
-    
+
     Coordinator delegates to team leads, who manage workers.
     """)
 
@@ -411,7 +410,7 @@ async def demo_error_handling() -> None:
                     return result
             except Exception as e:
                 logger.warning(f"Attempt {attempt + 1} failed: {e}")
-        
+
         # Fallback to simpler agent
         return await fallback_agent.process(task)
     """)

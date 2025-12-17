@@ -53,9 +53,7 @@ def build_providers_page(controller: BotController, state: dict[str, Any] | None
         feishu_count = len([p for p in msg_providers if p.get("provider_type") == "feishu"])
         with ui.card().classes("p-3 sm:p-4 bg-purple-50 border border-purple-100 rounded-xl"):
             with ui.column().classes("items-center gap-1"):
-                ui.label(str(feishu_count)).classes(
-                    "text-xl sm:text-2xl font-bold text-purple-600"
-                )
+                ui.label(str(feishu_count)).classes("text-xl sm:text-2xl font-bold text-purple-600")
                 ui.label(t("providers.feishu_count")).classes(
                     "text-xs sm:text-sm text-purple-700 text-center"
                 )
@@ -64,9 +62,7 @@ def build_providers_page(controller: BotController, state: dict[str, Any] | None
         qq_count = len([p for p in msg_providers if p.get("provider_type") == "napcat"])
         with ui.card().classes("p-3 sm:p-4 bg-orange-50 border border-orange-100 rounded-xl"):
             with ui.column().classes("items-center gap-1"):
-                ui.label(str(qq_count)).classes(
-                    "text-xl sm:text-2xl font-bold text-orange-600"
-                )
+                ui.label(str(qq_count)).classes("text-xl sm:text-2xl font-bold text-orange-600")
                 ui.label(t("providers.qq_count")).classes(
                     "text-xs sm:text-sm text-orange-700 text-center"
                 )
@@ -106,36 +102,41 @@ def build_providers_page(controller: BotController, state: dict[str, Any] | None
 
             # Add provider buttons
             with ui.row().classes("gap-2 mt-3"):
+
                 def add_feishu_provider() -> None:
-                    msg_providers_cfg.append({
-                        "provider_type": "feishu",
-                        "name": f"feishu_{len(msg_providers_cfg) + 1}",
-                        "enabled": True,
-                        "webhook_url": "",
-                        "secret": "",
-                        "timeout": 30,
-                    })
+                    msg_providers_cfg.append(
+                        {
+                            "provider_type": "feishu",
+                            "name": f"feishu_{len(msg_providers_cfg) + 1}",
+                            "enabled": True,
+                            "webhook_url": "",
+                            "secret": "",
+                            "timeout": 30,
+                        }
+                    )
                     rebuild_msg_provider_config()
 
                 def add_qq_provider() -> None:
-                    msg_providers_cfg.append({
-                        "provider_type": "napcat",
-                        "name": f"qq_{len(msg_providers_cfg) + 1}",
-                        "enabled": True,
-                        "http_url": "",
-                        "access_token": "",
-                        "bot_qq": "",
-                        "default_target": "",
-                        "timeout": 30,
-                    })
+                    msg_providers_cfg.append(
+                        {
+                            "provider_type": "napcat",
+                            "name": f"qq_{len(msg_providers_cfg) + 1}",
+                            "enabled": True,
+                            "http_url": "",
+                            "access_token": "",
+                            "bot_qq": "",
+                            "default_target": "",
+                            "timeout": 30,
+                        }
+                    )
                     rebuild_msg_provider_config()
 
                 ui.button(
                     t("providers.add_feishu"), on_click=add_feishu_provider, icon="chat"
                 ).props("outline color=blue")
-                ui.button(
-                    t("providers.add_qq"), on_click=add_qq_provider, icon="forum"
-                ).props("outline color=green")
+                ui.button(t("providers.add_qq"), on_click=add_qq_provider, icon="forum").props(
+                    "outline color=green"
+                )
 
     # Active providers status
     _build_active_providers_section(controller)
@@ -160,30 +161,24 @@ def _build_provider_card(
             with ui.row().classes("items-center gap-2"):
                 icon = "chat" if is_feishu else "forum"
                 ui.icon(icon).classes(f"text-{border_color}-600")
-                ui.chip(
-                    "飞书" if is_feishu else "QQ/Napcat",
-                    color=border_color
-                ).props("dense")
+                ui.chip("飞书" if is_feishu else "QQ/Napcat", color=border_color).props("dense")
                 ui.label(provider.get("name", "")).classes("font-medium")
 
             def remove_provider(i: int = idx) -> None:
                 providers_list.pop(i)
                 rebuild_callback()
 
-            ui.button(icon="delete", on_click=remove_provider).props(
-                "flat round color=red dense"
-            )
+            ui.button(icon="delete", on_click=remove_provider).props("flat round color=red dense")
 
         # Basic settings row
         with ui.row().classes("gap-3 w-full mb-2"):
-            ui.input(t("providers.provider_name")).bind_value(
-                provider, "name"
-            ).props("outlined dense").classes("flex-1")
+            ui.input(t("providers.provider_name")).bind_value(provider, "name").props(
+                "outlined dense"
+            ).classes("flex-1")
 
-            ui.select(
-                MESSAGE_PROVIDER_TYPES,
-                label=t("providers.provider_type")
-            ).bind_value(provider, "provider_type").props("outlined dense").classes("w-32")
+            ui.select(MESSAGE_PROVIDER_TYPES, label=t("providers.provider_type")).bind_value(
+                provider, "provider_type"
+            ).props("outlined dense").classes("w-32")
 
             ui.switch(t("providers.enabled")).bind_value(provider, "enabled")
 
@@ -195,39 +190,39 @@ def _build_provider_card(
 
         # Common settings
         with ui.row().classes("gap-3 w-full"):
-            ui.number(
-                t("providers.timeout"), min=1, max=300
-            ).bind_value(provider, "timeout").props("outlined dense").classes("w-32")
+            ui.number(t("providers.timeout"), min=1, max=300).bind_value(provider, "timeout").props(
+                "outlined dense"
+            ).classes("w-32")
 
 
 def _build_feishu_fields(provider: dict[str, Any]) -> None:
     """Build Feishu-specific configuration fields."""
     with ui.row().classes("gap-3 w-full mb-2"):
-        ui.input(t("providers.webhook_url")).bind_value(
-            provider, "webhook_url"
-        ).props("outlined dense").classes("flex-1")
-        ui.input(t("providers.webhook_secret")).bind_value(
-            provider, "secret"
-        ).props("type=password outlined dense").classes("w-48")
+        ui.input(t("providers.webhook_url")).bind_value(provider, "webhook_url").props(
+            "outlined dense"
+        ).classes("flex-1")
+        ui.input(t("providers.webhook_secret")).bind_value(provider, "secret").props(
+            "type=password outlined dense"
+        ).classes("w-48")
 
 
 def _build_napcat_fields(provider: dict[str, Any]) -> None:
     """Build Napcat/QQ-specific configuration fields."""
     with ui.row().classes("gap-3 w-full mb-2"):
-        ui.input(t("providers.http_url")).bind_value(
-            provider, "http_url"
-        ).props("outlined dense").classes("flex-1")
-        ui.input(t("providers.access_token")).bind_value(
-            provider, "access_token"
-        ).props("type=password outlined dense").classes("w-48")
+        ui.input(t("providers.http_url")).bind_value(provider, "http_url").props(
+            "outlined dense"
+        ).classes("flex-1")
+        ui.input(t("providers.access_token")).bind_value(provider, "access_token").props(
+            "type=password outlined dense"
+        ).classes("w-48")
 
     with ui.row().classes("gap-3 w-full mb-2"):
-        ui.input(t("providers.bot_qq")).bind_value(
-            provider, "bot_qq"
-        ).props("outlined dense").classes("w-40")
-        ui.input(t("providers.default_target")).bind_value(
-            provider, "default_target"
-        ).props("outlined dense").classes("flex-1")
+        ui.input(t("providers.bot_qq")).bind_value(provider, "bot_qq").props(
+            "outlined dense"
+        ).classes("w-40")
+        ui.input(t("providers.default_target")).bind_value(provider, "default_target").props(
+            "outlined dense"
+        ).classes("flex-1")
         ui.label(t("providers.target_hint")).classes("text-xs text-gray-400 self-center")
 
 
@@ -248,9 +243,9 @@ def _build_active_providers_section(controller: BotController) -> None:
             ui.label(t("providers.registered_providers")).classes(
                 "text-base sm:text-lg font-semibold text-gray-800"
             )
-            ui.button(
-                icon="refresh", on_click=lambda: rebuild_providers()
-            ).props("flat round dense")
+            ui.button(icon="refresh", on_click=lambda: rebuild_providers()).props(
+                "flat round dense"
+            )
 
         provider_container = ui.column().classes("gap-2 w-full")
 
@@ -308,6 +303,6 @@ def _build_active_provider_row(controller: BotController, provider: dict[str, An
                     ui.notify(f"{t('common.error')}: {e}", type="negative")
 
             ui.button(t("providers.test"), on_click=on_test_provider).props("dense outline")
-            ui.button(
-                t("providers.send_test"), on_click=on_send_test
-            ).props("dense outline color=primary")
+            ui.button(t("providers.send_test"), on_click=on_send_test).props(
+                "dense outline color=primary"
+            )

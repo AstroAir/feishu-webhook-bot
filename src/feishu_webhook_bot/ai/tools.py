@@ -8,11 +8,15 @@ import json
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from duckduckgo_search import DDGS
 
 from ..core.logger import get_logger
+
+if TYPE_CHECKING:
+    from .config import WebSearchConfig
+    from .search import SearchManager
 
 logger = get_logger("ai.tools")
 
@@ -119,8 +123,89 @@ class SearchCache:
         }
 
 
-# Global search cache instance
+# Global search cache instance (legacy, for backward compatibility)
 _search_cache = SearchCache(ttl_minutes=60, max_size=100)
+
+# Global search manager instance
+_search_manager: SearchManager | None = None
+
+
+def get_search_manager() -> SearchManager | None:
+    """Get the global search manager instance.
+
+    Returns:
+        SearchManager instance or None if not initialized
+    """
+    return _search_manager
+
+
+def init_search_manager(config: WebSearchConfig) -> SearchManager:
+    """Initialize the global search manager from configuration.
+
+    Args:
+        config: WebSearchConfig instance
+
+    Returns:
+        Initialized SearchManager
+    """
+    global _search_manager
+
+    from .search import SearchManager
+    from .search.providers import (
+        BingSearchProvider,
+        BraveSearchProvider,
+        DuckDuckGoProvider,
+        ExaSearchProvider,
+        GoogleSearchProvider,
+        TavilySearchProvider,
+    )
+
+    # Create provider instances based on configuration
+    providers = []
+    provider_configs = sorted(config.providers, key=lambda p: p.priority)
+
+    for provider_config in provider_configs:
+        if not provider_config.enabled:
+            continue
+
+        provider_type = provider_config.provider.lower()
+        api_key = provider_config.api_key
+        options = provider_config.options
+
+        try:
+            if provider_type == "duckduckgo":
+                providers.append(DuckDuckGoProvider(**options))
+            elif provider_type == "tavily":
+                providers.append(TavilySearchProvider(api_key=api_key, **options))
+            elif provider_type == "exa":
+                providers.append(ExaSearchProvider(api_key=api_key, **options))
+            elif provider_type == "brave":
+                providers.append(BraveSearchProvider(api_key=api_key, **options))
+            elif provider_type == "bing":
+                providers.append(BingSearchProvider(api_key=api_key, **options))
+            elif provider_type == "google":
+                cx = options.pop("cx", None)
+                providers.append(GoogleSearchProvider(api_key=api_key, cx=cx, **options))
+            else:
+                logger.warning("Unknown search provider type: %s", provider_type)
+        except Exception as exc:
+            logger.error("Failed to initialize provider %s: %s", provider_type, exc)
+
+    # Create search manager
+    _search_manager = SearchManager(
+        providers=providers,
+        enable_cache=config.cache_enabled,
+        cache_ttl_minutes=config.cache_ttl_minutes,
+        enable_failover=config.enable_failover,
+        concurrent_search=config.concurrent_search,
+    )
+
+    logger.info(
+        "Search manager initialized with %d providers",
+        len(providers),
+    )
+
+    return _search_manager
 
 
 class ToolRegistry:
@@ -333,20 +418,22 @@ async def web_search(
     max_results: int = 5,
     use_cache: bool = True,
     max_retries: int = 3,
+    provider: str | None = None,
 ) -> str:
-    """Search the web for information with caching and retry logic.
+    """Search the web for information using configured search providers.
 
-    This function searches the web using DuckDuckGo with the following features:
-    - Result caching to avoid redundant searches
-    - Automatic retry with exponential backoff on failures
-    - Robust error handling and logging
-    - Improved result formatting for AI comprehension
+    This function uses the SearchManager to search across multiple providers with:
+    - Multiple search engine support (DuckDuckGo, Tavily, Exa, Brave, Bing, Google)
+    - Automatic failover between providers
+    - Result caching for performance
+    - Retry logic with exponential backoff
 
     Args:
         query: Search query
-        max_results: Maximum number of results to return (1-20)
+        max_results: Maximum number of results to return (1-50)
         use_cache: Whether to use cached results if available
         max_retries: Maximum number of retry attempts on failure
+        provider: Specific provider to use (None for auto-select)
 
     Returns:
         JSON string with search results, including:
@@ -354,10 +441,15 @@ async def web_search(
         - query: Original search query
         - count: Number of results returned
         - cached: Whether results were from cache
+        - provider: Search provider used
         - timestamp: When the search was performed
     """
     logger.info(
-        "Performing web search: %s (max_results=%d, use_cache=%s)", query, max_results, use_cache
+        "Performing web search: %s (max_results=%d, use_cache=%s, provider=%s)",
+        query,
+        max_results,
+        use_cache,
+        provider,
     )
 
     # Validate and sanitize query
@@ -367,14 +459,68 @@ async def web_search(
         )
 
     query = query.strip()
-    max_results = max(1, min(max_results, 20))  # Clamp to 1-20
+    max_results = max(1, min(max_results, 50))
 
+    # Try to use the new SearchManager if available
+    if _search_manager is not None:
+        try:
+            response = await _search_manager.search(
+                query=query,
+                max_results=max_results,
+                provider=provider,
+                use_cache=use_cache,
+            )
+
+            # Convert SearchResponse to JSON format
+            formatted_results = []
+            for result in response.results:
+                formatted_results.append(
+                    {
+                        "position": result.position,
+                        "title": result.title,
+                        "url": result.url,
+                        "snippet": result.snippet,
+                        "relevance_score": result.relevance_score,
+                        "source": result.source,
+                    }
+                )
+
+            return json.dumps(
+                {
+                    "results": formatted_results,
+                    "query": response.query,
+                    "count": response.count,
+                    "cached": response.cached,
+                    "provider": response.provider,
+                    "timestamp": response.timestamp.isoformat(),
+                    "search_time_ms": response.search_time_ms,
+                },
+                indent=2,
+            )
+
+        except Exception as exc:
+            logger.warning("SearchManager failed, falling back to legacy search: %s", exc)
+            # Fall through to legacy implementation
+
+    # Legacy implementation using DuckDuckGo directly
+    return await _legacy_web_search(query, max_results, use_cache, max_retries)
+
+
+async def _legacy_web_search(
+    query: str,
+    max_results: int = 5,
+    use_cache: bool = True,
+    max_retries: int = 3,
+) -> str:
+    """Legacy web search using DuckDuckGo directly.
+
+    This is the fallback implementation when SearchManager is not initialized.
+    """
     # Check cache first
     if use_cache:
         cached_result = _search_cache.get(query, max_results)
         if cached_result:
             logger.info("Returning cached results for query: %s", query[:50])
-            # Parse and add cached flag
             try:
                 result_data = json.loads(cached_result)
                 result_data["cached"] = True
@@ -386,7 +532,6 @@ async def web_search(
     last_error = None
     for attempt in range(max_retries):
         try:
-            # Run the blocking search in a thread pool
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
                 None, lambda: DDGS().text(query, max_results=max_results)
@@ -400,23 +545,20 @@ async def web_search(
                         "query": query,
                         "count": 0,
                         "cached": False,
+                        "provider": "DuckDuckGo",
                         "timestamp": datetime.now(UTC).isoformat(),
                         "message": "No results found",
                     }
                 )
-                # Cache empty results too to avoid repeated searches
                 if use_cache:
                     _search_cache.set(query, max_results, result)
                 return result
 
-            # Format results with detailed information
             formatted_results = []
             for idx, search_result in enumerate(results, 1):
                 title = search_result.get("title", "").strip()
                 url = search_result.get("href", "").strip()
                 snippet = search_result.get("body", "").strip()
-
-                # Clean up snippet - remove extra whitespace
                 snippet = re.sub(r"\s+", " ", snippet)
 
                 formatted_results.append(
@@ -425,7 +567,7 @@ async def web_search(
                         "title": title,
                         "url": url,
                         "snippet": snippet,
-                        "relevance_score": 1.0 - (idx - 1) * 0.1,  # Simple relevance scoring
+                        "relevance_score": 1.0 - (idx - 1) * 0.1,
                     }
                 )
 
@@ -437,12 +579,12 @@ async def web_search(
                     "query": query,
                     "count": len(formatted_results),
                     "cached": False,
+                    "provider": "DuckDuckGo",
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
                 indent=2,
             )
 
-            # Cache successful results
             if use_cache:
                 _search_cache.set(query, max_results, result)
 
@@ -451,7 +593,6 @@ async def web_search(
         except Exception as exc:
             last_error = exc
             if attempt < max_retries - 1:
-                # Exponential backoff: 1s, 2s, 4s
                 wait_time = 2**attempt
                 logger.warning(
                     "Web search attempt %d/%d failed: %s. Retrying in %ds...",
@@ -466,13 +607,13 @@ async def web_search(
                     "Web search failed after %d attempts: %s", max_retries, exc, exc_info=True
                 )
 
-    # All retries failed
     return json.dumps(
         {
             "error": str(last_error),
             "query": query,
             "count": 0,
             "cached": False,
+            "provider": "DuckDuckGo",
             "timestamp": datetime.now(UTC).isoformat(),
             "message": f"Search failed after {max_retries} attempts: {str(last_error)}",
         }

@@ -155,7 +155,7 @@ async def login(
 
 @router.post("/check-password-strength", response_model=PasswordStrengthResponse)
 async def check_password_strength(
-    password: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1),
 ) -> PasswordStrengthResponse:
     """Check password strength and provide feedback.
 

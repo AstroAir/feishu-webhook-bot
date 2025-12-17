@@ -339,7 +339,7 @@ def demo_concurrent_events() -> None:
                     "http://127.0.0.1:8085/webhook",
                     json={
                         "type": "message",
-                        "message": {"content": f"Message {i+1}"},
+                        "message": {"content": f"Message {i + 1}"},
                     },
                     timeout=5,
                 )
@@ -348,9 +348,9 @@ def demo_concurrent_events() -> None:
             responses = await asyncio.gather(*tasks, return_exceptions=True)
             for i, response in enumerate(responses):
                 if isinstance(response, Exception):
-                    print(f"❌ Event {i+1} failed: {response}")
+                    print(f"❌ Event {i + 1} failed: {response}")
                 else:
-                    print(f"✅ Event {i+1} sent! Status: {response.status_code}")
+                    print(f"✅ Event {i + 1} sent! Status: {response.status_code}")
 
     try:
         asyncio.run(send_events())

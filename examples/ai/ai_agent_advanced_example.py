@@ -24,7 +24,6 @@ from feishu_webhook_bot.ai.agent import AIAgent
 from feishu_webhook_bot.ai.config import AIConfig, MCPConfig, MultiAgentConfig, StreamingConfig
 from feishu_webhook_bot.ai.tools import ai_tool
 
-
 # ==============================================================================
 # Custom Tool Examples
 # ==============================================================================
@@ -245,8 +244,7 @@ async def multi_agent_example():
     try:
         # This will use multi-agent orchestration
         response = await agent.chat(
-            "user_multi",
-            "Research the benefits of AI in healthcare and write a brief summary."
+            "user_multi", "Research the benefits of AI in healthcare and write a brief summary."
         )
         print("\nUser: Research the benefits of AI in healthcare and write a brief summary.")
         print(f"Assistant: {response}")
@@ -394,8 +392,7 @@ async def structured_output_example():
     try:
         # The response will be validated and structured
         response = await agent.chat(
-            "user_struct",
-            "What is the capital of France? Please be confident in your answer."
+            "user_struct", "What is the capital of France? Please be confident in your answer."
         )
         print("\nUser: What is the capital of France?")
         print(f"Assistant: {response}")

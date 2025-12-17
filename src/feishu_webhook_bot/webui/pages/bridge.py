@@ -21,18 +21,23 @@ def build_bridge_page(controller: BotController, state: dict[str, Any] | None = 
     # Get bridge config
     bridge_cfg = None
     if state is not None:
-        bridge_cfg = state["form"].setdefault("message_bridge", {
-            "enabled": False,
-            "rules": [],
-            "default_format": "[{source}] {sender}: {content}",
-            "rate_limit_per_minute": 60,
-            "retry_on_failure": True,
-            "max_retries": 3,
-        })
+        bridge_cfg = state["form"].setdefault(
+            "message_bridge",
+            {
+                "enabled": False,
+                "rules": [],
+                "default_format": "[{source}] {sender}: {content}",
+                "rate_limit_per_minute": 60,
+                "retry_on_failure": True,
+                "max_retries": 3,
+            },
+        )
 
     # Stats cards
     rules_count = len(bridge_cfg.get("rules", [])) if bridge_cfg else 0
-    enabled_rules = len([r for r in bridge_cfg.get("rules", []) if r.get("enabled", True)]) if bridge_cfg else 0
+    enabled_rules = (
+        len([r for r in bridge_cfg.get("rules", []) if r.get("enabled", True)]) if bridge_cfg else 0
+    )
     msg_providers = controller.get_message_provider_list()
 
     with ui.element("div").classes(
@@ -41,9 +46,7 @@ def build_bridge_page(controller: BotController, state: dict[str, Any] | None = 
         # Total rules
         with ui.card().classes("p-3 sm:p-4 bg-blue-50 border border-blue-100 rounded-xl"):
             with ui.column().classes("items-center gap-1"):
-                ui.label(str(rules_count)).classes(
-                    "text-xl sm:text-2xl font-bold text-blue-600"
-                )
+                ui.label(str(rules_count)).classes("text-xl sm:text-2xl font-bold text-blue-600")
                 ui.label(t("bridge.total_rules")).classes(
                     "text-xs sm:text-sm text-blue-700 text-center"
                 )
@@ -51,9 +54,7 @@ def build_bridge_page(controller: BotController, state: dict[str, Any] | None = 
         # Enabled rules
         with ui.card().classes("p-3 sm:p-4 bg-green-50 border border-green-100 rounded-xl"):
             with ui.column().classes("items-center gap-1"):
-                ui.label(str(enabled_rules)).classes(
-                    "text-xl sm:text-2xl font-bold text-green-600"
-                )
+                ui.label(str(enabled_rules)).classes("text-xl sm:text-2xl font-bold text-green-600")
                 ui.label(t("bridge.enabled_rules")).classes(
                     "text-xs sm:text-sm text-green-700 text-center"
                 )
@@ -97,25 +98,19 @@ def build_bridge_page(controller: BotController, state: dict[str, Any] | None = 
                 ui.label(t("bridge.enable_hint")).classes("text-sm text-gray-500")
 
             with ui.row().classes("gap-3 w-full mb-2"):
-                ui.input(t("bridge.default_format")).bind_value(
-                    bridge_cfg, "default_format"
-                ).props("outlined dense").classes("flex-1")
-                ui.label(t("bridge.format_hint")).classes(
-                    "text-xs text-gray-400 self-center"
-                )
+                ui.input(t("bridge.default_format")).bind_value(bridge_cfg, "default_format").props(
+                    "outlined dense"
+                ).classes("flex-1")
+                ui.label(t("bridge.format_hint")).classes("text-xs text-gray-400 self-center")
 
             with ui.row().classes("gap-3 w-full"):
-                ui.number(
-                    t("bridge.rate_limit"), min=1, max=1000
-                ).bind_value(bridge_cfg, "rate_limit_per_minute").props(
-                    "outlined dense"
-                ).classes("w-40")
-                ui.switch(t("bridge.retry_on_failure")).bind_value(
-                    bridge_cfg, "retry_on_failure"
-                )
-                ui.number(
-                    t("bridge.max_retries"), min=0, max=10
-                ).bind_value(bridge_cfg, "max_retries").props("outlined dense").classes("w-32")
+                ui.number(t("bridge.rate_limit"), min=1, max=1000).bind_value(
+                    bridge_cfg, "rate_limit_per_minute"
+                ).props("outlined dense").classes("w-40")
+                ui.switch(t("bridge.retry_on_failure")).bind_value(bridge_cfg, "retry_on_failure")
+                ui.number(t("bridge.max_retries"), min=0, max=10).bind_value(
+                    bridge_cfg, "max_retries"
+                ).props("outlined dense").classes("w-32")
 
         # Bridge rules section
         with ui.column().classes("w-full mb-3 sm:mb-4"):
@@ -149,30 +144,34 @@ def build_bridge_page(controller: BotController, state: dict[str, Any] | None = 
             rebuild_rules()
 
             def add_rule() -> None:
-                rules_list.append({
-                    "name": f"rule_{len(rules_list) + 1}",
-                    "enabled": True,
-                    "description": "",
-                    "source_provider": provider_names[0] if provider_names else "",
-                    "source_chat_type": "all",
-                    "source_chat_ids": [],
-                    "target_provider": provider_names[1] if len(provider_names) > 1 else (provider_names[0] if provider_names else ""),
-                    "target_chat_id": "",
-                    "include_sender_info": True,
-                    "message_prefix": "",
-                    "message_suffix": "",
-                    "forward_images": True,
-                    "forward_at_mentions": False,
-                    "keyword_whitelist": [],
-                    "keyword_blacklist": [],
-                    "sender_whitelist": [],
-                    "sender_blacklist": [],
-                })
+                rules_list.append(
+                    {
+                        "name": f"rule_{len(rules_list) + 1}",
+                        "enabled": True,
+                        "description": "",
+                        "source_provider": provider_names[0] if provider_names else "",
+                        "source_chat_type": "all",
+                        "source_chat_ids": [],
+                        "target_provider": provider_names[1]
+                        if len(provider_names) > 1
+                        else (provider_names[0] if provider_names else ""),
+                        "target_chat_id": "",
+                        "include_sender_info": True,
+                        "message_prefix": "",
+                        "message_suffix": "",
+                        "forward_images": True,
+                        "forward_at_mentions": False,
+                        "keyword_whitelist": [],
+                        "keyword_blacklist": [],
+                        "sender_whitelist": [],
+                        "sender_blacklist": [],
+                    }
+                )
                 rebuild_rules()
 
-            ui.button(
-                t("bridge.add_rule"), on_click=add_rule, icon="add"
-            ).props("outline color=primary").classes("mt-3")
+            ui.button(t("bridge.add_rule"), on_click=add_rule, icon="add").props(
+                "outline color=primary"
+            ).classes("mt-3")
 
 
 def _build_rule_card(
@@ -199,42 +198,39 @@ def _build_rule_card(
 
         # Basic settings
         with ui.row().classes("gap-3 w-full mb-2"):
-            ui.input(t("bridge.rule_name")).bind_value(
-                rule, "name"
-            ).props("outlined dense").classes("w-48")
-            ui.input(t("bridge.description")).bind_value(
-                rule, "description"
-            ).props("outlined dense").classes("flex-1")
+            ui.input(t("bridge.rule_name")).bind_value(rule, "name").props(
+                "outlined dense"
+            ).classes("w-48")
+            ui.input(t("bridge.description")).bind_value(rule, "description").props(
+                "outlined dense"
+            ).classes("flex-1")
 
         # Source configuration
         with ui.expansion(t("bridge.source_config"), icon="input").classes("w-full mb-2"):
             with ui.column().classes("gap-2 p-2"):
                 with ui.row().classes("gap-3 w-full"):
-                    ui.select(
-                        provider_names or [""],
-                        label=t("bridge.source_provider")
-                    ).bind_value(rule, "source_provider").props("outlined dense").classes("flex-1")
-                    ui.select(
-                        ["all", "private", "group"],
-                        label=t("bridge.chat_type")
-                    ).bind_value(rule, "source_chat_type").props("outlined dense").classes("w-32")
+                    ui.select(provider_names or [""], label=t("bridge.source_provider")).bind_value(
+                        rule, "source_provider"
+                    ).props("outlined dense").classes("flex-1")
+                    ui.select(["all", "private", "group"], label=t("bridge.chat_type")).bind_value(
+                        rule, "source_chat_type"
+                    ).props("outlined dense").classes("w-32")
 
-                ui.input(t("bridge.source_chat_ids")).bind_value(
-                    rule, "source_chat_ids_str"
-                ).props("outlined dense").classes("w-full")
+                ui.input(t("bridge.source_chat_ids")).bind_value(rule, "source_chat_ids_str").props(
+                    "outlined dense"
+                ).classes("w-full")
                 ui.label(t("bridge.chat_ids_hint")).classes("text-xs text-gray-400")
 
         # Target configuration
         with ui.expansion(t("bridge.target_config"), icon="output").classes("w-full mb-2"):
             with ui.column().classes("gap-2 p-2"):
                 with ui.row().classes("gap-3 w-full"):
-                    ui.select(
-                        provider_names or [""],
-                        label=t("bridge.target_provider")
-                    ).bind_value(rule, "target_provider").props("outlined dense").classes("flex-1")
-                    ui.input(t("bridge.target_chat_id")).bind_value(
-                        rule, "target_chat_id"
+                    ui.select(provider_names or [""], label=t("bridge.target_provider")).bind_value(
+                        rule, "target_provider"
                     ).props("outlined dense").classes("flex-1")
+                    ui.input(t("bridge.target_chat_id")).bind_value(rule, "target_chat_id").props(
+                        "outlined dense"
+                    ).classes("flex-1")
 
         # Message transformation
         with ui.expansion(t("bridge.message_transform"), icon="transform").classes("w-full mb-2"):
@@ -245,12 +241,12 @@ def _build_rule_card(
                     ui.switch(t("bridge.forward_mentions")).bind_value(rule, "forward_at_mentions")
 
                 with ui.row().classes("gap-3 w-full"):
-                    ui.input(t("bridge.message_prefix")).bind_value(
-                        rule, "message_prefix"
-                    ).props("outlined dense").classes("flex-1")
-                    ui.input(t("bridge.message_suffix")).bind_value(
-                        rule, "message_suffix"
-                    ).props("outlined dense").classes("flex-1")
+                    ui.input(t("bridge.message_prefix")).bind_value(rule, "message_prefix").props(
+                        "outlined dense"
+                    ).classes("flex-1")
+                    ui.input(t("bridge.message_suffix")).bind_value(rule, "message_suffix").props(
+                        "outlined dense"
+                    ).classes("flex-1")
 
         # Filtering
         with ui.expansion(t("bridge.filtering"), icon="filter_list").classes("w-full"):

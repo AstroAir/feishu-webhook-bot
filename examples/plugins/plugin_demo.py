@@ -141,7 +141,7 @@ class ConfigurablePlugin(BasePlugin):
         message = f"""⚙️ Plugin Configuration:
 • API Key: {api_key}
 • Threshold: {threshold}
-• Features: {', '.join(enabled_features) if enabled_features else 'None'}
+• Features: {", ".join(enabled_features) if enabled_features else "None"}
 """
         self.client.send_text(message)
 

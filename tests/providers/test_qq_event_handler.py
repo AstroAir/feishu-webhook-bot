@@ -7,6 +7,7 @@ import pytest
 from feishu_webhook_bot.providers.qq_event_handler import (
     QQEventHandler,
     QQEventMeta,
+    QQEventType,
     create_qq_event_handler,
 )
 
@@ -89,63 +90,85 @@ class TestQQEventHandler:
             "sender": {"nickname": "Alice"},
         }
 
-        msg = await handler.handle_event(payload)
+        msg, notice, request = await handler.handle_event(payload)
 
         assert msg is not None
+        assert notice is None
+        assert request is None
         assert msg.platform == "qq"
         assert msg.chat_type == "group"
         assert msg.content == "Hello"
 
     @pytest.mark.anyio
     async def test_handle_event_notice(self) -> None:
-        """Test handling notice event returns None."""
+        """Test handling notice event returns QQNoticeEvent."""
         handler = QQEventHandler()
         payload = {
             "post_type": "notice",
             "notice_type": "group_increase",
+            "time": 1704067200,
+            "group_id": 111222333,
+            "user_id": 987654321,
         }
 
-        msg = await handler.handle_event(payload)
+        msg, notice, request = await handler.handle_event(payload)
 
         assert msg is None
+        assert notice is not None
+        assert request is None
+        assert notice.event_type == QQEventType.NOTICE_GROUP_INCREASE
+        assert notice.group_id == 111222333
 
     @pytest.mark.anyio
     async def test_handle_event_request(self) -> None:
-        """Test handling request event returns None."""
+        """Test handling request event returns QQRequestEvent."""
         handler = QQEventHandler()
         payload = {
             "post_type": "request",
             "request_type": "friend",
+            "time": 1704067200,
+            "user_id": 987654321,
+            "flag": "test_flag_123",
+            "comment": "Please add me",
         }
 
-        msg = await handler.handle_event(payload)
+        msg, notice, request = await handler.handle_event(payload)
 
         assert msg is None
+        assert notice is None
+        assert request is not None
+        assert request.event_type == QQEventType.REQUEST_FRIEND
+        assert request.user_id == 987654321
+        assert request.flag == "test_flag_123"
 
     @pytest.mark.anyio
     async def test_handle_event_meta_event(self) -> None:
-        """Test handling meta event returns None."""
+        """Test handling meta event returns all None."""
         handler = QQEventHandler()
         payload = {
             "post_type": "meta_event",
             "meta_event_type": "heartbeat",
         }
 
-        msg = await handler.handle_event(payload)
+        msg, notice, request = await handler.handle_event(payload)
 
         assert msg is None
+        assert notice is None
+        assert request is None
 
     @pytest.mark.anyio
     async def test_handle_event_unknown(self) -> None:
-        """Test handling unknown event returns None."""
+        """Test handling unknown event returns all None."""
         handler = QQEventHandler()
         payload = {
             "post_type": "unknown",
         }
 
-        msg = await handler.handle_event(payload)
+        msg, notice, request = await handler.handle_event(payload)
 
         assert msg is None
+        assert notice is None
+        assert request is None
 
     @pytest.mark.anyio
     async def test_handle_private_message(self) -> None:
@@ -161,11 +184,31 @@ class TestQQEventHandler:
             "sender": {"nickname": "Bob"},
         }
 
-        msg = await handler.handle_event(payload)
+        msg, _, _ = await handler.handle_event(payload)
 
         assert msg is not None
         assert msg.chat_type == "private"
         assert msg.chat_id == ""
+
+    @pytest.mark.anyio
+    async def test_handle_message_event_backward_compat(self) -> None:
+        """Test handle_message_event for backward compatibility."""
+        handler = QQEventHandler()
+        payload = {
+            "post_type": "message",
+            "message_type": "group",
+            "time": 1704067200,
+            "user_id": 987654321,
+            "group_id": 111222333,
+            "message_id": 12345,
+            "message": [{"type": "text", "data": {"text": "Test"}}],
+            "sender": {"nickname": "Test"},
+        }
+
+        msg = await handler.handle_message_event(payload)
+
+        assert msg is not None
+        assert msg.content == "Test"
 
     def test_extract_text_from_segments(self) -> None:
         """Test extracting text from message segments."""

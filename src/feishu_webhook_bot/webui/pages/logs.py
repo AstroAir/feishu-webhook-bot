@@ -20,13 +20,15 @@ def build_logs_page(controller: BotController) -> None:
 
     # Get log stats
     log_lines = list(controller.log_lines) if controller.log_lines else []
-    debug_count = len([l for l in log_lines if l[0] == logging.DEBUG])
-    info_count = len([l for l in log_lines if l[0] == logging.INFO])
-    warning_count = len([l for l in log_lines if l[0] == logging.WARNING])
-    error_count = len([l for l in log_lines if l[0] >= logging.ERROR])
+    debug_count = len([line for line in log_lines if line[0] == logging.DEBUG])
+    info_count = len([line for line in log_lines if line[0] == logging.INFO])
+    warning_count = len([line for line in log_lines if line[0] == logging.WARNING])
+    error_count = len([line for line in log_lines if line[0] >= logging.ERROR])
 
     # Stats cards
-    with ui.element("div").classes("grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6 w-full"):
+    with ui.element("div").classes(
+        "grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6 w-full"
+    ):
         # Total logs
         with ui.card().classes("p-3 sm:p-4 bg-blue-50 border border-blue-100 rounded-xl"):
             with ui.column().classes("items-center gap-1"):
@@ -48,7 +50,9 @@ def build_logs_page(controller: BotController) -> None:
         # Warning
         with ui.card().classes("p-3 sm:p-4 bg-orange-50 border border-orange-100 rounded-xl"):
             with ui.column().classes("items-center gap-1"):
-                ui.label(str(warning_count)).classes("text-xl sm:text-2xl font-bold text-orange-600")
+                ui.label(str(warning_count)).classes(
+                    "text-xl sm:text-2xl font-bold text-orange-600"
+                )
                 ui.label("WARNING").classes("text-xs sm:text-sm text-orange-700 text-center")
 
         # Error
@@ -57,30 +61,42 @@ def build_logs_page(controller: BotController) -> None:
                 ui.label(str(error_count)).classes("text-xl sm:text-2xl font-bold text-red-600")
                 ui.label("ERROR").classes("text-xs sm:text-sm text-red-700 text-center")
 
-    with ui.card().classes("w-full p-4 sm:p-6 bg-white border border-gray-200 rounded-xl shadow-sm"):
+    with ui.card().classes(
+        "w-full p-4 sm:p-6 bg-white border border-gray-200 rounded-xl shadow-sm"
+    ):
         # Controls row
         with ui.row().classes("items-center justify-between mb-3 sm:mb-4 w-full flex-wrap gap-2"):
             with ui.row().classes("items-center gap-4"):
-                level_filter = ui.select(
-                    ["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                    value="ALL",
-                    label=t("logs.filter"),
-                ).props("outlined dense").classes("w-40")
+                level_filter = (
+                    ui.select(
+                        ["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+                        value="ALL",
+                        label=t("logs.filter"),
+                    )
+                    .props("outlined dense")
+                    .classes("w-40")
+                )
 
             with ui.row().classes("gap-2"):
+
                 def clear_logs() -> None:
                     controller.log_lines.clear()
 
                 async def export_logs() -> None:
                     text = "\n".join(m for _, m in list(controller.log_lines))
                     from tempfile import NamedTemporaryFile
-                    with NamedTemporaryFile("w", delete=False, suffix=".log", encoding="utf-8") as tmp:
+
+                    with NamedTemporaryFile(
+                        "w", delete=False, suffix=".log", encoding="utf-8"
+                    ) as tmp:
                         tmp.write(text)
                         tmp.flush()
                         ui.download(tmp.name)
 
                 ui.button(t("logs.clear"), on_click=clear_logs, icon="delete_sweep").props("flat")
-                ui.button(t("logs.export"), on_click=export_logs, icon="download").props("flat color=primary")
+                ui.button(t("logs.export"), on_click=export_logs, icon="download").props(
+                    "flat color=primary"
+                )
 
         # Log display area
         log_area = (

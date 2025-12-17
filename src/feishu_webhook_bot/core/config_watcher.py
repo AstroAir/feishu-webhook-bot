@@ -283,17 +283,10 @@ def create_config_watcher(
                 try:
                     from .templates import TemplateRegistry
 
-                    bot_instance.template_registry = TemplateRegistry(
-                        new_config.templates or []
-                    )
+                    bot_instance.template_registry = TemplateRegistry(new_config.templates or [])
                     # Update template_registry reference in task_manager
-                    if (
-                        hasattr(bot_instance, "task_manager")
-                        and bot_instance.task_manager
-                    ):
-                        bot_instance.task_manager.template_registry = (
-                            bot_instance.template_registry
-                        )
+                    if hasattr(bot_instance, "task_manager") and bot_instance.task_manager:
+                        bot_instance.task_manager.template_registry = bot_instance.template_registry
                     components_reloaded.append("templates")
                 except Exception as e:
                     logger.error(f"Failed to reload templates: {e}")
@@ -344,9 +337,7 @@ def create_config_watcher(
     return ConfigWatcher(config_path, reload_callback, reload_delay)
 
 
-def _validate_config_changes(
-    old_config: BotConfig | None, new_config: BotConfig
-) -> list[str]:
+def _validate_config_changes(old_config: BotConfig | None, new_config: BotConfig) -> list[str]:
     """Validate configuration changes and return warnings.
 
     Args:
@@ -367,36 +358,26 @@ def _validate_config_changes(
     removed_webhooks = old_webhooks - new_webhooks
     if removed_webhooks:
         warnings.append(
-            f"Webhooks removed: {', '.join(removed_webhooks)} - "
-            "tasks using these webhooks may fail"
+            f"Webhooks removed: {', '.join(removed_webhooks)} - tasks using these webhooks may fail"
         )
 
     # Check if all webhooks were removed
     if old_webhooks and not new_webhooks:
-        warnings.append(
-            "All webhooks removed - message sending will be unavailable"
-        )
+        warnings.append("All webhooks removed - message sending will be unavailable")
 
     # Check scheduler status change
     old_scheduler = getattr(old_config, "scheduler", None)
     new_scheduler = getattr(new_config, "scheduler", None)
-    if old_scheduler and new_scheduler:
-        if old_scheduler.enabled and not new_scheduler.enabled:
-            warnings.append(
-                "Scheduler disabled - scheduled tasks will stop running"
-            )
+    if old_scheduler and new_scheduler and old_scheduler.enabled and not new_scheduler.enabled:
+        warnings.append("Scheduler disabled - scheduled tasks will stop running")
 
     # Check AI status change
     old_ai = getattr(old_config, "ai", None)
     new_ai = getattr(new_config, "ai", None)
     if old_ai and new_ai:
         if old_ai.enabled and not new_ai.enabled:
-            warnings.append(
-                "AI disabled - AI-powered tasks will fail"
-            )
+            warnings.append("AI disabled - AI-powered tasks will fail")
         elif old_ai.model != new_ai.model:
-            warnings.append(
-                f"AI model changed from {old_ai.model} to {new_ai.model}"
-            )
+            warnings.append(f"AI model changed from {old_ai.model} to {new_ai.model}")
 
     return warnings

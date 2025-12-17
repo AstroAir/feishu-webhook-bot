@@ -57,6 +57,7 @@ def setup_calendar_plugin_example():
     except Exception as e:
         print(f"Error running bot: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -69,9 +70,9 @@ def minimal_calendar_setup():
 
     from feishu_webhook_bot.core.config import (
         BotConfig,
-        WebhookConfig,
         PluginConfig,
         PluginSettings,
+        WebhookConfig,
     )
 
     # Create webhook configuration

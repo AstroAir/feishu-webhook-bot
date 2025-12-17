@@ -1,5 +1,7 @@
 """Tests for AI capabilities."""
 
+from unittest.mock import patch
+
 import pytest
 from pydantic_ai import models
 from pydantic_ai.messages import (
@@ -83,7 +85,7 @@ class TestMultiAgentConfig:
         config = MultiAgentConfig()
         assert config.enabled is False
         assert config.orchestration_mode == "sequential"
-        assert config.max_agents == 3
+        assert config.max_agents == 10
 
     def test_multi_agent_config_custom(self):
         """Test MultiAgentConfig with custom values."""
@@ -191,7 +193,7 @@ class TestAgentOrchestrator:
 
         stats = orchestrator.get_stats()
         assert stats["enabled"] is True
-        assert stats["agent_count"] == 3  # search, analysis, response
+        assert stats["agent_count"] == 10  # all specialized agents
         assert stats["mode"] == "sequential"
 
     async def test_orchestrator_disabled(self):
@@ -206,7 +208,8 @@ class TestAgentOrchestrator:
 class TestAIAgent:
     """Tests for AIAgent features."""
 
-    async def test_ai_agent_with_streaming_config(self):
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    async def test_ai_agent_with_streaming_config(self, mock_planner_agent):
         """Test AIAgent with streaming configuration."""
         config = AIConfig(
             enabled=True,
@@ -221,7 +224,8 @@ class TestAIAgent:
             assert agent.config.streaming.enabled is True
             assert agent.config.streaming.debounce_ms == 50
 
-    async def test_ai_agent_with_mcp_config(self):
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    async def test_ai_agent_with_mcp_config(self, mock_planner_agent):
         """Test AIAgent with MCP configuration."""
         config = AIConfig(
             enabled=True,
@@ -235,7 +239,8 @@ class TestAIAgent:
             assert agent.mcp_client is not None
             assert not agent.mcp_client.is_started()
 
-    async def test_ai_agent_with_multi_agent_config(self):
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    async def test_ai_agent_with_multi_agent_config(self, mock_planner_agent):
         """Test AIAgent with multi-agent configuration."""
         config = AIConfig(
             enabled=True,
@@ -250,7 +255,8 @@ class TestAIAgent:
             stats = agent.orchestrator.get_stats()
             assert stats["enabled"] is False
 
-    async def test_ai_agent_stats(self):
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    async def test_ai_agent_stats(self, mock_planner_agent):
         """Test AIAgent stats with features."""
         config = AIConfig(
             enabled=True,
@@ -274,7 +280,8 @@ class TestAIAgent:
             assert "mcp_stats" in stats
             assert "orchestrator_stats" in stats
 
-    async def test_ai_agent_streaming_chat(self):
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    async def test_ai_agent_streaming_chat(self, mock_planner_agent):
         """Test AIAgent streaming chat with TestModel."""
 
         # Create a custom function model that returns streaming-like responses
@@ -347,7 +354,8 @@ class TestAIExceptions:
         assert exc.config_key == "api_key"
         assert "missing" in str(exc)
 
-    async def test_ai_agent_with_validators(self):
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    async def test_ai_agent_with_validators(self, mock_planner_agent):
         """Test AIAgent with output validators using TestModel."""
         # TestModel will generate valid responses that pass validation
         config = AIConfig(

@@ -18,9 +18,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import time
 from typing import Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import httpx
 import pytest
@@ -37,7 +36,6 @@ from feishu_webhook_bot.core.provider import (
 )
 from feishu_webhook_bot.providers.feishu import FeishuProvider, FeishuProviderConfig
 from feishu_webhook_bot.providers.qq_napcat import NapcatProvider, NapcatProviderConfig
-
 
 # ==============================================================================
 # SendResult Tests
@@ -625,9 +623,7 @@ class TestFeishuProvider:
         result = provider_with_tracker.send_text("Tracked message", "")
 
         mock_tracker.track.assert_called_once()
-        mock_tracker.update_status.assert_called_once_with(
-            result.message_id, MessageStatus.SENT
-        )
+        mock_tracker.update_status.assert_called_once_with(result.message_id, MessageStatus.SENT)
 
         provider_with_tracker.disconnect()
 
@@ -947,7 +943,7 @@ class TestNapcatProviderConfig:
         """Test NapcatProviderConfig requires http_url."""
         config = NapcatProviderConfig(http_url="http://127.0.0.1:3000")
         assert config.http_url == "http://127.0.0.1:3000"
-        assert config.provider_type == "qq_napcat"
+        assert config.provider_type == "napcat"
 
     def test_napcat_config_optional_token(self):
         """Test NapcatProviderConfig optional access_token."""
@@ -1007,7 +1003,7 @@ class TestNapcatProvider:
     def test_napcat_provider_initialization(self, provider, napcat_config):
         """Test NapcatProvider initialization."""
         assert provider.name == "test_napcat"
-        assert provider.provider_type == "qq_napcat"
+        assert provider.provider_type == "napcat"
         assert provider.config.http_url == napcat_config.http_url
         assert provider.is_connected is False
 
@@ -1161,9 +1157,7 @@ class TestNapcatProvider:
         result = provider_with_tracker.send_text("Tracked", "private:123")
 
         mock_tracker.track.assert_called_once()
-        mock_tracker.update_status.assert_called_once_with(
-            result.message_id, MessageStatus.SENT
-        )
+        mock_tracker.update_status.assert_called_once_with(result.message_id, MessageStatus.SENT)
 
         provider_with_tracker.disconnect()
 
@@ -1397,7 +1391,7 @@ class TestProviderIntegration:
         registry.register(napcat_provider)
 
         assert registry.get("feishu_1").provider_type == "feishu"
-        assert registry.get("qq_1").provider_type == "qq_napcat"
+        assert registry.get("qq_1").provider_type == "napcat"
 
     def test_provider_with_shared_tracker(self):
         """Test multiple providers sharing message tracker."""

@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from feishu_webhook_bot.plugins.dependency_checker import (
-    DependencyCheckResult,
     DependencyChecker,
+    DependencyCheckResult,
     DependencyStatus,
 )
 from feishu_webhook_bot.plugins.manifest import (
@@ -111,9 +111,7 @@ class TestDependencyChecker:
         assert status.installed_version == "0.27.2"
 
     @patch("feishu_webhook_bot.plugins.dependency_checker.importlib.metadata.version")
-    def test_check_python_dependency_not_installed(
-        self, mock_version: MagicMock
-    ) -> None:
+    def test_check_python_dependency_not_installed(self, mock_version: MagicMock) -> None:
         """Test checking Python dependency that is not installed."""
         import importlib.metadata
 
@@ -129,9 +127,7 @@ class TestDependencyChecker:
         assert status.install_command is not None
 
     @patch("feishu_webhook_bot.plugins.dependency_checker.importlib.metadata.version")
-    def test_check_python_dependency_version_mismatch(
-        self, mock_version: MagicMock
-    ) -> None:
+    def test_check_python_dependency_version_mismatch(self, mock_version: MagicMock) -> None:
         """Test checking Python dependency with version mismatch."""
         mock_version.return_value = "0.20.0"
 
@@ -144,9 +140,7 @@ class TestDependencyChecker:
         assert "does not satisfy" in status.error
 
     @patch("feishu_webhook_bot.plugins.dependency_checker.importlib.metadata.version")
-    def test_check_python_dependency_no_version_requirement(
-        self, mock_version: MagicMock
-    ) -> None:
+    def test_check_python_dependency_no_version_requirement(self, mock_version: MagicMock) -> None:
         """Test checking Python dependency without version requirement."""
         mock_version.return_value = "1.0.0"
 
@@ -231,9 +225,7 @@ class TestDependencyChecker:
         assert "missing-package" in result.missing_packages
 
     @patch("feishu_webhook_bot.plugins.dependency_checker.importlib.metadata.version")
-    def test_check_manifest_optional_not_counted(
-        self, mock_version: MagicMock
-    ) -> None:
+    def test_check_manifest_optional_not_counted(self, mock_version: MagicMock) -> None:
         """Test that optional dependencies don't affect all_satisfied."""
         import importlib.metadata
 

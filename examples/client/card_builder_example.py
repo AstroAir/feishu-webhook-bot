@@ -344,9 +344,7 @@ def demo_report_template() -> None:
                     builder.add_markdown(f"**{field['title']}:** {field['value']}")
 
             if "metrics" in section:
-                metrics_text = " | ".join(
-                    f"**{k}:** {v}" for k, v in section["metrics"].items()
-                )
+                metrics_text = " | ".join(f"**{k}:** {v}" for k, v in section["metrics"].items())
                 builder.add_markdown(metrics_text)
 
         if footer:

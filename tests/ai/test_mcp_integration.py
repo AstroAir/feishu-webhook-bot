@@ -1,5 +1,8 @@
 """Comprehensive tests for MCP (Model Context Protocol) integration.
 
+This module re-exports tests from the mcp/ subpackage for backward compatibility.
+For new tests, add them to tests/ai/mcp/test_integration.py.
+
 This module tests:
 - MCP client initialization with different transport types
 - Lazy MCP initialization in AIAgent
@@ -15,7 +18,7 @@ import pytest
 
 from feishu_webhook_bot.ai import AIAgent, AIConfig
 from feishu_webhook_bot.ai.config import MCPConfig
-from feishu_webhook_bot.ai.mcp_client import MCP_AVAILABLE, MCPClient
+from feishu_webhook_bot.ai.mcp import MCP_AVAILABLE, MCPClient
 
 # Use anyio for async tests with asyncio backend only
 pytestmark = pytest.mark.anyio(backends=["asyncio"])

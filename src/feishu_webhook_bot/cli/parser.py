@@ -126,8 +126,140 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     send_parser.add_argument("-t", "--text", default="Hello from Feishu Bot!", help="Message text")
     send_parser.add_argument("-s", "--secret", help="Webhook secret (optional)")
 
-    # Plugins command
-    plugins_parser = subparsers.add_parser("plugins", help="List loaded plugins")
+    # Plugins command with subcommands
+    plugins_parser = subparsers.add_parser("plugins", help="Plugin management")
+    plugins_subparsers = plugins_parser.add_subparsers(
+        dest="plugins_command", help="Plugin subcommands"
+    )
+
+    # plugins list (default)
+    plugins_list_parser = plugins_subparsers.add_parser("list", help="List all plugins")
+    plugins_list_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # plugins info <name>
+    plugins_info_parser = plugins_subparsers.add_parser("info", help="Show plugin details")
+    plugins_info_parser.add_argument("plugin_name", help="Plugin name")
+    plugins_info_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # plugins enable <name>
+    plugins_enable_parser = plugins_subparsers.add_parser("enable", help="Enable a plugin")
+    plugins_enable_parser.add_argument("plugin_name", help="Plugin name to enable")
+    plugins_enable_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+    plugins_enable_parser.add_argument(
+        "--save",
+        action="store_true",
+        help="Save enabled state to config file",
+    )
+
+    # plugins disable <name>
+    plugins_disable_parser = plugins_subparsers.add_parser("disable", help="Disable a plugin")
+    plugins_disable_parser.add_argument("plugin_name", help="Plugin name to disable")
+    plugins_disable_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+    plugins_disable_parser.add_argument(
+        "--save",
+        action="store_true",
+        help="Save disabled state to config file",
+    )
+
+    # plugins reload [name]
+    plugins_reload_parser = plugins_subparsers.add_parser("reload", help="Reload plugin(s)")
+    plugins_reload_parser.add_argument(
+        "plugin_name", nargs="?", help="Plugin name (omit to reload all)"
+    )
+    plugins_reload_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # plugins config <name>
+    plugins_config_parser = plugins_subparsers.add_parser(
+        "config", help="View or update plugin configuration"
+    )
+    plugins_config_parser.add_argument("plugin_name", help="Plugin name")
+    plugins_config_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+    plugins_config_parser.add_argument(
+        "--get", metavar="KEY", help="Get a specific configuration value"
+    )
+    plugins_config_parser.add_argument(
+        "--set",
+        metavar="KEY=VALUE",
+        action="append",
+        help="Set configuration value(s). Can be used multiple times.",
+    )
+    plugins_config_parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Reload plugin after updating configuration",
+    )
+
+    # plugins priority <name> <priority>
+    plugins_priority_parser = plugins_subparsers.add_parser(
+        "priority", help="Set plugin loading priority"
+    )
+    plugins_priority_parser.add_argument("plugin_name", help="Plugin name")
+    plugins_priority_parser.add_argument(
+        "priority", type=int, help="Priority value (lower loads first)"
+    )
+    plugins_priority_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # plugins permissions [name]
+    plugins_perms_parser = plugins_subparsers.add_parser(
+        "permissions", help="View or manage plugin permissions"
+    )
+    plugins_perms_parser.add_argument(
+        "plugin_name", nargs="?", help="Plugin name (omit to list all permissions)"
+    )
+    plugins_perms_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+    plugins_perms_parser.add_argument(
+        "--grant", metavar="PERMISSION", help="Grant a permission to the plugin"
+    )
+    plugins_perms_parser.add_argument(
+        "--revoke", metavar="PERMISSION", help="Revoke a permission from the plugin"
+    )
+    plugins_perms_parser.add_argument(
+        "--approve",
+        metavar="PERMISSION",
+        help="Approve a dangerous permission for the plugin",
+    )
+
+    # Also add -c to main plugins parser for backward compatibility
     plugins_parser.add_argument(
         "-c",
         "--config",
@@ -156,11 +288,14 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_chat_parser = ai_subparsers.add_parser("chat", help="Test AI chat")
     ai_chat_parser.add_argument("message", help="Message to send to AI")
     ai_chat_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
     ai_chat_parser.add_argument(
-        "--user-id", default="cli-user",
+        "--user-id",
+        default="cli-user",
         help="User ID for conversation context (default: cli-user)",
     )
 
@@ -168,28 +303,36 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_model_parser = ai_subparsers.add_parser("model", help="Show or switch AI model")
     ai_model_parser.add_argument("model_name", nargs="?", help="Model name to switch to")
     ai_model_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # ai models
     ai_models_parser = ai_subparsers.add_parser("models", help="List available AI models")
     ai_models_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # ai stats
     ai_stats_parser = ai_subparsers.add_parser("stats", help="Show AI usage statistics")
     ai_stats_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # ai tools
     ai_tools_parser = ai_subparsers.add_parser("tools", help="List registered AI tools")
     ai_tools_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -197,25 +340,32 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_clear_parser = ai_subparsers.add_parser("clear", help="Clear conversation history")
     ai_clear_parser.add_argument("user_id", help="User ID to clear history for")
     ai_clear_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # ai mcp
     ai_mcp_parser = ai_subparsers.add_parser("mcp", help="MCP server status")
     ai_mcp_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # ai test
     ai_test_parser = ai_subparsers.add_parser("test", help="Test AI configuration and connection")
     ai_test_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
     ai_test_parser.add_argument(
-        "--message", default="Hello, this is a test message.",
+        "--message",
+        default="Hello, this is a test message.",
         help="Test message to send (default: 'Hello, this is a test message.')",
     )
 
@@ -223,22 +373,29 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_stream_parser = ai_subparsers.add_parser("stream", help="Test AI streaming response")
     ai_stream_parser.add_argument("message", help="Message to send to AI")
     ai_stream_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
     ai_stream_parser.add_argument(
-        "--user-id", default="cli-user",
+        "--user-id",
+        default="cli-user",
         help="User ID for conversation context (default: cli-user)",
     )
 
     # ai conversation - conversation management subcommands
     ai_conv_parser = ai_subparsers.add_parser("conversation", help="Conversation management")
-    ai_conv_subparsers = ai_conv_parser.add_subparsers(dest="conv_command", help="Conversation subcommands")
+    ai_conv_subparsers = ai_conv_parser.add_subparsers(
+        dest="conv_command", help="Conversation subcommands"
+    )
 
     # ai conversation list
     ai_conv_list_parser = ai_conv_subparsers.add_parser("list", help="List active conversations")
     ai_conv_list_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -246,10 +403,14 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_conv_export_parser = ai_conv_subparsers.add_parser("export", help="Export a conversation")
     ai_conv_export_parser.add_argument("user_id", help="User ID of the conversation")
     ai_conv_export_parser.add_argument(
-        "-o", "--output", help="Output file path (default: stdout)",
+        "-o",
+        "--output",
+        help="Output file path (default: stdout)",
     )
     ai_conv_export_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -257,7 +418,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_conv_import_parser = ai_conv_subparsers.add_parser("import", help="Import a conversation")
     ai_conv_import_parser.add_argument("file", help="JSON file to import from")
     ai_conv_import_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -265,26 +428,36 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_conv_delete_parser = ai_conv_subparsers.add_parser("delete", help="Delete a conversation")
     ai_conv_delete_parser.add_argument("user_id", help="User ID of the conversation")
     ai_conv_delete_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # ai conversation details <user_id>
-    ai_conv_details_parser = ai_conv_subparsers.add_parser("details", help="Show conversation details")
+    ai_conv_details_parser = ai_conv_subparsers.add_parser(
+        "details", help="Show conversation details"
+    )
     ai_conv_details_parser.add_argument("user_id", help="User ID of the conversation")
     ai_conv_details_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # ai multi-agent - multi-agent management subcommands
     ai_ma_parser = ai_subparsers.add_parser("multi-agent", help="Multi-agent orchestration")
-    ai_ma_subparsers = ai_ma_parser.add_subparsers(dest="ma_command", help="Multi-agent subcommands")
+    ai_ma_subparsers = ai_ma_parser.add_subparsers(
+        dest="ma_command", help="Multi-agent subcommands"
+    )
 
     # ai multi-agent status
     ai_ma_status_parser = ai_ma_subparsers.add_parser("status", help="Show multi-agent status")
     ai_ma_status_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -292,11 +465,14 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     ai_ma_test_parser = ai_ma_subparsers.add_parser("test", help="Test multi-agent orchestration")
     ai_ma_test_parser.add_argument("message", help="Message to process")
     ai_ma_test_parser.add_argument(
-        "--mode", choices=["sequential", "concurrent", "hierarchical"],
+        "--mode",
+        choices=["sequential", "concurrent", "hierarchical"],
         help="Orchestration mode (default: use config)",
     )
     ai_ma_test_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -309,7 +485,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     # task list
     task_list_parser = task_subparsers.add_parser("list", help="List all tasks")
     task_list_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -317,11 +495,14 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_run_parser = task_subparsers.add_parser("run", help="Run a task immediately")
     task_run_parser.add_argument("task_name", help="Name of the task to run")
     task_run_parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Force run even if task is already running",
     )
     task_run_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -329,7 +510,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_status_parser = task_subparsers.add_parser("status", help="Show task status")
     task_status_parser.add_argument("task_name", help="Name of the task")
     task_status_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -337,7 +520,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_enable_parser = task_subparsers.add_parser("enable", help="Enable a task")
     task_enable_parser.add_argument("task_name", help="Name of the task to enable")
     task_enable_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -345,7 +530,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_disable_parser = task_subparsers.add_parser("disable", help="Disable a task")
     task_disable_parser.add_argument("task_name", help="Name of the task to disable")
     task_disable_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -353,11 +540,15 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_history_parser = task_subparsers.add_parser("history", help="Show task execution history")
     task_history_parser.add_argument("task_name", help="Name of the task")
     task_history_parser.add_argument(
-        "--limit", type=int, default=10,
+        "--limit",
+        type=int,
+        default=10,
         help="Number of history entries to show (default: 10)",
     )
     task_history_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -365,7 +556,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_pause_parser = task_subparsers.add_parser("pause", help="Pause a task")
     task_pause_parser.add_argument("task_name", help="Name of the task to pause")
     task_pause_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -373,29 +566,41 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_resume_parser = task_subparsers.add_parser("resume", help="Resume a paused task")
     task_resume_parser.add_argument("task_name", help="Name of the task to resume")
     task_resume_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # task details <name>
-    task_details_parser = task_subparsers.add_parser("details", help="Show detailed task information")
+    task_details_parser = task_subparsers.add_parser(
+        "details", help="Show detailed task information"
+    )
     task_details_parser.add_argument("task_name", help="Name of the task")
     task_details_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # task stats - Show task statistics
     task_stats_parser = task_subparsers.add_parser("stats", help="Show task statistics summary")
     task_stats_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # task templates - List available task templates
-    task_templates_parser = task_subparsers.add_parser("templates", help="List available task templates")
+    task_templates_parser = task_subparsers.add_parser(
+        "templates", help="List available task templates"
+    )
     task_templates_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -406,50 +611,60 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     task_create_tpl_parser.add_argument("template_name", help="Name of the template to use")
     task_create_tpl_parser.add_argument("task_name", help="Name for the new task")
     task_create_tpl_parser.add_argument(
-        "--params", type=str, default="{}",
+        "--params",
+        type=str,
+        default="{}",
         help="JSON string of parameters to pass to the template (default: {})",
     )
     task_create_tpl_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # task update <name> - Update task configuration
     task_update_parser = task_subparsers.add_parser("update", help="Update task configuration")
     task_update_parser.add_argument("task_name", help="Name of the task to update")
-    task_update_parser.add_argument(
-        "--timeout", type=int, help="Set task timeout in seconds"
-    )
+    task_update_parser.add_argument("--timeout", type=int, help="Set task timeout in seconds")
     task_update_parser.add_argument(
         "--max-concurrent", type=int, help="Set maximum concurrent executions"
     )
+    task_update_parser.add_argument("--priority", type=int, help="Set task priority")
+    task_update_parser.add_argument("--description", type=str, help="Set task description")
     task_update_parser.add_argument(
-        "--priority", type=int, help="Set task priority"
-    )
-    task_update_parser.add_argument(
-        "--description", type=str, help="Set task description"
-    )
-    task_update_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # task reload - Reload all tasks from configuration
-    task_reload_parser = task_subparsers.add_parser("reload", help="Reload all tasks from configuration")
+    task_reload_parser = task_subparsers.add_parser(
+        "reload", help="Reload all tasks from configuration"
+    )
     task_reload_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # task delete <name> - Delete a task
-    task_delete_parser = task_subparsers.add_parser("delete", help="Delete a task from configuration")
+    task_delete_parser = task_subparsers.add_parser(
+        "delete", help="Delete a task from configuration"
+    )
     task_delete_parser.add_argument("task_name", help="Name of the task to delete")
     task_delete_parser.add_argument(
-        "--yes", "-y", action="store_true",
+        "--yes",
+        "-y",
+        action="store_true",
         help="Skip confirmation prompt",
     )
     task_delete_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -464,14 +679,18 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     # scheduler status
     sched_status_parser = scheduler_subparsers.add_parser("status", help="Show scheduler status")
     sched_status_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # scheduler jobs
     sched_jobs_parser = scheduler_subparsers.add_parser("jobs", help="List all scheduled jobs")
     sched_jobs_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -479,7 +698,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     sched_pause_parser = scheduler_subparsers.add_parser("pause", help="Pause a job")
     sched_pause_parser.add_argument("job_id", help="ID of the job to pause")
     sched_pause_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -487,7 +708,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     sched_resume_parser = scheduler_subparsers.add_parser("resume", help="Resume a paused job")
     sched_resume_parser.add_argument("job_id", help="ID of the job to resume")
     sched_resume_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -495,15 +718,21 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     sched_remove_parser = scheduler_subparsers.add_parser("remove", help="Remove a job")
     sched_remove_parser.add_argument("job_id", help="ID of the job to remove")
     sched_remove_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # scheduler trigger <job_id>
-    sched_trigger_parser = scheduler_subparsers.add_parser("trigger", help="Trigger a job immediately")
+    sched_trigger_parser = scheduler_subparsers.add_parser(
+        "trigger", help="Trigger a job immediately"
+    )
     sched_trigger_parser.add_argument("job_id", help="ID of the job to trigger")
     sched_trigger_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -516,11 +745,11 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
 
     # automation list
-    auto_list_parser = automation_subparsers.add_parser(
-        "list", help="List automation rules"
-    )
+    auto_list_parser = automation_subparsers.add_parser("list", help="List automation rules")
     auto_list_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -529,7 +758,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
         "status", help="Show automation engine status"
     )
     auto_status_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -539,17 +770,19 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     auto_trigger_parser.add_argument("rule_name", help="Name of the rule to trigger")
     auto_trigger_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # automation test <name>
-    auto_test_parser = automation_subparsers.add_parser(
-        "test", help="Test an automation rule"
-    )
+    auto_test_parser = automation_subparsers.add_parser("test", help="Test an automation rule")
     auto_test_parser.add_argument("rule_name", help="Name of the rule to test")
     auto_test_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -559,7 +792,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     auto_enable_parser.add_argument("rule_name", help="Name of the rule to enable")
     auto_enable_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -569,7 +804,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     auto_disable_parser.add_argument("rule_name", help="Name of the rule to disable")
     auto_disable_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -579,11 +816,15 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     auto_history_parser.add_argument("rule_name", help="Name of the rule")
     auto_history_parser.add_argument(
-        "--limit", type=int, default=10,
+        "--limit",
+        type=int,
+        default=10,
         help="Number of history entries to show (default: 10)",
     )
     auto_history_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -593,8 +834,110 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     auto_details_parser.add_argument("rule_name", help="Name of the rule")
     auto_details_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation create
+    auto_create_parser = automation_subparsers.add_parser(
+        "create", help="Create a new automation rule (interactive)"
+    )
+    auto_create_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation edit <name>
+    auto_edit_parser = automation_subparsers.add_parser(
+        "edit", help="Edit an existing automation rule"
+    )
+    auto_edit_parser.add_argument("rule_name", help="Name of the rule to edit")
+    auto_edit_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation delete <name>
+    auto_delete_parser = automation_subparsers.add_parser(
+        "delete", help="Delete an automation rule"
+    )
+    auto_delete_parser.add_argument("rule_name", help="Name of the rule to delete")
+    auto_delete_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation run <name> [params...]
+    auto_run_parser = automation_subparsers.add_parser(
+        "run", help="Run an automation rule with parameters"
+    )
+    auto_run_parser.add_argument("rule_name", help="Name of the rule to run")
+    auto_run_parser.add_argument("params", nargs="*", help="Parameters in key=value format")
+    auto_run_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation validate
+    auto_validate_parser = automation_subparsers.add_parser(
+        "validate", help="Validate automation rules configuration"
+    )
+    auto_validate_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation import <file>
+    auto_import_parser = automation_subparsers.add_parser(
+        "import", help="Import automation rules from file"
+    )
+    auto_import_parser.add_argument("import_file", help="Path to import file (YAML/JSON)")
+    auto_import_parser.add_argument(
+        "--overwrite", action="store_true", help="Overwrite existing rules with same name"
+    )
+    auto_import_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation export <file>
+    auto_export_parser = automation_subparsers.add_parser(
+        "export", help="Export automation rules to file"
+    )
+    auto_export_parser.add_argument("export_file", help="Path to export file (YAML/JSON)")
+    auto_export_parser.add_argument(
+        "--rules",
+        nargs="*",
+        dest="rule_names",
+        help="Specific rules to export (exports all if not specified)",
+    )
+    auto_export_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # automation templates
+    auto_templates_parser = automation_subparsers.add_parser(
+        "templates", help="List available workflow templates"
+    )
+    auto_templates_parser.add_argument(
+        "--show-actions", action="store_true", help="Also show available action types"
     )
 
     # =========================================================================
@@ -606,31 +949,31 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
 
     # provider list
-    prov_list_parser = provider_subparsers.add_parser(
-        "list", help="List configured providers"
-    )
+    prov_list_parser = provider_subparsers.add_parser("list", help="List configured providers")
     prov_list_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # provider info <name>
-    prov_info_parser = provider_subparsers.add_parser(
-        "info", help="Show provider details"
-    )
+    prov_info_parser = provider_subparsers.add_parser("info", help="Show provider details")
     prov_info_parser.add_argument("provider_name", help="Name of the provider")
     prov_info_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # provider test <name>
-    prov_test_parser = provider_subparsers.add_parser(
-        "test", help="Test provider connectivity"
-    )
+    prov_test_parser = provider_subparsers.add_parser("test", help="Test provider connectivity")
     prov_test_parser.add_argument("provider_name", help="Name of the provider")
     prov_test_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -640,14 +983,14 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     prov_stats_parser.add_argument("provider_name", help="Name of the provider")
     prov_stats_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # provider send <name> <target> <message>
-    prov_send_parser = provider_subparsers.add_parser(
-        "send", help="Send a message via provider"
-    )
+    prov_send_parser = provider_subparsers.add_parser("send", help="Send a message via provider")
     prov_send_parser.add_argument("provider_name", help="Name of the provider")
     prov_send_parser.add_argument(
         "target",
@@ -655,16 +998,18 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     prov_send_parser.add_argument("message", help="Message text to send")
     prov_send_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # provider status
-    prov_status_parser = provider_subparsers.add_parser(
-        "status", help="Show all providers status"
-    )
+    prov_status_parser = provider_subparsers.add_parser("status", help="Show all providers status")
     prov_status_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -681,36 +1026,38 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
         "status", help="Show bridge status and statistics"
     )
     bridge_status_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # bridge list
-    bridge_list_parser = bridge_subparsers.add_parser(
-        "list", help="List bridge rules"
-    )
+    bridge_list_parser = bridge_subparsers.add_parser("list", help="List bridge rules")
     bridge_list_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # bridge enable <rule_name>
-    bridge_enable_parser = bridge_subparsers.add_parser(
-        "enable", help="Enable a bridge rule"
-    )
+    bridge_enable_parser = bridge_subparsers.add_parser("enable", help="Enable a bridge rule")
     bridge_enable_parser.add_argument("rule_name", help="Name of the rule to enable")
     bridge_enable_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # bridge disable <rule_name>
-    bridge_disable_parser = bridge_subparsers.add_parser(
-        "disable", help="Disable a bridge rule"
-    )
+    bridge_disable_parser = bridge_subparsers.add_parser("disable", help="Disable a bridge rule")
     bridge_disable_parser.add_argument("rule_name", help="Name of the rule to disable")
     bridge_disable_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -720,11 +1067,15 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
     bridge_test_parser.add_argument("rule_name", help="Name of the rule to test")
     bridge_test_parser.add_argument(
-        "-m", "--message", default="Test message from CLI",
+        "-m",
+        "--message",
+        default="Test message from CLI",
         help="Test message content",
     )
     bridge_test_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -737,20 +1088,20 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     )
 
     # message stats
-    msg_stats_parser = message_subparsers.add_parser(
-        "stats", help="Show message statistics"
-    )
+    msg_stats_parser = message_subparsers.add_parser("stats", help="Show message statistics")
     msg_stats_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # message queue status
-    msg_queue_parser = message_subparsers.add_parser(
-        "queue", help="Show message queue status"
-    )
+    msg_queue_parser = message_subparsers.add_parser("queue", help="Show message queue status")
     msg_queue_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -759,7 +1110,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
         "tracker", help="Show message tracker statistics"
     )
     msg_tracker_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -768,7 +1121,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
         "circuit-breaker", help="Show circuit breaker status"
     )
     msg_cb_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -781,7 +1136,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     # chat config
     chat_config_parser = chat_subparsers.add_parser("config", help="Show chat configuration")
     chat_config_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -790,22 +1147,32 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     chat_test_parser.add_argument("platform", choices=["feishu", "qq"], help="Platform to test")
     chat_test_parser.add_argument("message", help="Message to process")
     chat_test_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # chat commands
-    chat_commands_parser = chat_subparsers.add_parser("commands", help="List built-in chat commands")
+    chat_commands_parser = chat_subparsers.add_parser(
+        "commands", help="List built-in chat commands"
+    )
     chat_commands_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # chat broadcast <message>
-    chat_broadcast_parser = chat_subparsers.add_parser("broadcast", help="Broadcast message to all providers")
+    chat_broadcast_parser = chat_subparsers.add_parser(
+        "broadcast", help="Broadcast message to all providers"
+    )
     chat_broadcast_parser.add_argument("message", help="Message to broadcast")
     chat_broadcast_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -813,54 +1180,77 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     # Stage 8: Config system CLI commands
     # =========================================================================
     config_cmd_parser = subparsers.add_parser("config", help="Configuration management")
-    config_subparsers = config_cmd_parser.add_subparsers(dest="config_command", help="Config subcommands")
+    config_subparsers = config_cmd_parser.add_subparsers(
+        dest="config_command", help="Config subcommands"
+    )
 
     # config validate
-    config_validate_parser = config_subparsers.add_parser("validate", help="Validate configuration file")
+    config_validate_parser = config_subparsers.add_parser(
+        "validate", help="Validate configuration file"
+    )
     config_validate_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # config view [section]
     config_view_parser = config_subparsers.add_parser("view", help="View configuration")
     config_view_parser.add_argument(
-        "section", nargs="?",
+        "section",
+        nargs="?",
         help="Configuration section to view (e.g., webhooks, scheduler, ai)",
     )
     config_view_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # config set <key> <value>
     config_set_parser = config_subparsers.add_parser("set", help="Set a configuration value")
-    config_set_parser.add_argument("key", help="Configuration key (dot notation, e.g., logging.level)")
+    config_set_parser.add_argument(
+        "key", help="Configuration key (dot notation, e.g., logging.level)"
+    )
     config_set_parser.add_argument("value", help="Value to set")
     config_set_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # config reload
-    config_reload_parser = config_subparsers.add_parser("reload", help="Reload configuration (requires running bot)")
+    config_reload_parser = config_subparsers.add_parser(
+        "reload", help="Reload configuration (requires running bot)"
+    )
     config_reload_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # config export
     config_export_parser = config_subparsers.add_parser("export", help="Export configuration")
     config_export_parser.add_argument(
-        "-o", "--output", required=True,
+        "-o",
+        "--output",
+        required=True,
         help="Output file path",
     )
     config_export_parser.add_argument(
-        "--format", choices=["yaml", "json"], default="yaml",
+        "--format",
+        choices=["yaml", "json"],
+        default="yaml",
         help="Export format (default: yaml)",
     )
     config_export_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -868,11 +1258,14 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     config_import_parser = config_subparsers.add_parser("import", help="Import configuration")
     config_import_parser.add_argument("input_file", help="Input file to import from")
     config_import_parser.add_argument(
-        "--merge", action="store_true",
+        "--merge",
+        action="store_true",
         help="Merge with existing config instead of replacing",
     )
     config_import_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -887,17 +1280,22 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     auth_register_parser.add_argument("email", help="User email address")
     auth_register_parser.add_argument("username", help="Username")
     auth_register_parser.add_argument(
-        "--password", help="User password (will prompt if not provided)",
+        "--password",
+        help="User password (will prompt if not provided)",
     )
     auth_register_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
     # auth list-users
     auth_list_parser = auth_subparsers.add_parser("list-users", help="List all registered users")
     auth_list_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -905,7 +1303,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     auth_delete_parser = auth_subparsers.add_parser("delete-user", help="Delete a user")
     auth_delete_parser.add_argument("user_id", help="User ID to delete")
     auth_delete_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -913,7 +1313,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     auth_unlock_parser = auth_subparsers.add_parser("unlock", help="Unlock a user account")
     auth_unlock_parser.add_argument("user_id", help="User ID to unlock")
     auth_unlock_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -921,7 +1323,9 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     auth_verify_parser = auth_subparsers.add_parser("verify", help="Verify user email")
     auth_verify_parser.add_argument("user_id", help="User ID to verify")
     auth_verify_parser.add_argument(
-        "-c", "--config", default="config.yaml",
+        "-c",
+        "--config",
+        default="config.yaml",
         help="Path to configuration file (default: config.yaml)",
     )
 
@@ -929,113 +1333,214 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
     # Phase 10: Event Server Commands
     # =========================================================================
     events_parser = subparsers.add_parser("events", help="Event server management commands")
-    events_subparsers = events_parser.add_subparsers(dest="events_command", help="Event server subcommands")
+    events_subparsers = events_parser.add_subparsers(
+        dest="events_command", help="Event server subcommands"
+    )
 
     # events status
     status_parser = events_subparsers.add_parser("status", help="Show event server status")
-    status_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    status_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
 
     # events start
     events_start_parser = events_subparsers.add_parser("start", help="Start the event server")
-    events_start_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    events_start_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
 
     # events stop
     events_stop_parser = events_subparsers.add_parser("stop", help="Stop the event server")
-    events_stop_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    events_stop_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
 
     # events test-webhook
     test_webhook_parser = events_subparsers.add_parser("test-webhook", help="Test webhook endpoint")
-    test_webhook_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    test_webhook_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
     test_webhook_parser.add_argument("type", choices=["feishu", "qq"], help="Provider type to test")
 
     # =========================================================================
     # Phase 11: Logging Commands
     # =========================================================================
     logging_parser = subparsers.add_parser("logging", help="Logging management commands")
-    logging_subparsers = logging_parser.add_subparsers(dest="logging_command", help="Logging subcommands")
+    logging_subparsers = logging_parser.add_subparsers(
+        dest="logging_command", help="Logging subcommands"
+    )
 
     # logging level <level>
     level_parser = logging_subparsers.add_parser("level", help="Set logging level globally")
-    level_parser.add_argument("level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], help="Logging level to set")
-    level_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    level_parser.add_argument(
+        "level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging level to set",
+    )
+    level_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
 
     # logging show
     show_parser = logging_subparsers.add_parser("show", help="Show recent log entries")
-    show_parser.add_argument("--limit", type=int, default=20, help="Number of recent log entries to show (default: 20)")
-    show_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    show_parser.add_argument(
+        "--limit", type=int, default=20, help="Number of recent log entries to show (default: 20)"
+    )
+    show_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
 
     # logging tail
     tail_parser = logging_subparsers.add_parser("tail", help="Follow log file in real-time")
-    tail_parser.add_argument("--follow", action="store_true", help="Keep following the log file (Ctrl+C to stop)")
-    tail_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    tail_parser.add_argument(
+        "--follow", action="store_true", help="Keep following the log file (Ctrl+C to stop)"
+    )
+    tail_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
 
     # =========================================================================
     # Phase 12: Calendar Commands
     # =========================================================================
-    calendar_parser = subparsers.add_parser("calendar", help="Feishu calendar subscription management")
-    calendar_subparsers = calendar_parser.add_subparsers(dest="calendar_command", help="Calendar subcommands")
+    calendar_parser = subparsers.add_parser(
+        "calendar", help="Feishu calendar subscription management"
+    )
+    calendar_subparsers = calendar_parser.add_subparsers(
+        dest="calendar_command", help="Calendar subcommands"
+    )
 
     # calendar setup
-    cal_setup_parser = calendar_subparsers.add_parser("setup", help="Interactive calendar setup wizard")
-    cal_setup_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file")
+    cal_setup_parser = calendar_subparsers.add_parser(
+        "setup", help="Interactive calendar setup wizard"
+    )
+    cal_setup_parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
 
     # calendar test
     cal_test_parser = calendar_subparsers.add_parser("test", help="Test calendar API connection")
-    cal_test_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file")
+    cal_test_parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
     cal_test_parser.add_argument("--app-id", help="Override app_id from config")
     cal_test_parser.add_argument("--app-secret", help="Override app_secret from config")
 
     # calendar list
     cal_list_parser = calendar_subparsers.add_parser("list", help="List available calendars")
-    cal_list_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file")
+    cal_list_parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
 
     # calendar events [calendar_id]
     cal_events_parser = calendar_subparsers.add_parser("events", help="Show upcoming events")
-    cal_events_parser.add_argument("calendar_id", nargs="?", default="primary", help="Calendar ID (default: primary)")
-    cal_events_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file")
-    cal_events_parser.add_argument("--days", type=int, default=7, help="Days ahead to show (default: 7)")
+    cal_events_parser.add_argument(
+        "calendar_id", nargs="?", default="primary", help="Calendar ID (default: primary)"
+    )
+    cal_events_parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
+    cal_events_parser.add_argument(
+        "--days", type=int, default=7, help="Days ahead to show (default: 7)"
+    )
 
     # calendar today [calendar_id]
     cal_today_parser = calendar_subparsers.add_parser("today", help="Show today's events")
-    cal_today_parser.add_argument("calendar_id", nargs="?", default="primary", help="Calendar ID (default: primary)")
-    cal_today_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file")
+    cal_today_parser.add_argument(
+        "calendar_id", nargs="?", default="primary", help="Calendar ID (default: primary)"
+    )
+    cal_today_parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
 
     # calendar status
     cal_status_parser = calendar_subparsers.add_parser("status", help="Show calendar plugin status")
-    cal_status_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file")
+    cal_status_parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
 
     # calendar permissions
-    cal_perms_parser = calendar_subparsers.add_parser("permissions", help="Show required permissions guide")
+    calendar_subparsers.add_parser("permissions", help="Show required permissions guide")
 
     # calendar send-summary
-    cal_summary_parser = calendar_subparsers.add_parser("send-summary", help="Send daily summary now")
-    cal_summary_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file")
+    cal_summary_parser = calendar_subparsers.add_parser(
+        "send-summary", help="Send daily summary now"
+    )
+    cal_summary_parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
     cal_summary_parser.add_argument("--webhook", default="default", help="Webhook name to use")
 
     # =========================================================================
     # Phase 13: Image Upload Commands
     # =========================================================================
     image_parser = subparsers.add_parser("image", help="Image upload management commands")
-    image_subparsers = image_parser.add_subparsers(dest="image_command", help="Image upload subcommands")
+    image_subparsers = image_parser.add_subparsers(
+        dest="image_command", help="Image upload subcommands"
+    )
 
     # image upload <file>
     upload_parser = image_subparsers.add_parser("upload", help="Upload image to Feishu")
     upload_parser.add_argument("file", help="Path to image file to upload")
-    upload_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    upload_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
     upload_parser.add_argument("--app-id", help="Feishu app ID (overrides config)")
     upload_parser.add_argument("--app-secret", help="Feishu app secret (overrides config)")
-    upload_parser.add_argument("--type", choices=["message", "avatar"], default="message", help="Image type (default: message)")
+    upload_parser.add_argument(
+        "--type",
+        choices=["message", "avatar"],
+        default="message",
+        help="Image type (default: message)",
+    )
 
     # image permissions
     perms_parser = image_subparsers.add_parser("permissions", help="Check image upload permissions")
-    perms_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    perms_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
     perms_parser.add_argument("--app-id", help="Feishu app ID (overrides config)")
     perms_parser.add_argument("--app-secret", help="Feishu app secret (overrides config)")
-    perms_parser.add_argument("--auto-fix", action="store_true", help="Automatically open browser to fix permissions")
+    perms_parser.add_argument(
+        "--auto-fix", action="store_true", help="Automatically open browser to fix permissions"
+    )
 
     # image configure
-    config_parser = image_subparsers.add_parser("configure", help="Configure image upload parameters")
-    config_parser.add_argument("-c", "--config", default="config.yaml", help="Path to configuration file (default: config.yaml)")
+    config_parser = image_subparsers.add_parser(
+        "configure", help="Configure image upload parameters"
+    )
+    config_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
     config_parser.add_argument("--app-id", help="Set Feishu app ID in config")
     config_parser.add_argument("--app-secret", help="Set Feishu app secret in config")
     config_parser.add_argument("--timeout", type=float, help="Set request timeout in seconds")

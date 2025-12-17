@@ -1,25 +1,82 @@
 """Example plugin: System Status Monitor.
 
 This plugin monitors system status and sends alerts periodically.
+Demonstrates plugin configuration schema support.
 """
 
 import platform
 from datetime import datetime
 
 import psutil
+from pydantic import Field
 
 from feishu_webhook_bot.core.client import CardBuilder
-from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata
+from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata, PluginPermission
+from feishu_webhook_bot.plugins.config_schema import PluginConfigSchema
+
+
+class SystemMonitorConfig(PluginConfigSchema):
+    """Configuration schema for System Monitor plugin."""
+
+    cpu_threshold: float = Field(
+        default=80.0,
+        description="CPU usage alert threshold (%)",
+        ge=0,
+        le=100,
+    )
+    memory_threshold: float = Field(
+        default=85.0,
+        description="Memory usage alert threshold (%)",
+        ge=0,
+        le=100,
+    )
+    disk_threshold: float = Field(
+        default=90.0,
+        description="Disk usage alert threshold (%)",
+        ge=0,
+        le=100,
+    )
+    report_interval_minutes: int = Field(
+        default=60,
+        description="Status report interval in minutes",
+        ge=1,
+        le=1440,
+    )
+    alert_interval_minutes: int = Field(
+        default=5,
+        description="Alert check interval in minutes",
+        ge=1,
+        le=60,
+    )
+    enable_reports: bool = Field(
+        default=True,
+        description="Enable periodic status reports",
+    )
+    enable_alerts: bool = Field(
+        default=True,
+        description="Enable system alerts",
+    )
 
 
 class SystemMonitorPlugin(BasePlugin):
     """Plugin that monitors system resources and sends periodic reports."""
 
+    # Link configuration schema
+    config_schema = SystemMonitorConfig
+
+    # Declare required permissions
+    PERMISSIONS = [
+        PluginPermission.NETWORK_SEND,  # Send messages via webhook
+        PluginPermission.SYSTEM_INFO,  # Access system information
+        PluginPermission.SCHEDULER_JOBS,  # Register scheduled jobs
+        PluginPermission.CONFIG_READ,  # Read configuration
+    ]
+
     def metadata(self) -> PluginMetadata:
         """Return plugin metadata."""
         return PluginMetadata(
             name="system-monitor",
-            version="1.0.0",
+            version="1.1.0",
             description="Monitors system resources (CPU, memory, disk) and sends periodic reports",
             author="Feishu Bot Team",
             enabled=True,
@@ -28,29 +85,50 @@ class SystemMonitorPlugin(BasePlugin):
     def on_load(self) -> None:
         """Called when plugin is loaded."""
         self.logger.info("System Monitor plugin loaded")
-        self.alert_threshold_cpu = 80.0  # Alert if CPU > 80%
-        self.alert_threshold_memory = 85.0  # Alert if memory > 85%
-        self.alert_threshold_disk = 90.0  # Alert if disk > 90%
+        # Load thresholds from config or use defaults
+        self.alert_threshold_cpu = self.get_config_value("cpu_threshold", 80.0)
+        self.alert_threshold_memory = self.get_config_value("memory_threshold", 85.0)
+        self.alert_threshold_disk = self.get_config_value("disk_threshold", 90.0)
 
     def on_enable(self) -> None:
         """Called when plugin is enabled."""
-        # Send status report every hour
-        self.register_job(
-            self.send_status_report,
-            trigger="cron",
-            minute="0",  # Every hour at :00
-            job_id="system_monitor_hourly",
-        )
+        # Get config values
+        enable_reports = self.get_config_value("enable_reports", True)
+        enable_alerts = self.get_config_value("enable_alerts", True)
+        report_interval = self.get_config_value("report_interval_minutes", 60)
+        alert_interval = self.get_config_value("alert_interval_minutes", 5)
 
-        # Check for alerts every 5 minutes
-        self.register_job(
-            self.check_alerts,
-            trigger="interval",
-            minutes=5,
-            job_id="system_monitor_alerts",
-        )
+        # Send status report based on config
+        if enable_reports:
+            if report_interval == 60:
+                # Every hour at :00
+                self.register_job(
+                    self.send_status_report,
+                    trigger="cron",
+                    minute="0",
+                    job_id="system_monitor_hourly",
+                )
+            else:
+                # Custom interval
+                self.register_job(
+                    self.send_status_report,
+                    trigger="interval",
+                    minutes=report_interval,
+                    job_id="system_monitor_report",
+                )
 
-        self.logger.info("System monitoring scheduled")
+        # Check for alerts based on config
+        if enable_alerts:
+            self.register_job(
+                self.check_alerts,
+                trigger="interval",
+                minutes=alert_interval,
+                job_id="system_monitor_alerts",
+            )
+
+        self.logger.info(
+            f"System monitoring scheduled (reports={enable_reports}, alerts={enable_alerts})"
+        )
 
     def get_system_info(self) -> dict:
         """Get current system information.

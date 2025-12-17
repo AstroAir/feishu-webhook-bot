@@ -157,17 +157,13 @@ def _cmd_calendar_test(args: argparse.Namespace) -> int:
             console.print("[bold red]✗ 连接测试失败[/]\n")
             console.print(f"  错误: {result.get('error', '未知错误')}")
             console.print(f"  令牌有效: {'是' if result.get('token_valid') else '否'}")
-            console.print(
-                f"  日历访问: {'是' if result.get('calendars_accessible') else '否'}"
-            )
+            console.print(f"  日历访问: {'是' if result.get('calendars_accessible') else '否'}")
 
             # Show guidance
             console.print("\n[yellow]请检查以下配置:[/]")
             console.print("  1. App ID 和 App Secret 是否正确")
             console.print("  2. 应用是否已发布并获得日历权限")
-            console.print(
-                "  3. 运行 'feishu-webhook-bot calendar permissions' 查看所需权限"
-            )
+            console.print("  3. 运行 'feishu-webhook-bot calendar permissions' 查看所需权限")
 
             return 1
 
@@ -365,15 +361,11 @@ def _cmd_calendar_status(args: argparse.Namespace) -> int:
 
         configured = status.get("configured", False)
         ready = status.get("ready", False)
-        console.print(
-            f"配置状态: {'[green]已配置[/]' if configured else '[red]未配置[/]'}"
-        )
+        console.print(f"配置状态: {'[green]已配置[/]' if configured else '[red]未配置[/]'}")
         console.print(f"就绪状态: {'[green]就绪[/]' if ready else '[yellow]未就绪[/]'}")
 
         if status.get("missing_config"):
-            console.print(
-                f"\n[yellow]缺少配置项:[/] {', '.join(status['missing_config'])}"
-            )
+            console.print(f"\n[yellow]缺少配置项:[/] {', '.join(status['missing_config'])}")
 
         if status.get("error"):
             console.print(f"\n[red]错误:[/] {status['error']}")

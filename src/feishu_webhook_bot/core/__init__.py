@@ -20,13 +20,6 @@ from .circuit_breaker import (
     circuit_breaker,
 )
 from .client import CardBuilder, FeishuWebhookClient
-from .image_uploader import (
-    FeishuImageUploader,
-    FeishuImageUploaderError,
-    FeishuPermissionChecker,
-    FeishuPermissionDeniedError,
-    create_image_card,
-)
 from .config import (
     AuthConfig,
     BotConfig,
@@ -34,6 +27,13 @@ from .config import (
     LoggingConfig,
     ProviderConfigBase,
     WebhookConfig,
+)
+from .image_uploader import (
+    FeishuImageUploader,
+    FeishuImageUploaderError,
+    FeishuPermissionChecker,
+    FeishuPermissionDeniedError,
+    create_image_card,
 )
 from .logger import get_logger, setup_logging
 from .message_handler import (

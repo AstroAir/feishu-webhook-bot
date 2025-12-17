@@ -12,12 +12,10 @@ This example demonstrates multi-provider orchestration:
 The multi-provider system enables cross-platform messaging from a single bot.
 """
 
-import asyncio
 import os
 from typing import Any
 
 from feishu_webhook_bot.core import (
-    CircuitBreakerConfig,
     LoggingConfig,
     MessageTracker,
     get_logger,
@@ -27,7 +25,6 @@ from feishu_webhook_bot.core.provider import (
     BaseProvider,
     Message,
     MessageType,
-    ProviderConfig,
     ProviderRegistry,
     SendResult,
 )
@@ -50,6 +47,7 @@ def demo_provider_registry() -> None:
 
     # Create registry (Note: ProviderRegistry is deprecated, use dict instead)
     import warnings
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         registry = ProviderRegistry()
@@ -104,6 +102,7 @@ def demo_multi_platform_sending() -> None:
 
         def __init__(self):
             import warnings
+
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 self.registry = ProviderRegistry()
@@ -138,15 +137,11 @@ def demo_multi_platform_sending() -> None:
                     results[name] = False
             return results
 
-        def send_to_specific(
-            self, provider_name: str, message: str, target: str
-        ) -> SendResult:
+        def send_to_specific(self, provider_name: str, message: str, target: str) -> SendResult:
             """Send to a specific provider."""
             provider = self.registry.get(provider_name)
             if not provider:
-                return SendResult(
-                    success=False, error=f"Provider not found: {provider_name}"
-                )
+                return SendResult(success=False, error=f"Provider not found: {provider_name}")
 
             provider.connect()
             return provider.send_text(message, target)
@@ -154,7 +149,7 @@ def demo_multi_platform_sending() -> None:
     messenger = MultiPlatformMessenger()
 
     print("MultiPlatformMessenger created with providers:")
-    for name in messenger.registry.get_all().keys():
+    for name in messenger.registry.get_all():
         print(f"  - {name}")
 
     print("\nUsage:")
@@ -197,9 +192,7 @@ def demo_provider_formatting() -> None:
                         "title": {"tag": "plain_text", "content": title},
                         "template": colors.get(severity, "blue"),
                     },
-                    "elements": [
-                        {"tag": "div", "text": {"tag": "lark_md", "content": content}}
-                    ],
+                    "elements": [{"tag": "div", "text": {"tag": "lark_md", "content": content}}],
                 }
             elif provider_type == "qq_napcat":
                 # QQ CQ code format
@@ -219,9 +212,7 @@ def demo_provider_formatting() -> None:
             if provider_type == "feishu":
                 content = [[{"tag": "text", "text": message}]]
                 if mentions:
-                    content.append(
-                        [{"tag": "at", "user_id": uid} for uid in mentions]
-                    )
+                    content.append([{"tag": "at", "user_id": uid} for uid in mentions])
                 return {
                     "title": "Notification",
                     "content": content,
@@ -401,9 +392,7 @@ def demo_unified_interface() -> None:
             self.registry = ProviderRegistry()
             self.tracker = MessageTracker()
 
-        def register_provider(
-            self, name: str, provider: BaseProvider
-        ) -> None:
+        def register_provider(self, name: str, provider: BaseProvider) -> None:
             """Register a provider."""
             self.registry.register(name, provider)
 
@@ -422,6 +411,7 @@ def demo_unified_interface() -> None:
 
             # Track message
             import uuid
+
             msg_id = str(uuid.uuid4())
             self.tracker.track(
                 message_id=msg_id,
@@ -456,9 +446,7 @@ def demo_unified_interface() -> None:
             if result.success:
                 self.tracker.update_status(msg_id, MessageStatus.DELIVERED)
             else:
-                self.tracker.update_status(
-                    msg_id, MessageStatus.FAILED, error=result.error
-                )
+                self.tracker.update_status(msg_id, MessageStatus.FAILED, error=result.error)
 
             return result
 
@@ -573,9 +561,7 @@ def demo_real_world_setup() -> None:
 
             return results
 
-        def _format_feishu_alert(
-            self, title: str, content: str, severity: str
-        ) -> dict[str, Any]:
+        def _format_feishu_alert(self, title: str, content: str, severity: str) -> dict[str, Any]:
             """Format alert as Feishu card."""
             colors = {"info": "blue", "warning": "orange", "error": "red"}
             return {
@@ -583,9 +569,7 @@ def demo_real_world_setup() -> None:
                     "title": {"tag": "plain_text", "content": title},
                     "template": colors.get(severity, "blue"),
                 },
-                "elements": [
-                    {"tag": "div", "text": {"tag": "lark_md", "content": content}}
-                ],
+                "elements": [{"tag": "div", "text": {"tag": "lark_md", "content": content}}],
             }
 
     print("NotificationHub - Central notification management:")

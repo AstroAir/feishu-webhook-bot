@@ -37,9 +37,12 @@ def webhook_card(item: dict[str, Any], on_remove: Callable[[], None] | None = No
             "grid grid-cols-12 gap-x-2 sm:gap-x-4 gap-y-2 sm:gap-y-3 w-full items-end md:items-center"
         )
         with grid:
-            ui.input(t("general.name"), validation={t("common.required"): lambda v: bool(v and v.strip())}).bind_value(
-                item, "name"
-            ).props("dense outlined").classes("col-span-12 md:col-span-4 lg:col-span-3")
+            ui.input(
+                t("general.name"),
+                validation={t("common.required"): lambda v: bool(v and v.strip())},
+            ).bind_value(item, "name").props("dense outlined").classes(
+                "col-span-12 md:col-span-4 lg:col-span-3"
+            )
             ui.input(
                 t("general.url"),
                 validation={
@@ -72,15 +75,20 @@ def template_card(item: dict[str, Any], on_remove: Callable[[], None] | None = N
     item.setdefault("description", "")
     item.setdefault("content", "")
 
-    with ui.card().classes("w-full p-3 sm:p-4 bg-white rounded-lg border border-gray-200 gap-2 sm:gap-3"):
+    with ui.card().classes(
+        "w-full p-3 sm:p-4 bg-white rounded-lg border border-gray-200 gap-2 sm:gap-3"
+    ):
         with ui.row().classes("items-end gap-2 sm:gap-3 flex-wrap"):
-            ui.input(t("templates.name"), validation={t("common.required"): lambda v: bool(v and v.strip())}).bind_value(
-                item, "name"
-            ).props("dense outlined")
-            ui.select(TEMPLATE_TYPES, label=t("templates.type")).bind_value(item, "type").props("dense outlined")
-            ui.select(["string", "format"], label=t("templates.engine")).bind_value(item, "engine").props(
+            ui.input(
+                t("templates.name"),
+                validation={t("common.required"): lambda v: bool(v and v.strip())},
+            ).bind_value(item, "name").props("dense outlined")
+            ui.select(TEMPLATE_TYPES, label=t("templates.type")).bind_value(item, "type").props(
                 "dense outlined"
             )
+            ui.select(["string", "format"], label=t("templates.engine")).bind_value(
+                item, "engine"
+            ).props("dense outlined")
             ui.input(t("templates.description")).bind_value(item, "description").props(
                 "dense outlined"
             ).classes("grow")
@@ -89,7 +97,9 @@ def template_card(item: dict[str, Any], on_remove: Callable[[], None] | None = N
                     "flat round dense"
                 )
 
-        ui.textarea(t("templates.content")).bind_value(item, "content").classes("w-full").props("outlined auto-grow")
+        ui.textarea(t("templates.content")).bind_value(item, "content").classes("w-full").props(
+            "outlined auto-grow"
+        )
 
 
 def notification_card(item: dict[str, Any], on_remove: Callable[[], None] | None = None) -> None:
@@ -99,15 +109,20 @@ def notification_card(item: dict[str, Any], on_remove: Callable[[], None] | None
     item.setdefault("conditions", [])
     item.setdefault("template", "")
 
-    with ui.card().classes("w-full p-3 sm:p-4 bg-white rounded-lg border border-gray-200 gap-2 sm:gap-3"):
+    with ui.card().classes(
+        "w-full p-3 sm:p-4 bg-white rounded-lg border border-gray-200 gap-2 sm:gap-3"
+    ):
         with ui.row().classes("items-end gap-2 sm:gap-3 flex-wrap"):
-            ui.input(t("notifications.name"), validation={t("common.required"): lambda v: bool(v and v.strip())}).bind_value(
-                item, "name"
+            ui.input(
+                t("notifications.name"),
+                validation={t("common.required"): lambda v: bool(v and v.strip())},
+            ).bind_value(item, "name").props("dense outlined")
+            ui.input(t("notifications.trigger"), placeholder="e.g. event.message").bind_value(
+                item, "trigger"
             ).props("dense outlined")
-            ui.input(t("notifications.trigger"), placeholder="e.g. event.message").bind_value(item, "trigger").props(
+            ui.input(t("notifications.template")).bind_value(item, "template").props(
                 "dense outlined"
             )
-            ui.input(t("notifications.template")).bind_value(item, "template").props("dense outlined")
             if on_remove:
                 ui.button(icon="delete", color="red", on_click=lambda: on_remove()).props(
                     "flat round dense"

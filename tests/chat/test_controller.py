@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from feishu_webhook_bot.ai.commands import CommandResult
 from feishu_webhook_bot.chat.controller import ChatConfig, ChatController
@@ -28,6 +29,7 @@ class StubCommandHandler:
     def __init__(self, response: str) -> None:
         self.called = False
         self.response = response
+        self.conversation_store = None
 
     async def process(self, message: IncomingMessage):
         self.called = True
@@ -40,6 +42,10 @@ class StubAIAgent:
     def __init__(self, reply: str):
         self.reply = reply
         self.calls: list[tuple[str, str]] = []
+        self.conversation_store = None
+
+    def set_conversation_store(self, conversation_store) -> None:
+        self.conversation_store = conversation_store
 
     async def chat(self, user_key: str, content: str) -> str:
         self.calls.append((user_key, content))
@@ -93,7 +99,8 @@ async def test_command_handler_response_sent():
     await controller.handle_incoming(message)
 
     assert handler.called is True
-    assert provider.sent == [("pong", "")]
+    # When chat_id is empty, sender_id is used as fallback target
+    assert provider.sent == [("pong", "u1")]
 
 
 @pytest.mark.anyio
@@ -136,3 +143,19 @@ async def test_broadcast_sends_to_multiple_targets():
     assert provider.sent == [("announcement", "t1"), ("announcement", "t2")]
     assert list(results.keys()) == ["feishu"]
     assert all(r.success for r in results["feishu"])
+
+
+def test_conversation_store_injected_into_components():
+    store = object()
+    ai_agent = StubAIAgent(reply="ok")
+    handler = StubCommandHandler(response="pong")
+
+    controller = ChatController(
+        ai_agent=ai_agent,
+        command_handler=handler,
+        conversation_store=store,
+    )
+
+    assert controller.conversation_store is store
+    assert ai_agent.conversation_store is store
+    assert handler.conversation_store is store

@@ -1,5 +1,8 @@
 """Comprehensive tests for enhanced MCP tool discovery functionality.
 
+This module re-exports tests from the mcp/ subpackage for backward compatibility.
+For new tests, add them to tests/ai/mcp/test_tools.py.
+
 This module tests:
 - discover_tools() method with actual tool discovery
 - call_tool() method for tool execution
@@ -8,11 +11,12 @@ This module tests:
 - Multiple transport type support
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from feishu_webhook_bot.ai.config import MCPConfig
-from feishu_webhook_bot.ai.mcp_client import MCP_AVAILABLE, MCPClient
+from feishu_webhook_bot.ai.mcp import MCP_AVAILABLE, MCPClient
 
 # Use anyio for async tests with asyncio backend only
 pytestmark = pytest.mark.anyio(backends=["asyncio"])
@@ -286,9 +290,7 @@ class TestCallTool:
             try:
                 # Mock a server that raises an error
                 mock_server = MagicMock()
-                mock_server.call_tool = AsyncMock(
-                    side_effect=RuntimeError("Tool execution failed")
-                )
+                mock_server.call_tool = AsyncMock(side_effect=RuntimeError("Tool execution failed"))
 
                 client._servers["error-server"] = {
                     "config": {"name": "error-server"},
