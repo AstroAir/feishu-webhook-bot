@@ -26,3 +26,5 @@ ignore: |
   .git/
   uv.lock
   node_modules/
+  tests/fixtures/
+  tests/core/fixtures/

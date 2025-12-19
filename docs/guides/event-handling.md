@@ -139,15 +139,15 @@ from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata
 class EchoPlugin(BasePlugin):
     def metadata(self) -> PluginMetadata:
         return PluginMetadata(name="echo", version="1.0.0")
-    
+
     def on_enable(self) -> None:
         self.register_event_handler("im.message.receive_v1", self.handle_message)
-    
+
     async def handle_message(self, event: dict) -> None:
         message = event.get("message", {})
         chat_id = message.get("chat_id")
         content = message.get("content", "")
-        
+
         # Echo the message back
         self.client.send_text(f"You said: {content}", chat_id=chat_id)
 ```
@@ -179,18 +179,18 @@ def sync_handler(event: Event):
 @bot.on_event("im.message.receive_v1")
 async def handle_message(event: Event):
     message = event.data.get("message", {})
-    
+
     # Extract message details
     message_id = message.get("message_id")
     chat_id = message.get("chat_id")
     chat_type = message.get("chat_type")  # "p2p" or "group"
     message_type = message.get("message_type")  # "text", "image", etc.
     content = message.get("content")
-    
+
     # Get sender info
     sender = event.data.get("sender", {})
     sender_id = sender.get("sender_id", {}).get("user_id")
-    
+
     # Process based on message type
     if message_type == "text":
         text_content = json.loads(content).get("text", "")
@@ -209,12 +209,12 @@ def parse_message_content(message: dict) -> dict:
     """Parse message content based on type."""
     message_type = message.get("message_type")
     content = message.get("content", "{}")
-    
+
     try:
         parsed = json.loads(content)
     except json.JSONDecodeError:
         parsed = {"raw": content}
-    
+
     return {
         "type": message_type,
         "content": parsed,
@@ -230,13 +230,13 @@ def parse_message_content(message: dict) -> dict:
 async def handle_mention(event: Event):
     message = event.data.get("message", {})
     mentions = message.get("mentions", [])
-    
+
     # Check if bot was mentioned
     bot_mentioned = any(
         m.get("id", {}).get("user_id") == bot.bot_id
         for m in mentions
     )
-    
+
     if bot_mentioned:
         await respond_to_mention(event)
 ```
@@ -249,15 +249,15 @@ async def handle_mention(event: Event):
 @bot.on_event("card.action.trigger")
 async def handle_card_action(event: Event):
     action = event.data.get("action", {})
-    
+
     # Get action details
     action_tag = action.get("tag")  # "button", "select", etc.
     action_value = action.get("value", {})
-    
+
     # Get context
     open_id = event.data.get("open_id")
     open_message_id = event.data.get("open_message_id")
-    
+
     # Handle based on action
     if action_value.get("action") == "approve":
         await handle_approval(action_value.get("request_id"))
@@ -299,7 +299,7 @@ bot.send_card(card)
 async def handle_and_update(event: Event):
     action_value = event.data.get("action", {}).get("value", {})
     message_id = event.data.get("open_message_id")
-    
+
     if action_value.get("action") == "approve":
         # Update the card to show approved status
         updated_card = (
@@ -308,7 +308,7 @@ async def handle_and_update(event: Event):
             .add_markdown("This request has been approved.")
             .build()
         )
-        
+
         await bot.update_card(message_id, updated_card)
 ```
 
@@ -354,7 +354,7 @@ def is_admin_user(event: Event) -> bool:
 async def handle_admin_command(event: Event):
     if not is_admin_user(event):
         return  # Ignore non-admin users
-    
+
     # Process admin command
     await process_admin_command(event)
 ```
@@ -367,7 +367,7 @@ class EventFilters:
     def require_mention(event: Event) -> bool:
         mentions = event.data.get("message", {}).get("mentions", [])
         return len(mentions) > 0
-    
+
     @staticmethod
     def require_text(event: Event) -> bool:
         message_type = event.data.get("message", {}).get("message_type")
@@ -379,7 +379,7 @@ async def handle_mention_text(event: Event):
         return
     if not EventFilters.require_text(event):
         return
-    
+
     # Handle text message with mention
     await process_mention(event)
 ```
@@ -407,7 +407,7 @@ async def handle_with_error_handling(event: Event):
 @bot.on_event_error
 async def global_error_handler(event: Event, error: Exception):
     logger.error(f"Event handling error: {error}", exc_info=True)
-    
+
     # Send error notification
     bot.send_text(
         f"⚠️ Error processing event: {type(error).__name__}",
@@ -498,7 +498,7 @@ async def simulate_message_event(bot: FeishuBot, text: str):
             }
         }
     }
-    
+
     await bot.event_server.handle_event(event)
 ```
 
@@ -533,10 +533,10 @@ processed_events = set()
 @bot.on_event("im.message.receive_v1")
 async def idempotent_handler(event: Event):
     event_id = event.data.get("event_id")
-    
+
     if event_id in processed_events:
         return  # Already processed
-    
+
     processed_events.add(event_id)
     await process_message(event)
 ```
@@ -550,7 +550,7 @@ import asyncio
 async def fast_response_handler(event: Event):
     # Acknowledge quickly
     asyncio.create_task(process_in_background(event))
-    
+
     # Return immediately
     return {"status": "accepted"}
 

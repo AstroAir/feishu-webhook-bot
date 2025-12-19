@@ -48,7 +48,7 @@ templates:
     type: markdown
     content: |
       ## Status Update
-      
+
       **Service:** {service}
       **Status:** {status}
       **Time:** {timestamp}
@@ -115,18 +115,18 @@ templates:
   welcome:
     type: text
     content: "Welcome, {username}!"
-  
+
   # Markdown template
   report:
     type: markdown
     content: |
       # {title}
-      
+
       **Date:** {date}
       **Author:** {author}
-      
+
       {content}
-  
+
   # Card template
   notification:
     type: card
@@ -306,7 +306,7 @@ templates:
     type: markdown
     content: |
       ## Tasks
-      
+
       {tasks_formatted}
 ```
 
@@ -388,16 +388,16 @@ from feishu_webhook_bot.core.client import CardBuilder
 def build_alert_card(level: str, message: str, show_actions: bool = True):
     colors = {"critical": "red", "warning": "yellow", "info": "blue"}
     icons = {"critical": "🚨", "warning": "⚠️", "info": "ℹ️"}
-    
+
     card = (
         CardBuilder()
         .set_header(f"{icons[level]} {level.title()}", template=colors[level])
         .add_markdown(message)
     )
-    
+
     if show_actions:
         card.add_button("Acknowledge", callback="ack")
-    
+
     return card.build()
 ```
 
@@ -437,11 +437,11 @@ templates:
 ```python
 def compose_report_card(title: str, sections: list[dict]) -> dict:
     card = CardBuilder().set_header(title, template="blue")
-    
+
     for section in sections:
         card.add_markdown(f"**{section['title']}**\n{section['content']}")
         card.add_divider()
-    
+
     return card.build()
 ```
 
@@ -454,7 +454,7 @@ from feishu_webhook_bot.core.templates import Template
 
 def create_dynamic_template(fields: list[str]) -> Template:
     field_content = "\n".join(f"**{f}:** {{{f}}}" for f in fields)
-    
+
     return Template(
         name="dynamic",
         type="markdown",
@@ -474,7 +474,7 @@ class AlertTemplateFactory:
     @staticmethod
     def create(level: str, include_actions: bool = True) -> dict:
         colors = {"critical": "red", "warning": "yellow", "info": "blue"}
-        
+
         elements = [
             {"type": "markdown", "content": "{message}"},
             {"type": "divider"},
@@ -483,7 +483,7 @@ class AlertTemplateFactory:
                 {"title": "Source", "value": "{source}"}
             ]}
         ]
-        
+
         if include_actions:
             elements.append({
                 "type": "actions",
@@ -492,7 +492,7 @@ class AlertTemplateFactory:
                     {"type": "button", "text": "Escalate", "callback": "escalate"}
                 ]
             })
-        
+
         return {
             "type": "card",
             "header": {"title": "{title}", "template": colors.get(level, "grey")},
@@ -562,13 +562,13 @@ from feishu_webhook_bot.core.templates import TemplateRegistry
 
 def test_alert_template():
     registry = TemplateRegistry.from_config("config.yaml")
-    
+
     result = registry.render("alert",
         level="WARNING",
         title="Test",
         message="Test message"
     )
-    
+
     assert "WARNING" in str(result)
     assert "Test message" in str(result)
 ```

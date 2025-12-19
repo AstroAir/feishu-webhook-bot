@@ -246,7 +246,7 @@ class MyPlugin(BasePlugin):
             name="my-plugin",
             version="1.0.0",
         )
-    
+
     def on_enable(self) -> None:
         # Register interval job
         self.register_job(
@@ -254,7 +254,7 @@ class MyPlugin(BasePlugin):
             trigger='interval',
             minutes=5,
         )
-        
+
         # Register cron job
         self.register_job(
             self.daily_task,
@@ -262,10 +262,10 @@ class MyPlugin(BasePlugin):
             hour=9,
             minute=0,
         )
-    
+
     def periodic_task(self) -> None:
         self.client.send_text("Periodic update!")
-    
+
     def daily_task(self) -> None:
         self.client.send_text("Good morning!")
 ```
@@ -282,15 +282,15 @@ class MyPlugin(BasePlugin):
             minutes=10,
             job_id='my-custom-job',
         )
-    
+
     def on_disable(self) -> None:
         # Jobs are automatically removed when plugin is disabled
         pass
-    
+
     def pause_job(self) -> None:
         # Pause a specific job
         self.scheduler.pause_job('my-custom-job')
-    
+
     def resume_job(self) -> None:
         # Resume a paused job
         self.scheduler.resume_job('my-custom-job')

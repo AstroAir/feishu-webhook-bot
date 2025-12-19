@@ -97,10 +97,10 @@ from feishu_webhook_bot.ai.tools import tool, ToolRegistry
 )
 def get_weather(location: str) -> str:
     """Get weather information.
-    
+
     Args:
         location: City name or coordinates
-    
+
     Returns:
         Weather description
     """
@@ -118,11 +118,11 @@ def get_weather(location: str) -> str:
 )
 async def search_database(query: str, limit: int = 10) -> list[dict]:
     """Search database records.
-    
+
     Args:
         query: Search query
         limit: Maximum results to return
-    
+
     Returns:
         List of matching records
     """
@@ -222,22 +222,22 @@ if registry.is_enabled("web_search"):
 ai:
   tools:
     enabled: true
-    
+
     # Global settings
     timeout: 30
     max_retries: 3
-    
+
     # Per-tool settings
     web_search:
       enabled: true
       max_results: 10
-    
+
     http_request:
       enabled: true
       allowed_domains:
         - "api.example.com"
         - "*.internal.com"
-    
+
     send_message:
       enabled: true
       require_confirmation: false
@@ -284,18 +284,18 @@ result = await registry.execute(
 @tool(name="analyze_and_notify")
 async def analyze_and_notify(data_source: str, threshold: float) -> str:
     """Analyze data and send notification if threshold exceeded."""
-    
+
     # Chain multiple operations
     data = await registry.execute("fetch_data", source=data_source)
     analysis = await registry.execute("analyze", data=data)
-    
+
     if analysis["value"] > threshold:
         await registry.execute(
             "send_message",
             text=f"Alert: Value {analysis['value']} exceeds threshold {threshold}"
         )
         return "Alert sent"
-    
+
     return "No alert needed"
 ```
 
@@ -349,7 +349,7 @@ ai:
       - name: "filesystem"
         command: "npx"
         args: ["-y", "@anthropic/mcp-server-filesystem", "/data"]
-      
+
       - name: "database"
         command: "python"
         args: ["-m", "mcp_server_sqlite", "--db", "data.db"]
@@ -420,16 +420,16 @@ async def call_tool(name: str, arguments: dict):
 )
 async def get_stock_price(ticker: str) -> dict:
     """Get stock price.
-    
+
     Args:
         ticker: Stock ticker symbol (e.g., 'AAPL', 'GOOGL')
-    
+
     Returns:
         Dictionary with price, change, and volume
     """
     if not ticker.isalpha():
         raise ToolError(f"Invalid ticker symbol: {ticker}")
-    
+
     data = await fetch_stock_data(ticker.upper())
     return {
         "ticker": ticker.upper(),
@@ -448,7 +448,7 @@ async def execute_query(query: str) -> list:
     # Sanitize input
     if any(keyword in query.lower() for keyword in ["drop", "delete", "truncate"]):
         raise ToolError("Dangerous query detected")
-    
+
     # Use parameterized queries
     return await db.fetch(query)
 
@@ -459,7 +459,7 @@ async def read_file(path: str) -> str:
     allowed_dirs = ["/data", "/public"]
     if not any(path.startswith(d) for d in allowed_dirs):
         raise ToolError("Access denied")
-    
+
     return await read_file_content(path)
 ```
 

@@ -419,4 +419,3 @@ See the main [README.md](README.md#troubleshooting) for detailed troubleshooting
 - [AI Features Documentation](../ADVANCED_AI_FEATURES.md)
 - [MCP Integration Guide](../docs/MCP_INTEGRATION.md)
 - [API Documentation](../docs/)
-

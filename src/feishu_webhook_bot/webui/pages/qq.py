@@ -98,6 +98,9 @@ def build_qq_page(controller: BotController, state: dict[str, Any] | None = None
     # QQ-Specific Features Section
     _build_qq_features_section(controller)
 
+    # Extended Features Section (NapCat)
+    _build_qq_extended_features(controller)
+
     # Group Management Section
     _build_qq_group_management(controller)
 
@@ -434,6 +437,243 @@ def _build_qq_features_section(controller: BotController) -> None:
                 dialog.open()
 
             status_card.on("click", show_status_dialog)
+
+
+def _build_qq_extended_features(controller: BotController) -> None:
+    """Build QQ extended features section (NapCat APIs)."""
+    build_section_header(t("qq.extended_title"), t("qq.extended_desc"))
+
+    with ui.card().classes(
+        "w-full p-4 sm:p-6 bg-white border border-gray-200 rounded-xl shadow-sm mb-4 sm:mb-6"
+    ):
+        with ui.element("div").classes("grid grid-cols-2 sm:grid-cols-4 gap-3"):
+            # AI Voice
+            _build_feature_card(
+                "record_voice_over",
+                "purple",
+                t("qq.feature_ai_voice"),
+                lambda: _show_ai_voice_dialog(controller),
+            )
+            # Message History
+            _build_feature_card(
+                "history",
+                "blue",
+                t("qq.feature_msg_history"),
+                lambda: _show_msg_history_dialog(controller),
+            )
+            # Group Notice
+            _build_feature_card(
+                "campaign", "green", t("qq.feature_notice"), lambda: _show_notice_dialog(controller)
+            )
+            # OCR
+            _build_feature_card(
+                "document_scanner",
+                "orange",
+                t("qq.feature_ocr"),
+                lambda: _show_ocr_dialog(controller),
+            )
+
+
+def _build_feature_card(icon: str, color: str, label: str, on_click: Any) -> None:
+    """Build a clickable feature card."""
+    card = ui.card().classes(
+        f"p-3 bg-{color}-50 border border-{color}-200 rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+    )
+    with card, ui.column().classes("items-center gap-2"):
+        ui.icon(icon, size="md").classes(f"text-{color}-600")
+        ui.label(label).classes("text-sm font-medium text-center")
+    card.on("click", on_click)
+
+
+async def _show_ai_voice_dialog(controller: BotController) -> None:
+    """Show AI voice dialog."""
+    with ui.dialog() as dialog, ui.card().classes("p-4 w-96"):
+        ui.label(t("qq.ai_voice_title")).classes("text-lg font-semibold mb-3")
+        group_input = (
+            ui.input(t("qq.group_id"), placeholder="群号")
+            .props("outlined dense")
+            .classes("w-full mb-2")
+        )
+        char_select = (
+            ui.select([], label=t("qq.ai_voice_character"))
+            .props("outlined dense")
+            .classes("w-full mb-2")
+        )
+        text_input = (
+            ui.textarea(t("qq.ai_voice_text"), placeholder="输入文本...")
+            .props("outlined")
+            .classes("w-full mb-2")
+        )
+
+        async def load_characters():
+            if group_input.value:
+                try:
+                    chars = controller.qq_get_ai_characters(int(group_input.value))
+                    if chars:
+                        char_select.options = {c.get("id", ""): c.get("name", "") for c in chars}
+                    else:
+                        ui.notify(t("qq.ai_voice_no_characters"), type="warning")
+                except Exception as e:
+                    ui.notify(str(e), type="negative")
+
+        ui.button(t("common.load"), on_click=load_characters).props("flat dense")
+
+        with ui.row().classes("gap-2 justify-end mt-3"):
+            ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+
+            def send_voice():
+                try:
+                    controller.qq_send_ai_voice(
+                        int(group_input.value), char_select.value, text_input.value
+                    )
+                    ui.notify(t("qq.ai_voice_success"), type="positive")
+                    dialog.close()
+                except Exception as e:
+                    ui.notify(str(e), type="negative")
+
+            ui.button(t("qq.ai_voice_send"), on_click=send_voice).props("color=primary")
+    dialog.open()
+
+
+async def _show_msg_history_dialog(controller: BotController) -> None:
+    """Show message history dialog."""
+    with ui.dialog() as dialog, ui.card().classes("p-4 w-[500px]"):
+        ui.label(t("qq.msg_history_title")).classes("text-lg font-semibold mb-3")
+        with ui.row().classes("gap-2 w-full mb-3"):
+            group_input = (
+                ui.input(t("qq.group_id"), placeholder="群号")
+                .props("outlined dense")
+                .classes("flex-1")
+            )
+            count_input = (
+                ui.number(t("qq.msg_history_count"), value=20, min=1, max=100)
+                .props("outlined dense")
+                .classes("w-24")
+            )
+
+        history_container = ui.column().classes("gap-2 w-full max-h-80 overflow-auto")
+
+        def load_history():
+            history_container.clear()
+            with history_container:
+                try:
+                    messages = controller.qq_get_group_msg_history(
+                        int(group_input.value), 0, int(count_input.value)
+                    )
+                    if not messages:
+                        ui.label(t("qq.msg_history_empty")).classes(
+                            "text-gray-400 text-center py-4"
+                        )
+                    else:
+                        for msg in messages:
+                            with ui.row().classes("w-full p-2 bg-gray-50 rounded gap-2"):
+                                sender = msg.get("sender", {})
+                                ui.label(sender.get("nickname", "未知")).classes(
+                                    "font-medium text-sm"
+                                )
+                                content = msg.get("message", [])
+                                text = "".join(
+                                    [
+                                        s.get("data", {}).get("text", "")
+                                        for s in content
+                                        if s.get("type") == "text"
+                                    ]
+                                )
+                                ui.label(text[:100] + ("..." if len(text) > 100 else "")).classes(
+                                    "text-sm text-gray-600 flex-1"
+                                )
+                except Exception as e:
+                    ui.label(str(e)).classes("text-red-500")
+
+        ui.button(t("qq.msg_history_load"), on_click=load_history, icon="history").props(
+            "color=primary"
+        )
+        with history_container:
+            ui.label(t("qq.msg_history_empty")).classes("text-gray-400 text-center py-4")
+
+        with ui.row().classes("gap-2 justify-end mt-3"):
+            ui.button(t("common.close"), on_click=dialog.close).props("flat")
+    dialog.open()
+
+
+async def _show_notice_dialog(controller: BotController) -> None:
+    """Show group notice dialog."""
+    with ui.dialog() as dialog, ui.card().classes("p-4 w-96"):
+        ui.label(t("qq.notice_title")).classes("text-lg font-semibold mb-3")
+        group_input = (
+            ui.input(t("qq.group_id"), placeholder="群号")
+            .props("outlined dense")
+            .classes("w-full mb-2")
+        )
+        content_input = (
+            ui.textarea(t("qq.notice_content"), placeholder="公告内容...")
+            .props("outlined")
+            .classes("w-full mb-2")
+        )
+
+        notice_container = ui.column().classes("gap-2 w-full max-h-60 overflow-auto mb-3")
+
+        def load_notices():
+            notice_container.clear()
+            with notice_container:
+                try:
+                    notices = controller.qq_get_group_notice(int(group_input.value))
+                    if not notices:
+                        ui.label(t("qq.notice_empty")).classes("text-gray-400 text-center py-2")
+                    else:
+                        for notice in notices[:5]:
+                            with ui.card().classes("w-full p-2 bg-gray-50"):
+                                ui.label(notice.get("content", "")[:100]).classes("text-sm")
+                except Exception as e:
+                    ui.label(str(e)).classes("text-red-500")
+
+        ui.button(t("common.load"), on_click=load_notices).props("flat dense")
+
+        with ui.row().classes("gap-2 justify-end"):
+            ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+
+            def send_notice():
+                try:
+                    controller.qq_send_group_notice(int(group_input.value), content_input.value)
+                    ui.notify(t("qq.notice_success"), type="positive")
+                    dialog.close()
+                except Exception as e:
+                    ui.notify(str(e), type="negative")
+
+            ui.button(t("qq.notice_send"), on_click=send_notice).props("color=primary")
+    dialog.open()
+
+
+async def _show_ocr_dialog(controller: BotController) -> None:
+    """Show OCR dialog."""
+    with ui.dialog() as dialog, ui.card().classes("p-4 w-96"):
+        ui.label(t("qq.ocr_title")).classes("text-lg font-semibold mb-3")
+        image_input = (
+            ui.input(t("qq.ocr_image_url"), placeholder="图片URL")
+            .props("outlined dense")
+            .classes("w-full mb-2")
+        )
+
+        result_container = ui.column().classes("gap-2 w-full")
+
+        def perform_ocr():
+            result_container.clear()
+            with result_container:
+                try:
+                    results = controller.qq_ocr_image(image_input.value)
+                    if not results:
+                        ui.label(t("qq.ocr_empty")).classes("text-gray-400")
+                    else:
+                        ui.label(t("qq.ocr_result")).classes("font-medium mb-1")
+                        for item in results:
+                            ui.label(item.get("text", "")).classes("text-sm bg-gray-50 p-2 rounded")
+                except Exception as e:
+                    ui.label(str(e)).classes("text-red-500")
+
+        with ui.row().classes("gap-2 justify-end"):
+            ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+            ui.button(t("qq.ocr_perform"), on_click=perform_ocr).props("color=primary")
+    dialog.open()
 
 
 def _build_qq_group_management(controller: BotController) -> None:

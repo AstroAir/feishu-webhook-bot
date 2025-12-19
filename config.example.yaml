@@ -139,7 +139,7 @@ ai:
   enabled: false
   model: "openai:gpt-4o"
   api_key: "${OPENAI_API_KEY:}"
-  system_prompt: "You are a helpful AI assistant integrated with Feishu. Provide clear, concise, and accurate responses to user queries."
+  system_prompt: "You are a helpful AI assistant integrated with Feishu."
   default_persona: "default"
   personas:
     default:

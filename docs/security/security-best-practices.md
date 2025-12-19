@@ -75,12 +75,12 @@ class SecretManager:
     def __init__(self):
         self.secrets = {}
         self.rotation_interval = 86400  # 24 hours
-    
+
     async def get_secret(self, name: str) -> str:
         if self.should_rotate(name):
             await self.rotate_secret(name)
         return self.secrets[name]
-    
+
     async def rotate_secret(self, name: str):
         # Implement rotation logic
         new_secret = await generate_new_secret()
@@ -131,7 +131,7 @@ def verify_signature(timestamp: str, nonce: str, body: str, signature: str, secr
     # Check timestamp freshness (within 5 minutes)
     if abs(time.time() - int(timestamp)) > 300:
         return False
-    
+
     # Calculate expected signature
     string_to_sign = f"{timestamp}\n{nonce}\n{body}"
     expected = hmac.new(
@@ -139,7 +139,7 @@ def verify_signature(timestamp: str, nonce: str, body: str, signature: str, secr
         string_to_sign.encode(),
         hashlib.sha256
     ).hexdigest()
-    
+
     # Constant-time comparison
     return hmac.compare_digest(expected, signature)
 ```
@@ -153,15 +153,15 @@ async def validate_webhook_request(request: Request):
     # Check content type
     if request.headers.get("content-type") != "application/json":
         raise HTTPException(400, "Invalid content type")
-    
+
     # Check required headers
     timestamp = request.headers.get("X-Lark-Request-Timestamp")
     nonce = request.headers.get("X-Lark-Request-Nonce")
     signature = request.headers.get("X-Lark-Signature")
-    
+
     if not all([timestamp, nonce, signature]):
         raise HTTPException(400, "Missing required headers")
-    
+
     # Verify signature
     body = await request.body()
     if not verify_signature(timestamp, nonce, body.decode(), signature, SECRET):
@@ -222,7 +222,7 @@ class RateLimiter:
         self.attempts = defaultdict(list)
         self.max_attempts = max_attempts
         self.window = timedelta(minutes=window_minutes)
-    
+
     def is_allowed(self, identifier: str) -> bool:
         now = datetime.now()
         # Clean old attempts
@@ -230,10 +230,10 @@ class RateLimiter:
             t for t in self.attempts[identifier]
             if now - t < self.window
         ]
-        
+
         if len(self.attempts[identifier]) >= self.max_attempts:
             return False
-        
+
         self.attempts[identifier].append(now)
         return True
 ```
@@ -261,15 +261,15 @@ session_config = {
 server {
     listen 443 ssl http2;
     server_name bot.example.com;
-    
+
     ssl_certificate /etc/letsencrypt/live/bot.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/bot.example.com/privkey.pem;
-    
+
     # Strong SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
     ssl_prefer_server_ciphers off;
-    
+
     # HSTS
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 }
@@ -336,10 +336,10 @@ def sanitize_log_message(message: str) -> str:
         (r'secret["\']?\s*[:=]\s*["\']?[\w-]+', 'secret=***'),
         (r'token["\']?\s*[:=]\s*["\']?[\w-]+', 'token=***'),
     ]
-    
+
     for pattern, replacement in patterns:
         message = re.sub(pattern, replacement, message, flags=re.IGNORECASE)
-    
+
     return message
 ```
 
@@ -351,10 +351,10 @@ from cryptography.fernet import Fernet
 class DataEncryptor:
     def __init__(self, key: bytes):
         self.fernet = Fernet(key)
-    
+
     def encrypt(self, data: str) -> str:
         return self.fernet.encrypt(data.encode()).decode()
-    
+
     def decrypt(self, encrypted: str) -> str:
         return self.fernet.decrypt(encrypted.encode()).decode()
 
@@ -376,7 +376,7 @@ auth:
 async def get_user(user_id: str):
     query = "SELECT * FROM users WHERE id = $1"
     return await db.fetchrow(query, user_id)  # Safe
-    
+
 # ❌ Never do this
 # query = f"SELECT * FROM users WHERE id = '{user_id}'"  # SQL injection!
 ```
@@ -429,7 +429,7 @@ from sqlalchemy import Column, String, DateTime, JSON
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
-    
+
     id = Column(String, primary_key=True)
     timestamp = Column(DateTime, nullable=False)
     user_id = Column(String)
@@ -457,7 +457,7 @@ logging:
   # Secure log storage
   log_file: "/var/log/feishu-bot/bot.log"
   file_permissions: "0640"
-  
+
   # Log rotation
   max_bytes: 10485760
   backup_count: 10
@@ -501,12 +501,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Run Bandit
         run: |
           pip install bandit
           bandit -r src/
-      
+
       - name: Run Safety
         run: |
           pip install safety

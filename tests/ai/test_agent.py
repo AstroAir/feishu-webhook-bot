@@ -457,3 +457,379 @@ class TestAIAgentConversation:
         # Get it again - should be fresh
         new_state = await agent.conversation_manager.get_conversation("user123")
         assert new_state.messages == []
+
+
+# ==============================================================================
+# AIAgent Model Switching Tests
+# ==============================================================================
+
+
+class TestAIAgentModelSwitching:
+    """Tests for AIAgent model switching functionality."""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    @pytest.mark.anyio
+    async def test_switch_model_success(self, mock_agent_class, mock_planner_agent):
+        """Test successful model switching."""
+        config = AIConfig(model="openai:gpt-4o")
+        agent = AIAgent(config)
+
+        await agent.switch_model("anthropic:claude-3-5-sonnet-20241022")
+
+        assert agent.config.model == "anthropic:claude-3-5-sonnet-20241022"
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    @pytest.mark.anyio
+    async def test_switch_model_updates_pydantic_agent(self, mock_agent_class, mock_planner_agent):
+        """Test model switch updates the pydantic-ai agent."""
+        config = AIConfig(model="openai:gpt-4o")
+        agent = AIAgent(config)
+
+        # Agent should be created
+        initial_call_count = mock_agent_class.call_count
+
+        await agent.switch_model("openai:gpt-4o-mini")
+
+        # Agent should be recreated
+        assert mock_agent_class.call_count > initial_call_count
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    @pytest.mark.anyio
+    async def test_get_current_model(self, mock_agent_class, mock_planner_agent):
+        """Test getting current model."""
+        config = AIConfig(model="openai:gpt-4o")
+        agent = AIAgent(config)
+
+        current_model = agent.current_model
+
+        assert current_model == "openai:gpt-4o"
+
+
+# ==============================================================================
+# AIAgent Statistics Tests
+# ==============================================================================
+
+
+class TestAIAgentStatistics:
+    """Tests for AIAgent statistics functionality."""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    @pytest.mark.anyio
+    async def test_get_stats_initial(self, mock_agent_class, mock_planner_agent, mock_agents_agent):
+        """Test getting initial statistics."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        stats = await agent.get_stats()
+
+        assert stats["performance"]["total_requests"] == 0
+        assert stats["performance"]["successful_requests"] == 0
+        assert stats["performance"]["failed_requests"] == 0
+        assert stats["performance"]["average_response_time_seconds"] == 0
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    @pytest.mark.anyio
+    async def test_get_stats_includes_model_info(
+        self, mock_agent_class, mock_planner_agent, mock_agents_agent
+    ):
+        """Test statistics include model information."""
+        config = AIConfig(model="openai:gpt-4o")
+        agent = AIAgent(config)
+
+        stats = await agent.get_stats()
+
+        assert stats["model"] == "openai:gpt-4o"
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    @pytest.mark.anyio
+    async def test_get_stats_includes_token_counts(
+        self, mock_agent_class, mock_planner_agent, mock_agents_agent
+    ):
+        """Test statistics include token counts."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        stats = await agent.get_stats()
+
+        assert "total_input_tokens" in stats["performance"]
+        assert "total_output_tokens" in stats["performance"]
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    @pytest.mark.anyio
+    async def test_stats_after_metrics_update(
+        self, mock_agent_class, mock_planner_agent, mock_agents_agent
+    ):
+        """Test statistics after manual metrics update."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        # Simulate some activity
+        agent._metrics["total_requests"] = 100
+        agent._metrics["successful_requests"] = 95
+        agent._metrics["failed_requests"] = 5
+        agent._metrics["total_response_time"] = 50.0
+        agent._metrics["total_input_tokens"] = 10000
+        agent._metrics["total_output_tokens"] = 5000
+
+        stats = await agent.get_stats()
+
+        assert stats["performance"]["total_requests"] == 100
+        assert stats["performance"]["successful_requests"] == 95
+        assert stats["performance"]["failed_requests"] == 5
+        assert round(stats["performance"]["average_response_time_seconds"], 3) == 0.526  # 50.0/95
+        assert stats["performance"]["total_input_tokens"] == 10000
+        assert stats["performance"]["total_output_tokens"] == 5000
+
+
+# ==============================================================================
+# AIAgent Conversation Store Tests
+# ==============================================================================
+
+
+class TestAIAgentConversationStore:
+    """Tests for AIAgent conversation store integration."""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_set_conversation_store(self, mock_agent_class, mock_planner_agent, mock_agents_agent):
+        """Test setting conversation store."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        # Create a mock conversation store
+        mock_store = MagicMock()
+        mock_store.enabled = True
+
+        agent.set_conversation_store(mock_store)
+
+        assert agent.conversation_store == mock_store
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_set_conversation_store_none(
+        self, mock_agent_class, mock_planner_agent, mock_agents_agent
+    ):
+        """Test setting conversation store to None."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        agent.set_conversation_store(None)
+
+        assert agent.conversation_store is None
+
+
+# ==============================================================================
+# AIAgent MCP Integration Tests
+# ==============================================================================
+
+
+class TestAIAgentMCPIntegration:
+    """Tests for AIAgent MCP integration."""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_mcp_client_initialized(self, mock_agent_class, mock_planner_agent):
+        """Test MCP client is initialized."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        assert agent.mcp_client is not None
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_mcp_enabled_config(self, mock_agent_class, mock_planner_agent):
+        """Test agent respects MCP enabled config."""
+        config = AIConfig()
+        config.mcp.enabled = True
+
+        agent = AIAgent(config)
+
+        assert agent.config.mcp.enabled is True
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_mcp_disabled_config(self, mock_agent_class, mock_planner_agent):
+        """Test agent respects MCP disabled config."""
+        config = AIConfig()
+        config.mcp.enabled = False
+
+        agent = AIAgent(config)
+
+        assert agent.config.mcp.enabled is False
+
+
+# ==============================================================================
+# AIAgent Multi-Agent Integration Tests
+# ==============================================================================
+
+
+class TestAIAgentMultiAgentIntegration:
+    """Tests for AIAgent multi-agent integration."""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_orchestrator_initialized(self, mock_agent_class, mock_planner_agent):
+        """Test orchestrator is initialized."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        assert agent.orchestrator is not None
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_multi_agent_enabled_config(
+        self, mock_agent_class, mock_planner_agent, mock_agents_agent
+    ):
+        """Test agent respects multi-agent enabled config."""
+        config = AIConfig()
+        config.multi_agent.enabled = True
+
+        agent = AIAgent(config)
+
+        assert agent.config.multi_agent.enabled is True
+        assert agent.orchestrator.config.enabled is True
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_multi_agent_disabled_config(self, mock_agent_class, mock_planner_agent):
+        """Test agent respects multi-agent disabled config."""
+        config = AIConfig()
+        config.multi_agent.enabled = False
+
+        agent = AIAgent(config)
+
+        assert agent.config.multi_agent.enabled is False
+
+
+# ==============================================================================
+# AIAgent Circuit Breaker Tests
+# ==============================================================================
+
+
+class TestAIAgentCircuitBreaker:
+    """Tests for AIAgent circuit breaker functionality."""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_circuit_breaker_initialized(
+        self, mock_agent_class, mock_planner_agent, mock_agents_agent
+    ):
+        """Test circuit breaker is initialized."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        assert agent.circuit_breaker is not None
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_circuit_breaker_state(self, mock_agent_class, mock_planner_agent, mock_agents_agent):
+        """Test circuit breaker initial state."""
+        config = AIConfig()
+        agent = AIAgent(config)
+
+        # Initial state should be CLOSED (string value)
+        assert agent.circuit_breaker.state == "CLOSED"
+
+
+# ==============================================================================
+# AIAgent Edge Cases Tests
+# ==============================================================================
+
+
+class TestAIAgentEdgeCases:
+    """Edge case tests for AIAgent."""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_agent_with_empty_system_prompt(self, mock_agent_class, mock_planner_agent):
+        """Test agent with empty system prompt."""
+        config = AIConfig(system_prompt="")
+        agent = AIAgent(config)
+
+        assert agent.config.system_prompt == ""
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_agent_with_unicode_system_prompt(self, mock_agent_class, mock_planner_agent):
+        """Test agent with unicode system prompt."""
+        config = AIConfig(system_prompt="你是一个有帮助的助手。")
+        agent = AIAgent(config)
+
+        assert "助手" in agent.config.system_prompt
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_agent_with_fallback_models(self, mock_agent_class, mock_planner_agent):
+        """Test agent with fallback models configured."""
+        config = AIConfig(
+            model="openai:gpt-4o",
+            fallback_models=["openai:gpt-4o-mini", "anthropic:claude-3-5-haiku-20241022"],
+        )
+        agent = AIAgent(config)
+
+        assert len(agent.config.fallback_models) == 2
+
+    @patch("feishu_webhook_bot.ai.multi_agent.agents.Agent")
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_agent_with_all_features_enabled(
+        self, mock_agent_class, mock_planner_agent, mock_agents_agent
+    ):
+        """Test agent with all features enabled."""
+        config = AIConfig(
+            enabled=True,
+            tools_enabled=True,
+            web_search_enabled=True,
+            structured_output_enabled=True,
+            output_validators_enabled=True,
+        )
+        config.mcp.enabled = True
+        config.multi_agent.enabled = True
+        config.streaming.enabled = True
+
+        agent = AIAgent(config)
+
+        assert agent.config.tools_enabled is True
+        assert agent.config.web_search_enabled is True
+        assert agent.config.mcp.enabled is True
+        assert agent.config.multi_agent.enabled is True
+        assert agent.config.streaming.enabled is True
+
+    @patch("feishu_webhook_bot.ai.multi_agent.planner.Agent")
+    @patch("feishu_webhook_bot.ai.agent.Agent")
+    def test_agent_with_all_features_disabled(self, mock_agent_class, mock_planner_agent):
+        """Test agent with all features disabled."""
+        config = AIConfig(
+            enabled=False,
+            tools_enabled=False,
+            web_search_enabled=False,
+            structured_output_enabled=False,
+            output_validators_enabled=False,
+        )
+        config.mcp.enabled = False
+        config.multi_agent.enabled = False
+        config.streaming.enabled = False
+
+        agent = AIAgent(config)
+
+        assert agent.config.tools_enabled is False
+        assert agent.config.web_search_enabled is False
+        assert agent.config.mcp.enabled is False
+        assert agent.config.multi_agent.enabled is False
+        assert agent.config.streaming.enabled is False

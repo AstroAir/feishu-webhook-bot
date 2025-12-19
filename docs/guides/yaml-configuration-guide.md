@@ -69,7 +69,7 @@ tasks:
   - name: "task_name"
     description: "Task description"
     enabled: true
-    
+
     # Scheduling (choose one)
     schedule:
       mode: "interval"
@@ -81,11 +81,11 @@ tasks:
     interval:
       minutes: 5
       seconds: 30
-    
+
     # Task dependencies
     depends_on: ["other_task"]
     run_after: ["prerequisite_task"]
-    
+
     # Execution conditions
     conditions:
       - type: "time_range"
@@ -95,29 +95,29 @@ tasks:
         days: ["monday", "tuesday", "wednesday", "thursday", "friday"]
       - type: "environment"
         environment: "production"
-    
+
     # Task actions
     actions:
       - type: "send_message"
         webhook: "default"
         message: "Hello, World!"
-      
+
       - type: "plugin_method"
         plugin: "system-monitor"
         method: "check_health"
         save_as: "health_status"
-      
+
       - type: "http_request"
         request:
           method: "GET"
           url: "https://api.example.com/data"
           save_as: "api_response"
-      
+
       - type: "python_code"
         code: |
           result = context.get('api_response')
           context['processed'] = process_data(result)
-    
+
     # Error handling
     error_handling:
       on_failure: "notify"  # log, notify, disable, ignore
@@ -125,12 +125,12 @@ tasks:
       max_retries: 3
       retry_delay: 60
       notification_webhook: "alerts"
-    
+
     # Execution settings
     timeout: 300
     priority: 100
     max_concurrent: 1
-    
+
     # Task context
     context:
       custom_var: "value"
@@ -171,7 +171,7 @@ Examples:
 - type: "send_message"
   webhook: "default"
   message: "Simple text message"
-  
+
 # With template
 - type: "send_message"
   webhook: "default"
@@ -315,7 +315,7 @@ plugins:
   enabled: true
   plugin_dir: "plugins"
   auto_reload: true
-  
+
   plugin_settings:
     - plugin_name: "system-monitor"
       enabled: true
@@ -324,7 +324,7 @@ plugins:
         cpu_threshold: 80
         memory_threshold: 85
         check_interval: 300
-    
+
     - plugin_name: "daily-greeting"
       enabled: true
       priority: 50
@@ -340,7 +340,7 @@ class SystemMonitorPlugin(BasePlugin):
     def on_load(self):
         # Get specific setting
         threshold = self.get_config_value("cpu_threshold", 80)
-        
+
         # Get all settings
         all_settings = self.get_all_config()
 ```

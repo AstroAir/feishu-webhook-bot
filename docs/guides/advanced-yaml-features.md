@@ -81,7 +81,7 @@ environments:
     overrides:
       logging:
         level: "DEBUG"
-  
+
   - name: "production"
     variables:
       FEISHU_WEBHOOK_URL: "https://...prod-webhook"
@@ -290,16 +290,16 @@ tasks:
           import os
           from pathlib import Path
           import time
-          
+
           log_dir = Path("logs")
           cutoff_time = time.time() - (30 * 24 * 60 * 60)
           deleted_count = 0
-          
+
           for log_file in log_dir.glob("*.log*"):
               if log_file.stat().st_mtime < cutoff_time:
                   log_file.unlink()
                   deleted_count += 1
-          
+
           context["deleted_count"] = deleted_count
       - type: "send_message"
         webhook: "default"

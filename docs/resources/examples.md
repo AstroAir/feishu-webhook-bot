@@ -45,7 +45,7 @@ config = WebhookConfig(
 with FeishuWebhookClient(config) as client:
     # Send text
     client.send_text("Hello!")
-    
+
     # Send markdown
     client.send_markdown("**Bold** and *italic*")
 ```
@@ -183,7 +183,7 @@ class GreetingPlugin(BasePlugin):
             version="1.0.0",
             description="Sends daily greetings",
         )
-    
+
     def on_enable(self) -> None:
         self.register_job(
             self.morning_greeting,
@@ -197,10 +197,10 @@ class GreetingPlugin(BasePlugin):
             hour=18,
             minute=0,
         )
-    
+
     def morning_greeting(self) -> None:
         self.client.send_text("☀️ Good morning! Have a productive day!")
-    
+
     def evening_greeting(self) -> None:
         self.client.send_text("🌙 Good evening! Time to wrap up!")
 ```
@@ -219,24 +219,24 @@ class SystemMonitorPlugin(BasePlugin):
             version="1.0.0",
             description="Monitors system resources",
         )
-    
+
     def on_enable(self) -> None:
         self.cpu_threshold = self.get_config("cpu_threshold", 80)
         self.memory_threshold = self.get_config("memory_threshold", 80)
-        
+
         self.register_job(
             self.check_resources,
             trigger='interval',
             minutes=5,
         )
-    
+
     def check_resources(self) -> None:
         cpu = psutil.cpu_percent()
         memory = psutil.virtual_memory().percent
-        
+
         if cpu > self.cpu_threshold or memory > self.memory_threshold:
             self.send_alert(cpu, memory)
-    
+
     def send_alert(self, cpu: float, memory: float) -> None:
         card = (
             CardBuilder()
@@ -263,18 +263,18 @@ class WeatherPlugin(BasePlugin):
             version="1.0.0",
             description="Daily weather updates",
         )
-    
+
     def on_enable(self) -> None:
         self.api_key = self.get_config("api_key")
         self.city = self.get_config("city", "Shanghai")
-        
+
         self.register_job(
             self.send_weather,
             trigger='cron',
             hour=7,
             minute=30,
         )
-    
+
     def send_weather(self) -> None:
         weather = self.fetch_weather()
         message = f"""
@@ -285,7 +285,7 @@ Condition: {weather['condition']}
 Humidity: {weather['humidity']}%
         """
         self.client.send_markdown(message)
-    
+
     def fetch_weather(self) -> dict:
         # Implement weather API call
         response = httpx.get(
@@ -471,17 +471,17 @@ rate_limits = defaultdict(list)
 async def rate_limit(ctx: ChatContext) -> bool:
     now = datetime.now()
     user_key = ctx.user_key
-    
+
     # Clean old entries
     rate_limits[user_key] = [
         t for t in rate_limits[user_key]
         if now - t < timedelta(minutes=1)
     ]
-    
+
     if len(rate_limits[user_key]) >= 10:
         await controller.send_reply(ctx.message, "请稍后再试")
         return False
-    
+
     rate_limits[user_key].append(now)
     return True
 ```
@@ -499,10 +499,10 @@ handler = controller.command_handler
 async def weather_cmd(handler, message, args):
     if not args:
         return CommandResult(False, "用法: /weather <城市>")
-    
+
     city = args[0]
     weather = await fetch_weather(city)
-    
+
     return CommandResult(
         success=True,
         response=f"**{city}天气:** {weather['temp']}°C, {weather['condition']}",
@@ -513,7 +513,7 @@ async def weather_cmd(handler, message, args):
 async def admin_cmd(handler, message, args):
     if message.sender_id not in ADMIN_IDS:
         return CommandResult(False, "无权限")
-    
+
     # Admin operations...
     return CommandResult(True, "操作完成")
 ```
@@ -559,17 +559,17 @@ tasks:
         request:
           url: "https://api.example.com/daily-logs"
           save_as: "logs"
-      
+
       - type: ai_query
         ai_prompt: |
           Summarize these logs and highlight any issues:
           ${logs}
         ai_save_response_as: "summary"
-      
+
       - type: send_message
         message: |
           📊 Daily Summary
-          
+
           ${summary}
         webhooks: ["default"]
 ```
@@ -609,7 +609,7 @@ bot = FeishuBot.from_config("config.yaml")
 async def github_webhook(request: Request):
     event = request.headers.get("X-GitHub-Event")
     payload = await request.json()
-    
+
     if event == "push":
         message = f"""
 📦 **New Push to {payload['repository']['name']}**
@@ -619,7 +619,7 @@ Commits: {len(payload['commits'])}
 Pusher: {payload['pusher']['name']}
         """
         bot.send_markdown(message)
-    
+
     elif event == "pull_request":
         pr = payload['pull_request']
         message = f"""
@@ -630,7 +630,7 @@ Author: {pr['user']['login']}
 URL: {pr['html_url']}
         """
         bot.send_markdown(message)
-    
+
     return {"status": "ok"}
 ```
 
@@ -662,7 +662,7 @@ async def monitor_database():
     while True:
         # Check database metrics
         metrics = await get_db_metrics()
-        
+
         if metrics['connections'] > 100:
             card = (
                 CardBuilder()
@@ -672,7 +672,7 @@ async def monitor_database():
                 .build()
             )
             bot.send_card(card)
-        
+
         await asyncio.sleep(60)
 
 asyncio.run(monitor_database())
@@ -742,7 +742,7 @@ class ProducerPlugin(BasePlugin):
 class ConsumerPlugin(BasePlugin):
     def on_enable(self):
         self.subscribe_event("data_ready", self.handle_data)
-    
+
     def handle_data(self, data):
         self.client.send_text(f"Received: {data['value']}")
 ```

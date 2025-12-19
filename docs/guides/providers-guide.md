@@ -196,7 +196,7 @@ async with FeishuOpenAPI(app_id="cli_xxx", app_secret="xxx") as api:
         msg_type="text",
         content={"text": "Hello!"},
     )
-    
+
     if result.success:
         print(f"Sent message: {result.message_id}")
 
@@ -497,12 +497,12 @@ class CustomProviderConfig(ProviderConfig):
 
 class CustomProvider(BaseProvider):
     """Custom message provider implementation."""
-    
+
     def __init__(self, config: CustomProviderConfig):
         super().__init__(config)
         self.config = config
         self._client = None
-    
+
     def connect(self) -> None:
         """Initialize connection."""
         import httpx
@@ -511,23 +511,23 @@ class CustomProvider(BaseProvider):
             headers={"Authorization": f"Bearer {self.config.api_key}"},
         )
         self._connected = True
-    
+
     def disconnect(self) -> None:
         """Close connection."""
         if self._client:
             self._client.close()
         self._connected = False
-    
+
     def send_message(self, message: Message, target: str) -> SendResult:
         """Send a message."""
         if not self._connected:
             self.connect()
-        
+
         try:
             payload = self._build_payload(message, target)
             response = self._client.post("/send", json=payload)
             response.raise_for_status()
-            
+
             return SendResult(
                 success=True,
                 message_id=response.json().get("id"),
@@ -539,7 +539,7 @@ class CustomProvider(BaseProvider):
                 error=str(e),
                 provider=self.config.name,
             )
-    
+
     def _build_payload(self, message: Message, target: str) -> dict:
         """Build API payload from message."""
         return {
@@ -668,7 +668,7 @@ Configure timeouts based on provider response times:
 providers:
   - provider_type: "feishu"
     timeout: 10.0  # Feishu is usually fast
-  
+
   - provider_type: "napcat"
     timeout: 30.0  # Local service may need more time
 ```

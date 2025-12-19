@@ -217,7 +217,7 @@ class TestPluginLifecycle:
         meta = plugin.metadata()
 
         assert meta.name == "rss-subscription"
-        assert meta.version == "1.0.0"
+        assert meta.version == "2.0.0"
         assert "RSS" in meta.description
 
     def test_on_load(self, plugin: RSSSubscriptionPlugin) -> None:

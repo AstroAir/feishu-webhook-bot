@@ -317,7 +317,7 @@ print(stats["performance"])
 
 All chat operations now log response times:
 
-```
+```text
 INFO: Generated response for user user123 (tokens: in=150, out=200, time: 1.23s)
 ```
 

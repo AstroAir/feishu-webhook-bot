@@ -15,6 +15,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
         args: [--unsafe]
+        exclude: ^tests/(fixtures|core/fixtures)/
       - id: check-toml
       - id: check-json
       - id: check-added-large-files

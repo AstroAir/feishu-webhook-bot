@@ -245,7 +245,7 @@ class HelloWorldPlugin(BasePlugin):
             version="1.0.0",
             description="A simple hello world plugin"
         )
-    
+
     def on_enable(self) -> None:
         # Send message every minute
         self.register_job(
@@ -253,7 +253,7 @@ class HelloWorldPlugin(BasePlugin):
             trigger='interval',
             minutes=1
         )
-    
+
     def send_hello(self) -> None:
         self.client.send_text("👋 Hello from Hello World plugin!")
 ```
@@ -462,11 +462,11 @@ tasks:
         request:
           url: "https://api.example.com/logs"
           save_as: "logs"
-      
+
       - type: ai_query
         ai_prompt: "Summarize these logs: ${logs}"
         ai_save_response_as: "summary"
-      
+
       - type: send_message
         message: "📊 Daily Summary\n\n${summary}"
         webhooks: ["default"]

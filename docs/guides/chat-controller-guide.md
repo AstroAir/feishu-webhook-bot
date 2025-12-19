@@ -300,20 +300,20 @@ RATE_LIMIT = 10  # messages per minute
 async def rate_limit(ctx: ChatContext) -> bool:
     now = datetime.now()
     user_key = ctx.user_key
-    
+
     # Clean old entries
     rate_limits[user_key] = [
         t for t in rate_limits[user_key]
         if now - t < timedelta(minutes=1)
     ]
-    
+
     if len(rate_limits[user_key]) >= RATE_LIMIT:
         await controller.send_reply(
             ctx.message,
             "请稍后再试，您发送消息过于频繁。"
         )
         return False  # Stop processing
-    
+
     rate_limits[user_key].append(now)
     return True
 ```
@@ -326,12 +326,12 @@ BLOCKED_WORDS = ["spam", "advertisement"]
 @controller.middleware
 async def content_filter(ctx: ChatContext) -> bool:
     content = ctx.message.content.lower()
-    
+
     for word in BLOCKED_WORDS:
         if word in content:
             logger.warning("Blocked message from %s: contains '%s'", ctx.user_key, word)
             return False
-    
+
     return True
 ```
 
@@ -449,9 +449,9 @@ results = await controller.broadcast("Test message")
 for platform, send_results in results.items():
     success_count = sum(1 for r in send_results if r.success)
     fail_count = len(send_results) - success_count
-    
+
     print(f"{platform}: {success_count} sent, {fail_count} failed")
-    
+
     for result in send_results:
         if not result.success:
             logger.error(f"Failed to send to {platform}: {result.error}")
@@ -526,10 +526,10 @@ from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata
 class ChatPlugin(BasePlugin):
     def __init__(self, controller: ChatController):
         self.controller = controller
-    
+
     def metadata(self) -> PluginMetadata:
         return PluginMetadata(name="chat-plugin", version="1.0.0")
-    
+
     def on_enable(self) -> None:
         # Register custom middleware
         @self.controller.middleware

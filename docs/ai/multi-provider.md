@@ -32,7 +32,7 @@ ai:
   enabled: true
   model: "openai:gpt-4o"  # Format: provider:model-name
   api_key: ${OPENAI_API_KEY}
-  
+
   # Provider-specific configuration
   provider_config:
     provider: "openai"  # Auto-detected if not specified
@@ -143,19 +143,19 @@ tasks:
   - name: "daily_summary"
     description: "Generate daily summary using AI"
     enabled: true
-    
+
     schedule:
       mode: "cron"
       arguments:
         hour: 18
         minute: 0
-    
+
     actions:
       - type: "ai_query"
         ai_prompt: "Generate a brief daily summary for ${date}."
         ai_user_id: "summary_bot"
         ai_save_response_as: "summary"
-      
+
       - type: "send_message"
         message: "📊 Daily Summary:\n\n${summary}"
         webhooks: ["default"]
@@ -186,7 +186,7 @@ actions:
     ai_user_id: "sentiment_analyzer"
     ai_temperature: 0.3
     ai_save_response_as: "sentiment"
-  
+
   - type: "python_code"
     code: |
       sentiment = context.get('sentiment', '').strip().upper()
@@ -221,7 +221,7 @@ actions:
     ai_prompt: "Research latest trends in ${industry}. Provide 3 key insights."
     ai_user_id: "researcher"
     ai_save_response_as: "research"
-  
+
   # Step 2: Analyze
   - type: "ai_query"
     ai_prompt: |
@@ -229,7 +229,7 @@ actions:
       Provide analysis of opportunities, challenges, and recommendations.
     ai_user_id: "analyst"
     ai_save_response_as: "analysis"
-  
+
   # Step 3: Summarize
   - type: "ai_query"
     ai_prompt: |

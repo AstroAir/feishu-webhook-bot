@@ -33,6 +33,12 @@ def cmd_provider(args: argparse.Namespace) -> int:
         "stats": _cmd_provider_stats,
         "send": _cmd_provider_send,
         "status": _cmd_provider_status,
+        # QQ-specific commands
+        "qq-poke": _cmd_qq_poke,
+        "qq-mute": _cmd_qq_mute,
+        "qq-kick": _cmd_qq_kick,
+        "qq-history": _cmd_qq_history,
+        "qq-groups": _cmd_qq_groups,
     }
 
     handler = handlers.get(args.provider_command)
@@ -384,6 +390,139 @@ def _cmd_provider_status(args: argparse.Namespace) -> int:
         logger.error(f"Error getting provider status: {e}", exc_info=True)
         print(f"Error: {e}")
         return 1
+
+
+def _cmd_qq_poke(args: argparse.Namespace) -> int:
+    """Send poke to QQ user."""
+    from ...providers.qq_napcat import NapcatProvider, NapcatProviderConfig
+
+    config = BotConfig.from_yaml(Path(args.config))
+    console = Console()
+
+    p = next((x for x in config.providers if x.provider_type == "napcat" and x.enabled), None)
+    if not p:
+        console.print("[red]No enabled QQ provider[/]")
+        return 1
+
+    cfg = NapcatProviderConfig(provider_type="napcat", name=p.name, http_url=p.http_url or "")
+    provider = NapcatProvider(cfg)
+    provider.connect()
+    try:
+        provider.send_poke(int(args.user_id), int(args.group_id) if args.group_id else None)
+        console.print("[green]Poke sent![/]")
+    finally:
+        provider.disconnect()
+    return 0
+
+
+def _cmd_qq_mute(args: argparse.Namespace) -> int:
+    """Mute QQ group member."""
+    from ...providers.qq_napcat import NapcatProvider, NapcatProviderConfig
+
+    config = BotConfig.from_yaml(Path(args.config))
+    console = Console()
+
+    p = next((x for x in config.providers if x.provider_type == "napcat" and x.enabled), None)
+    if not p:
+        console.print("[red]No enabled QQ provider[/]")
+        return 1
+
+    cfg = NapcatProviderConfig(provider_type="napcat", name=p.name, http_url=p.http_url or "")
+    provider = NapcatProvider(cfg)
+    provider.connect()
+    try:
+        duration = int(args.duration) * 60 if args.duration else 600
+        provider.set_group_ban(int(args.group_id), int(args.user_id), duration)
+        console.print(f"[green]User muted for {duration//60} minutes[/]")
+    finally:
+        provider.disconnect()
+    return 0
+
+
+def _cmd_qq_kick(args: argparse.Namespace) -> int:
+    """Kick QQ group member."""
+    from ...providers.qq_napcat import NapcatProvider, NapcatProviderConfig
+
+    config = BotConfig.from_yaml(Path(args.config))
+    console = Console()
+
+    p = next((x for x in config.providers if x.provider_type == "napcat" and x.enabled), None)
+    if not p:
+        console.print("[red]No enabled QQ provider[/]")
+        return 1
+
+    cfg = NapcatProviderConfig(provider_type="napcat", name=p.name, http_url=p.http_url or "")
+    provider = NapcatProvider(cfg)
+    provider.connect()
+    try:
+        provider.set_group_kick(int(args.group_id), int(args.user_id), args.reject or False)
+        console.print("[green]User kicked![/]")
+    finally:
+        provider.disconnect()
+    return 0
+
+
+def _cmd_qq_history(args: argparse.Namespace) -> int:
+    """Get QQ group message history."""
+    from ...providers.qq_napcat import NapcatProvider, NapcatProviderConfig
+
+    config = BotConfig.from_yaml(Path(args.config))
+    console = Console()
+
+    p = next((x for x in config.providers if x.provider_type == "napcat" and x.enabled), None)
+    if not p:
+        console.print("[red]No enabled QQ provider[/]")
+        return 1
+
+    cfg = NapcatProviderConfig(provider_type="napcat", name=p.name, http_url=p.http_url or "")
+    provider = NapcatProvider(cfg)
+    provider.connect()
+    try:
+        count = int(args.count) if args.count else 10
+        messages = provider.get_group_msg_history(int(args.group_id), 0, count)
+        table = Table(title=f"Message History (Group {args.group_id})")
+        table.add_column("Sender")
+        table.add_column("Content")
+        for msg in messages:
+            sender = msg.get("sender", {}).get("nickname", "Unknown")
+            content = msg.get("message", [])
+            text = "".join(
+                [s.get("data", {}).get("text", "") for s in content if s.get("type") == "text"]
+            )
+            table.add_row(sender, text[:50])
+        console.print(table)
+    finally:
+        provider.disconnect()
+    return 0
+
+
+def _cmd_qq_groups(args: argparse.Namespace) -> int:
+    """List QQ groups."""
+    from ...providers.qq_napcat import NapcatProvider, NapcatProviderConfig
+
+    config = BotConfig.from_yaml(Path(args.config))
+    console = Console()
+
+    p = next((x for x in config.providers if x.provider_type == "napcat" and x.enabled), None)
+    if not p:
+        console.print("[red]No enabled QQ provider[/]")
+        return 1
+
+    cfg = NapcatProviderConfig(provider_type="napcat", name=p.name, http_url=p.http_url or "")
+    provider = NapcatProvider(cfg)
+    provider.connect()
+    try:
+        groups = provider.get_group_list()
+        table = Table(title="QQ Groups")
+        table.add_column("ID")
+        table.add_column("Name")
+        table.add_column("Members")
+        for g in groups:
+            table.add_row(str(g.group_id), g.group_name, str(g.member_count))
+        console.print(table)
+    finally:
+        provider.disconnect()
+    return 0
 
 
 __all__ = ["cmd_provider"]

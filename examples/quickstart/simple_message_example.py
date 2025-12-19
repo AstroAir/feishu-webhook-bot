@@ -208,7 +208,7 @@ send_alert("Server Alert", "CPU usage exceeded 90%", "error")
 def notify_build_result(project: str, status: str, url: str):
     emoji = "✅" if status == "success" else "❌"
     color = "green" if status == "success" else "red"
-    
+
     card = {
         "header": {
             "title": {"tag": "plain_text", "content": f"{emoji} Build {status.title()}"},

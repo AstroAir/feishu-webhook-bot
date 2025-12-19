@@ -355,18 +355,18 @@ from feishu_webhook_bot.core.exceptions import FeishuBotError
 class ErrorHandler:
     def __init__(self, bot):
         self.bot = bot
-    
+
     async def handle(self, error: FeishuBotError):
         # Log error
         logger.error(f"Error {error.code}: {error.message}")
-        
+
         # Notify if critical
         if error.code >= 50000:
             await self.notify_admin(error)
-        
+
         # Return user-friendly message
         return self.get_user_message(error)
-    
+
     def get_user_message(self, error: FeishuBotError) -> str:
         messages = {
             21003: "Service temporarily unavailable. Please try again.",

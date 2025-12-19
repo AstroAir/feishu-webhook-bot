@@ -293,7 +293,7 @@ class TaskPlanner:
             TaskType.REASONING,
             TaskType.CODE,
             TaskType.SUMMARY,
-            TaskType.RESPONSE,
+            TaskType.CONVERSATION,
         ]
 
         optimized_steps = []

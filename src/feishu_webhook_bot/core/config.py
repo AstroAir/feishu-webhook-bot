@@ -680,11 +680,40 @@ class SchedulerConfig(BaseModel):
     job_store_type: str = Field(default="memory", description="Job store type")
     job_store_path: str | None = Field(default=None, description="Path to SQLite job store")
 
+    # Executor settings
+    max_workers: int = Field(default=10, description="Maximum thread pool workers")
+    job_coalesce: bool = Field(default=True, description="Combine missed job runs")
+    max_instances: int = Field(default=1, description="Max concurrent instances per job")
+    misfire_grace_time: int = Field(default=60, description="Grace time for missed jobs (seconds)")
+
+    # Health monitoring
+    health_check_enabled: bool = Field(default=True, description="Enable health monitoring")
+    health_check_interval: int = Field(default=60, description="Health check interval (seconds)")
+    failure_threshold: int = Field(default=3, description="Consecutive failures before alert")
+    stale_job_threshold: int = Field(default=3600, description="Stale job threshold (seconds)")
+
+    # Execution history
+    history_enabled: bool = Field(default=True, description="Enable execution history tracking")
+    history_path: str | None = Field(default=None, description="Path to execution history database")
+    history_retention_days: int = Field(default=30, description="Days to retain execution history")
+
+    # Hooks
+    logging_hook_enabled: bool = Field(default=True, description="Enable logging hook")
+    metrics_hook_enabled: bool = Field(default=True, description="Enable metrics hook")
+    alert_hook_enabled: bool = Field(default=False, description="Enable alert hook")
+
     @field_validator("job_store_type")
     @classmethod
     def validate_job_store_type(cls, value: str) -> str:
         if value not in ["memory", "sqlite"]:
             raise ValueError("job_store_type must be 'memory' or 'sqlite'")
+        return value
+
+    @field_validator("max_workers")
+    @classmethod
+    def validate_max_workers(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("max_workers must be at least 1")
         return value
 
 

@@ -768,6 +768,86 @@ class ChatController:
             "config": self.config.model_dump(),
         }
 
+    async def async_send_reply(
+        self,
+        original: IncomingMessage,
+        reply: str,
+        quote_reply: bool = False,
+    ) -> SendResult | None:
+        """Send reply asynchronously (uses async provider methods if available).
+
+        For QQ platform, uses async_send_text and async_send_reply methods
+        from NapcatProvider if available.
+
+        Args:
+            original: Original incoming message
+            reply: Reply text to send
+            quote_reply: Whether to quote the original message
+
+        Returns:
+            SendResult with operation status
+        """
+        if not reply or not reply.strip():
+            return None
+
+        provider = self.get_provider(original.platform)
+        if not provider:
+            return None
+
+        try:
+            if original.platform == "qq":
+                if original.chat_type == "group":
+                    target = f"group:{original.chat_id}"
+                else:
+                    target = f"private:{original.sender_id}"
+
+                # Use async quote reply if available
+                if quote_reply and original.id and hasattr(provider, "async_send_reply"):
+                    result = await provider.async_send_reply(int(original.id), reply, target)
+                    if result.success:
+                        return result
+
+                # Use async send text
+                if hasattr(provider, "async_send_text"):
+                    return await provider.async_send_text(reply, target)
+
+            # Fallback to sync method
+            return await self.send_reply(original, reply, quote_reply=quote_reply)
+
+        except Exception as e:
+            logger.error("Error in async_send_reply: %s", e, exc_info=True)
+            return None
+
+    async def set_typing_indicator(
+        self,
+        original: IncomingMessage,
+        typing: bool = True,
+    ) -> bool:
+        """Set typing indicator for QQ platform.
+
+        Args:
+            original: Original incoming message
+            typing: True to show typing, False to stop
+
+        Returns:
+            True if successful
+        """
+        if original.platform != "qq":
+            return False
+
+        provider = self.get_provider("qq") or self.get_provider("napcat")
+        if not provider or not hasattr(provider, "set_input_status"):
+            return False
+
+        try:
+            return provider.set_input_status(
+                int(original.sender_id),
+                event_type=1 if typing else 0,
+            )
+        except Exception as e:
+            logger.debug("Failed to set typing indicator: %s", e)
+            return False
+
 
 def create_chat_controller(
     ai_agent: AIAgent | None = None,

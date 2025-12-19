@@ -299,7 +299,7 @@ services:
     volumes:
       # Read-only config
       - ./config.yaml:/app/config.yaml:ro
-      
+
       # Or use config directory
       - ./config:/app/config:ro
 ```
@@ -335,7 +335,7 @@ services:
       # Named volumes (recommended for production)
       - bot-data:/app/data
       - bot-logs:/app/logs
-      
+
       # Or bind mounts (for development)
       - ./data:/app/data
       - ./logs:/app/logs

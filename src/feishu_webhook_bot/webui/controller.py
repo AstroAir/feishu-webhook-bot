@@ -1466,18 +1466,25 @@ class BotController:
                 "job_store_type": "N/A",
             }
         try:
-            jobs = self.bot.scheduler.get_jobs()
+            scheduler = self.bot.scheduler
+            # Use enhanced get_scheduler_status if available
+            if hasattr(scheduler, "get_scheduler_status"):
+                status = scheduler.get_scheduler_status()
+                return {
+                    "running": status.get("running", False),
+                    "timezone": status.get("timezone", "N/A"),
+                    "job_count": status.get("total_jobs", 0),
+                    "active_jobs": status.get("active_jobs", 0),
+                    "paused_jobs": status.get("paused_jobs", 0),
+                    "job_store_type": status.get("job_store_type", "memory"),
+                }
+            # Fallback
+            jobs = scheduler.get_jobs()
             return {
-                "running": self.bot.scheduler._scheduler.running
-                if self.bot.scheduler._scheduler
-                else False,
-                "timezone": str(self.bot.scheduler.config.timezone)
-                if self.bot.scheduler.config
-                else "N/A",
+                "running": scheduler._scheduler.running if scheduler._scheduler else False,
+                "timezone": str(scheduler.config.timezone) if scheduler.config else "N/A",
                 "job_count": len(jobs),
-                "job_store_type": self.bot.scheduler.config.job_store_type
-                if self.bot.scheduler.config
-                else "memory",
+                "job_store_type": scheduler.config.job_store_type if scheduler.config else "memory",
             }
         except Exception:
             return {
@@ -1486,6 +1493,128 @@ class BotController:
                 "job_count": 0,
                 "job_store_type": "N/A",
             }
+
+    def get_scheduler_health(self) -> dict[str, Any]:
+        """Get scheduler health status.
+
+        Returns:
+            Health status dictionary
+        """
+        if not self.bot or not self.bot.scheduler:
+            return {"enabled": False}
+        try:
+            scheduler = self.bot.scheduler
+            if hasattr(scheduler, "get_health_status"):
+                return scheduler.get_health_status()
+            return {"enabled": False}
+        except Exception:
+            return {"enabled": False}
+
+    def get_job_health(self, job_id: str) -> dict[str, Any] | None:
+        """Get health information for a specific job.
+
+        Args:
+            job_id: Job ID
+
+        Returns:
+            Job health info or None
+        """
+        if not self.bot or not self.bot.scheduler:
+            return None
+        try:
+            scheduler = self.bot.scheduler
+            if hasattr(scheduler, "get_job_health"):
+                return scheduler.get_job_health(job_id)
+            return None
+        except Exception:
+            return None
+
+    def get_job_execution_history(self, job_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Get execution history for a job.
+
+        Args:
+            job_id: Job ID
+            limit: Max records
+
+        Returns:
+            List of execution records
+        """
+        if not self.bot or not self.bot.scheduler:
+            return []
+        try:
+            scheduler = self.bot.scheduler
+            if hasattr(scheduler, "get_execution_history"):
+                return scheduler.get_execution_history(job_id, limit=limit)
+            return []
+        except Exception:
+            return []
+
+    def get_scheduler_statistics(self) -> dict[str, Any]:
+        """Get scheduler job statistics.
+
+        Returns:
+            Statistics dictionary
+        """
+        if not self.bot or not self.bot.scheduler:
+            return {}
+        try:
+            scheduler = self.bot.scheduler
+            if hasattr(scheduler, "get_job_statistics"):
+                return scheduler.get_job_statistics()
+            return {}
+        except Exception:
+            return {}
+
+    def run_job_now(self, job_id: str) -> bool:
+        """Immediately run a scheduled job.
+
+        Args:
+            job_id: Job ID to run
+
+        Returns:
+            True if triggered successfully
+        """
+        if not self.bot or not self.bot.scheduler:
+            return False
+        try:
+            scheduler = self.bot.scheduler
+            if hasattr(scheduler, "run_job_now"):
+                return scheduler.run_job_now(job_id)
+            return False
+        except Exception:
+            return False
+
+    def pause_all_scheduler_jobs(self) -> int:
+        """Pause all scheduled jobs.
+
+        Returns:
+            Number of jobs paused
+        """
+        if not self.bot or not self.bot.scheduler:
+            return 0
+        try:
+            scheduler = self.bot.scheduler
+            if hasattr(scheduler, "pause_all_jobs"):
+                return scheduler.pause_all_jobs()
+            return 0
+        except Exception:
+            return 0
+
+    def resume_all_scheduler_jobs(self) -> int:
+        """Resume all paused jobs.
+
+        Returns:
+            Number of jobs resumed
+        """
+        if not self.bot or not self.bot.scheduler:
+            return 0
+        try:
+            scheduler = self.bot.scheduler
+            if hasattr(scheduler, "resume_all_jobs"):
+                return scheduler.resume_all_jobs()
+            return 0
+        except Exception:
+            return 0
 
     # =========================================================================
     # AI Management Methods
@@ -2371,3 +2500,324 @@ class BotController:
         if not provider:
             raise ValueError("QQ provider not found")
         return provider.set_group_admin(group_id, user_id, enable)
+
+    # ==========================================================================
+    # QQ Extended Features - AI Voice, Message History, Group Announcements
+    # ==========================================================================
+
+    def qq_get_ai_characters(
+        self,
+        group_id: int,
+        provider_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get available AI voice characters.
+
+        Args:
+            group_id: Group number (required by API)
+            provider_name: Optional provider name
+
+        Returns:
+            List of AI character info dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            return provider.get_ai_characters(group_id)
+        except Exception as e:
+            log.error(f"Error getting AI characters: {e}")
+            return []
+
+    def qq_send_ai_voice(
+        self,
+        group_id: int,
+        character: str,
+        text: str,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Send AI voice message to group.
+
+        Args:
+            group_id: Group number
+            character: AI character ID
+            text: Text to convert to voice
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        result = provider.send_group_ai_record(group_id, character, text)
+        return result.success
+
+    def qq_get_group_msg_history(
+        self,
+        group_id: int,
+        message_seq: int = 0,
+        count: int = 20,
+        provider_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get group message history.
+
+        Args:
+            group_id: Group number
+            message_seq: Starting message sequence (0 for latest)
+            count: Number of messages to retrieve
+            provider_name: Optional provider name
+
+        Returns:
+            List of message dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            return provider.get_group_msg_history(group_id, message_seq, count)
+        except Exception as e:
+            log.error(f"Error getting message history: {e}")
+            return []
+
+    def qq_get_group_notice(
+        self,
+        group_id: int,
+        provider_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get group announcements.
+
+        Args:
+            group_id: Group number
+            provider_name: Optional provider name
+
+        Returns:
+            List of announcement dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            return provider.get_group_notice(group_id)
+        except Exception as e:
+            log.error(f"Error getting group notice: {e}")
+            return []
+
+    def qq_send_group_notice(
+        self,
+        group_id: int,
+        content: str,
+        image: str = "",
+        provider_name: str | None = None,
+    ) -> bool:
+        """Send a group announcement.
+
+        Args:
+            group_id: Group number
+            content: Announcement content
+            image: Optional image URL
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.send_group_notice(group_id, content, image)
+
+    def qq_get_essence_msg_list(
+        self,
+        group_id: int,
+        provider_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get essence/pinned messages in a group.
+
+        Args:
+            group_id: Group number
+            provider_name: Optional provider name
+
+        Returns:
+            List of essence message dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            return provider.get_essence_msg_list(group_id)
+        except Exception as e:
+            log.error(f"Error getting essence messages: {e}")
+            return []
+
+    def qq_set_essence_msg(
+        self,
+        message_id: int,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Set a message as essence/pinned.
+
+        Args:
+            message_id: Message ID to set as essence
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_essence_msg(message_id)
+
+    def qq_delete_essence_msg(
+        self,
+        message_id: int,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Remove a message from essence/pinned.
+
+        Args:
+            message_id: Message ID to remove
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.delete_essence_msg(message_id)
+
+    def qq_get_group_honor_info(
+        self,
+        group_id: int,
+        honor_type: str = "all",
+        provider_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Get group honor information.
+
+        Args:
+            group_id: Group number
+            honor_type: Honor type (talkative, performer, legend, etc.)
+            provider_name: Optional provider name
+
+        Returns:
+            Group honor info dict
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return {}
+        try:
+            return provider.get_group_honor_info(group_id, honor_type)
+        except Exception as e:
+            log.error(f"Error getting group honor: {e}")
+            return {}
+
+    def qq_ocr_image(
+        self,
+        image: str,
+        provider_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Perform OCR on an image.
+
+        Args:
+            image: Image URL or file path
+            provider_name: Optional provider name
+
+        Returns:
+            List of OCR result dicts
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            return []
+        try:
+            return provider.ocr_image(image)
+        except Exception as e:
+            log.error(f"Error performing OCR: {e}")
+            return []
+
+    def qq_set_msg_emoji_like(
+        self,
+        message_id: int,
+        emoji_id: str,
+        provider_name: str | None = None,
+    ) -> bool:
+        """React to a message with emoji.
+
+        Args:
+            message_id: Message ID
+            emoji_id: Emoji ID
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_msg_emoji_like(message_id, emoji_id)
+
+    def qq_set_group_card(
+        self,
+        group_id: int,
+        user_id: int,
+        card: str,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Set group member's card/nickname.
+
+        Args:
+            group_id: Group number
+            user_id: Member's QQ number
+            card: New card name
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_group_card(group_id, user_id, card)
+
+    def qq_set_group_name(
+        self,
+        group_id: int,
+        group_name: str,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Set group name.
+
+        Args:
+            group_id: Group number
+            group_name: New group name
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_group_name(group_id, group_name)
+
+    def qq_set_group_special_title(
+        self,
+        group_id: int,
+        user_id: int,
+        special_title: str,
+        provider_name: str | None = None,
+    ) -> bool:
+        """Set member's special title.
+
+        Args:
+            group_id: Group number
+            user_id: Member's QQ number
+            special_title: Special title text
+            provider_name: Optional provider name
+
+        Returns:
+            True if successful
+        """
+        provider = self.get_qq_provider(provider_name)
+        if not provider:
+            raise ValueError("QQ provider not found")
+        return provider.set_group_special_title(group_id, user_id, special_title)

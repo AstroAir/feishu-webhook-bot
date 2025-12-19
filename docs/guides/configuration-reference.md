@@ -290,19 +290,19 @@ ai:
   temperature: 0.7
   max_tokens: 2000
   system_prompt: "You are a helpful assistant."
-  
+
   # Conversation management
   conversation:
     max_history: 20
     max_tokens: 4000
     ttl: 3600
-  
+
   # Tool calling
   tools:
     enabled: true
     web_search: true
     code_execution: false
-  
+
   # MCP integration
   mcp:
     enabled: true
@@ -337,17 +337,17 @@ auth:
   jwt_algorithm: "HS256"
   access_token_expire_minutes: 30
   refresh_token_expire_days: 7
-  
+
   database:
     url: "sqlite:///data/auth.db"
-  
+
   password:
     min_length: 8
     require_uppercase: true
     require_lowercase: true
     require_digit: true
     require_special: false
-  
+
   rate_limiting:
     enabled: true
     max_attempts: 5

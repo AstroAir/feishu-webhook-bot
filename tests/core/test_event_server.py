@@ -26,7 +26,7 @@ def basic_config():
         enabled=True,
         host="127.0.0.1",
         port=8000,
-        path="/webhook",
+        feishu_path="/webhook",
     )
 
 

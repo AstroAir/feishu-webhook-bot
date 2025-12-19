@@ -1,0 +1,37 @@
+# Include documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+include CONTRIBUTING.md
+include SECURITY.md
+include CODE_OF_CONDUCT.md
+
+# Include configuration examples
+include config.example.yaml
+include mkdocs.yml
+
+# Include type hints marker
+include src/feishu_webhook_bot/py.typed
+
+# Include package data
+recursive-include src/feishu_webhook_bot *.py *.pyi *.typed
+
+# Include documentation files
+recursive-include docs *.md
+
+# Exclude development files
+exclude .pre-commit-config.yaml
+exclude .secrets.baseline
+exclude .editorconfig
+exclude .yamllint.yaml
+exclude .markdownlint.json
+exclude .codespell-ignore
+
+# Exclude test files from distribution
+prune tests
+prune .benchmarks
+prune .github
+prune examples
+prune plugins
+prune scripts
+prune profiles

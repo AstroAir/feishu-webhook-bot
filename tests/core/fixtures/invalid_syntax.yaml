@@ -1,0 +1,6 @@
+# Invalid YAML syntax for testing
+webhooks:
+  - name: default
+    url: "https://example.com
+  invalid_indentation
+    this: is broken

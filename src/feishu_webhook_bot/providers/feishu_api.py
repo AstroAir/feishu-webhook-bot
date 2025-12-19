@@ -204,6 +204,27 @@ class FeishuOpenAPI:
     GET_USER_URL = "/contact/v3/users/{user_id}"
     GET_CHAT_URL = "/im/v1/chats/{chat_id}"
     GET_CHAT_MEMBERS_URL = "/im/v1/chats/{chat_id}/members"
+    LIST_MESSAGES_URL = "/im/v1/messages"
+    UPDATE_MESSAGE_URL = "/im/v1/messages/{message_id}"
+    FORWARD_MESSAGE_URL = "/im/v1/messages/{message_id}/forward"
+    GET_MESSAGE_RESOURCE_URL = "/im/v1/messages/{message_id}/resources/{file_key}"
+
+    # Chat management endpoints
+    CREATE_CHAT_URL = "/im/v1/chats"
+    UPDATE_CHAT_URL = "/im/v1/chats/{chat_id}"
+    DELETE_CHAT_URL = "/im/v1/chats/{chat_id}"
+    ADD_CHAT_MEMBERS_URL = "/im/v1/chats/{chat_id}/members"
+    REMOVE_CHAT_MEMBERS_URL = "/im/v1/chats/{chat_id}/members"
+    IS_MEMBER_URL = "/im/v1/chats/{chat_id}/members/is_in_chat"
+
+    # File/Media endpoints
+    UPLOAD_IMAGE_URL = "/im/v1/images"
+    GET_IMAGE_URL = "/im/v1/images/{image_key}"
+    UPLOAD_FILE_URL = "/im/v1/files"
+    GET_FILE_URL = "/im/v1/files/{file_key}"
+
+    # Bot info endpoint
+    GET_BOT_INFO_URL = "/bot/v3/info"
 
     OAUTH_URL = "https://open.feishu.cn/open-apis/authen/v1/authorize"
 
@@ -894,6 +915,604 @@ class FeishuOpenAPI:
             msg_type="interactive",
             content=card,
         )
+
+    # =========================================================================
+    # Extended Message API
+    # =========================================================================
+
+    async def list_messages(
+        self,
+        container_id: str,
+        container_id_type: Literal["chat"] = "chat",
+        start_time: str | None = None,
+        end_time: str | None = None,
+        sort_type: Literal["ByCreateTimeAsc", "ByCreateTimeDesc"] = "ByCreateTimeAsc",
+        page_size: int = 20,
+        page_token: str = "",
+    ) -> tuple[list[dict[str, Any]], str, bool]:
+        """List messages in a chat.
+
+        Args:
+            container_id: Chat ID.
+            container_id_type: Container type (only "chat" supported).
+            start_time: Start time (Unix timestamp string, optional).
+            end_time: End time (Unix timestamp string, optional).
+            sort_type: Sort order.
+            page_size: Number of messages per page (max 50).
+            page_token: Pagination token.
+
+        Returns:
+            Tuple of (messages_list, next_page_token, has_more).
+
+        Raises:
+            FeishuAPIError: If API call fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        params: dict[str, Any] = {
+            "container_id_type": container_id_type,
+            "container_id": container_id,
+            "sort_type": sort_type,
+            "page_size": page_size,
+        }
+        if start_time:
+            params["start_time"] = start_time
+        if end_time:
+            params["end_time"] = end_time
+        if page_token:
+            params["page_token"] = page_token
+
+        response = await client.get(
+            self.LIST_MESSAGES_URL,
+            params=params,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            raise FeishuAPIError(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        result = data.get("data", {})
+        items = result.get("items", [])
+        next_token = result.get("page_token", "")
+        has_more = result.get("has_more", False)
+
+        return items, next_token, has_more
+
+    async def update_message(
+        self,
+        message_id: str,
+        msg_type: str,
+        content: dict[str, Any] | str,
+    ) -> bool:
+        """Update a sent message.
+
+        Args:
+            message_id: ID of message to update.
+            msg_type: Message type.
+            content: New message content.
+
+        Returns:
+            True if update succeeded.
+
+        Note:
+            Only text and post messages can be updated.
+            Messages can only be updated within 24 hours.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        if isinstance(content, dict):
+            content_str = json.dumps(content, ensure_ascii=False)
+        else:
+            content_str = content
+
+        url = self.UPDATE_MESSAGE_URL.format(message_id=message_id)
+        response = await client.patch(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            json={"msg_type": msg_type, "content": content_str},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            logger.error(
+                "Failed to update message: code=%d, msg=%s",
+                data.get("code"),
+                data.get("msg"),
+            )
+            return False
+
+        logger.info("Message updated: %s", message_id)
+        return True
+
+    async def forward_message(
+        self,
+        message_id: str,
+        receive_id: str,
+        receive_id_type: ReceiveIdType = "chat_id",
+    ) -> MessageSendResult:
+        """Forward a message to another chat.
+
+        Args:
+            message_id: ID of message to forward.
+            receive_id: Target chat/user ID.
+            receive_id_type: Type of receive_id.
+
+        Returns:
+            MessageSendResult with new message ID.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.FORWARD_MESSAGE_URL.format(message_id=message_id)
+        response = await client.post(
+            url,
+            params={"receive_id_type": receive_id_type},
+            headers={"Authorization": f"Bearer {token}"},
+            json={"receive_id": receive_id},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            return MessageSendResult.fail(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        new_message_id = data.get("data", {}).get("message_id", "")
+        return MessageSendResult.ok(new_message_id)
+
+    async def get_message_resource(
+        self,
+        message_id: str,
+        file_key: str,
+        resource_type: Literal["image", "file"] = "file",
+    ) -> bytes:
+        """Download a file/image from a message.
+
+        Args:
+            message_id: Message ID containing the resource.
+            file_key: File key of the resource.
+            resource_type: Type of resource ("image" or "file").
+
+        Returns:
+            File content as bytes.
+
+        Raises:
+            FeishuAPIError: If download fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.GET_MESSAGE_RESOURCE_URL.format(message_id=message_id, file_key=file_key)
+        response = await client.get(
+            url,
+            params={"type": resource_type},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if response.status_code != 200:
+            raise FeishuAPIError(
+                code=response.status_code,
+                msg=f"Failed to download resource: {response.text}",
+            )
+
+        return response.content
+
+    # =========================================================================
+    # File & Media API
+    # =========================================================================
+
+    async def upload_image(
+        self,
+        image: bytes,
+        image_type: Literal["message", "avatar"] = "message",
+    ) -> str:
+        """Upload an image to Feishu.
+
+        Args:
+            image: Image content as bytes.
+            image_type: Image type ("message" for chat images, "avatar" for avatars).
+
+        Returns:
+            Image key for use in messages.
+
+        Raises:
+            FeishuAPIError: If upload fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        response = await client.post(
+            self.UPLOAD_IMAGE_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            data={"image_type": image_type},
+            files={"image": ("image.png", image, "image/png")},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            raise FeishuAPIError(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        image_key = data.get("data", {}).get("image_key", "")
+        logger.info("Image uploaded: %s", image_key)
+        return image_key
+
+    async def download_image(self, image_key: str) -> bytes:
+        """Download an image by its key.
+
+        Args:
+            image_key: Image key from message or upload.
+
+        Returns:
+            Image content as bytes.
+
+        Raises:
+            FeishuAPIError: If download fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.GET_IMAGE_URL.format(image_key=image_key)
+        response = await client.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if response.status_code != 200:
+            raise FeishuAPIError(
+                code=response.status_code,
+                msg=f"Failed to download image: {response.text}",
+            )
+
+        return response.content
+
+    async def upload_file(
+        self,
+        file_content: bytes,
+        file_name: str,
+        file_type: Literal["opus", "mp4", "pdf", "doc", "xls", "ppt", "stream"] = "stream",
+    ) -> str:
+        """Upload a file to Feishu.
+
+        Args:
+            file_content: File content as bytes.
+            file_name: Original file name.
+            file_type: File type category.
+
+        Returns:
+            File key for use in messages.
+
+        Raises:
+            FeishuAPIError: If upload fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        response = await client.post(
+            self.UPLOAD_FILE_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            data={"file_type": file_type, "file_name": file_name},
+            files={"file": (file_name, file_content, "application/octet-stream")},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            raise FeishuAPIError(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        file_key = data.get("data", {}).get("file_key", "")
+        logger.info("File uploaded: %s", file_key)
+        return file_key
+
+    async def download_file(self, file_key: str) -> bytes:
+        """Download a file by its key.
+
+        Args:
+            file_key: File key from message or upload.
+
+        Returns:
+            File content as bytes.
+
+        Raises:
+            FeishuAPIError: If download fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.GET_FILE_URL.format(file_key=file_key)
+        response = await client.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        if response.status_code != 200:
+            raise FeishuAPIError(
+                code=response.status_code,
+                msg=f"Failed to download file: {response.text}",
+            )
+
+        return response.content
+
+    # =========================================================================
+    # Chat Management API
+    # =========================================================================
+
+    async def create_chat(
+        self,
+        name: str,
+        description: str = "",
+        user_ids: list[str] | None = None,
+        owner_id: str | None = None,
+        chat_mode: Literal["group", "topic"] = "group",
+        chat_type: Literal["private", "public"] = "private",
+        user_id_type: Literal["open_id", "user_id", "union_id"] = "open_id",
+    ) -> dict[str, Any]:
+        """Create a new chat/group.
+
+        Args:
+            name: Chat name.
+            description: Chat description.
+            user_ids: List of user IDs to add.
+            owner_id: Owner user ID.
+            chat_mode: "group" or "topic".
+            chat_type: "private" or "public".
+            user_id_type: Type of user IDs.
+
+        Returns:
+            Created chat info with chat_id.
+
+        Raises:
+            FeishuAPIError: If creation fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        body: dict[str, Any] = {
+            "name": name,
+            "chat_mode": chat_mode,
+            "chat_type": chat_type,
+        }
+        if description:
+            body["description"] = description
+        if user_ids:
+            body["user_id_list"] = user_ids
+        if owner_id:
+            body["owner_id"] = owner_id
+
+        response = await client.post(
+            self.CREATE_CHAT_URL,
+            params={"user_id_type": user_id_type},
+            headers={"Authorization": f"Bearer {token}"},
+            json=body,
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            raise FeishuAPIError(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        logger.info("Chat created: %s", data.get("data", {}).get("chat_id"))
+        return data.get("data", {})
+
+    async def update_chat(
+        self,
+        chat_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        owner_id: str | None = None,
+    ) -> bool:
+        """Update chat settings.
+
+        Args:
+            chat_id: Chat ID to update.
+            name: New chat name (optional).
+            description: New description (optional).
+            owner_id: New owner ID (optional).
+
+        Returns:
+            True if update succeeded.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if description is not None:
+            body["description"] = description
+        if owner_id is not None:
+            body["owner_id"] = owner_id
+
+        if not body:
+            return True  # Nothing to update
+
+        url = self.UPDATE_CHAT_URL.format(chat_id=chat_id)
+        response = await client.put(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            json=body,
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            logger.error("Failed to update chat: %s", data.get("msg"))
+            return False
+
+        return True
+
+    async def delete_chat(self, chat_id: str) -> bool:
+        """Delete/dissolve a chat.
+
+        Args:
+            chat_id: Chat ID to delete.
+
+        Returns:
+            True if deletion succeeded.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.DELETE_CHAT_URL.format(chat_id=chat_id)
+        response = await client.delete(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            logger.error("Failed to delete chat: %s", data.get("msg"))
+            return False
+
+        logger.info("Chat deleted: %s", chat_id)
+        return True
+
+    async def add_chat_members(
+        self,
+        chat_id: str,
+        user_ids: list[str],
+        member_id_type: Literal["open_id", "user_id", "union_id"] = "open_id",
+    ) -> dict[str, Any]:
+        """Add members to a chat.
+
+        Args:
+            chat_id: Chat ID.
+            user_ids: List of user IDs to add.
+            member_id_type: Type of user IDs.
+
+        Returns:
+            Result with invalid_id_list if any IDs failed.
+
+        Raises:
+            FeishuAPIError: If API call fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.ADD_CHAT_MEMBERS_URL.format(chat_id=chat_id)
+        response = await client.post(
+            url,
+            params={"member_id_type": member_id_type},
+            headers={"Authorization": f"Bearer {token}"},
+            json={"id_list": user_ids},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            raise FeishuAPIError(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        return data.get("data", {})
+
+    async def remove_chat_members(
+        self,
+        chat_id: str,
+        user_ids: list[str],
+        member_id_type: Literal["open_id", "user_id", "union_id"] = "open_id",
+    ) -> dict[str, Any]:
+        """Remove members from a chat.
+
+        Args:
+            chat_id: Chat ID.
+            user_ids: List of user IDs to remove.
+            member_id_type: Type of user IDs.
+
+        Returns:
+            Result with invalid_id_list if any IDs failed.
+
+        Raises:
+            FeishuAPIError: If API call fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.REMOVE_CHAT_MEMBERS_URL.format(chat_id=chat_id)
+        response = await client.delete(
+            url,
+            params={"member_id_type": member_id_type},
+            headers={"Authorization": f"Bearer {token}"},
+            json={"id_list": user_ids},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            raise FeishuAPIError(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        return data.get("data", {})
+
+    async def is_member(
+        self,
+        chat_id: str,
+    ) -> bool:
+        """Check if bot is a member of the chat.
+
+        Args:
+            chat_id: Chat ID to check.
+
+        Returns:
+            True if bot is a member.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        url = self.IS_MEMBER_URL.format(chat_id=chat_id)
+        response = await client.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            return False
+
+        return data.get("data", {}).get("is_in_chat", False)
+
+    # =========================================================================
+    # Bot Info API
+    # =========================================================================
+
+    async def get_bot_info(self) -> dict[str, Any]:
+        """Get bot information.
+
+        Returns:
+            Bot info with app_name, avatar_url, open_id, etc.
+
+        Raises:
+            FeishuAPIError: If API call fails.
+        """
+        client = self._ensure_client()
+        token = await self.get_tenant_access_token()
+
+        response = await client.get(
+            self.GET_BOT_INFO_URL,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        data = response.json()
+        if data.get("code") != 0:
+            raise FeishuAPIError(
+                code=data.get("code", -1),
+                msg=data.get("msg", "Unknown error"),
+            )
+
+        return data.get("bot", {})
 
 
 def create_feishu_api(

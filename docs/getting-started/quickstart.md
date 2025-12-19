@@ -75,11 +75,11 @@ class HelloPlugin(BasePlugin):
             version="1.0.0",
             description="A simple hello plugin",
         )
-    
+
     def on_enable(self) -> None:
         # Send message when plugin loads
         self.client.send_text("👋 Hello plugin enabled!")
-        
+
         # Schedule a daily greeting
         self.register_job(
             self.daily_greeting,
@@ -87,7 +87,7 @@ class HelloPlugin(BasePlugin):
             hour=9,
             minute=0,
         )
-    
+
     def daily_greeting(self) -> None:
         self.client.send_text("☀️ Good morning!")
 ```

@@ -1,0 +1,8 @@
+# Invalid schema - missing required webhooks field
+bot:
+  name: "Test Bot"
+
+# webhooks is required but missing
+tasks:
+  - name: "orphan_task"
+    invalid_field: true

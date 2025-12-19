@@ -125,7 +125,7 @@ class MessageRecord(Base):
         try:
             return json.loads(self.metadata_json)
         except json.JSONDecodeError:
-            logger.warning("Failed to parse metadata JSON for message %d", self.id)
+            logger.warning("Failed to parse metadata JSON for message %s", self.id)
             return {}
 
     def to_dict(self) -> dict[str, Any]:

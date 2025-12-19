@@ -1,0 +1,43 @@
+# Valid configuration file for testing
+webhooks:
+  - name: default
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/test-webhook-id"
+
+general:
+  bot_name: "Test Bot"
+
+tasks:
+  - name: "test_task"
+    enabled: true
+    schedule:
+      mode: "cron"
+      arguments:
+        hour: 9
+        minute: 0
+    actions:
+      - type: "send_message"
+        webhook: "default"
+        message: "Daily test message"
+
+plugins:
+  enabled: true
+  directory: "./plugins"
+  auto_reload: false
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+scheduler:
+  enabled: true
+  timezone: "UTC"
+
+environments:
+  - name: "development"
+    variables:
+      - name: "DEBUG"
+        value: "true"
+  - name: "production"
+    variables:
+      - name: "DEBUG"
+        value: "false"

@@ -99,7 +99,7 @@ webhooks:
 ```yaml
 feishu:
   webhook_url: "https://..."
-  
+
 napcat:
   http_url: "http://..."
 ```
@@ -111,7 +111,7 @@ providers:
   - provider_type: feishu
     name: feishu-main
     url: "https://..."
-  
+
   - provider_type: qq_napcat
     name: qq-main
     http_url: "http://..."
@@ -188,7 +188,7 @@ import yaml
 
 def migrate_config(old_config: dict) -> dict:
     new_config = {}
-    
+
     # Migrate webhooks
     if "webhook_url" in old_config:
         new_config["webhooks"] = [{
@@ -196,7 +196,7 @@ def migrate_config(old_config: dict) -> dict:
             "url": old_config["webhook_url"],
             "secret": old_config.get("webhook_secret"),
         }]
-    
+
     # Migrate AI
     if old_config.get("ai_enabled"):
         new_config["ai"] = {
@@ -204,26 +204,26 @@ def migrate_config(old_config: dict) -> dict:
             "model": f"openai:{old_config.get('ai_model', 'gpt-4')}",
             "api_key": old_config.get("ai_api_key"),
         }
-    
+
     # Migrate scheduler
     if "scheduler" in old_config:
         new_config["scheduler"] = {
             "enabled": True,
             **old_config["scheduler"],
         }
-    
+
     # Migrate plugins
     if "plugins" in old_config:
         plugin_settings = {}
         for plugin in old_config["plugins"]:
             if plugin.get("config"):
                 plugin_settings[plugin["name"]] = plugin["config"]
-        
+
         new_config["plugins"] = {
             "enabled": True,
             "plugin_settings": plugin_settings,
         }
-    
+
     return new_config
 
 # Usage
@@ -343,7 +343,7 @@ class MyPlugin(BasePlugin):
     def setup(self):
         # Initialize plugin
         pass
-    
+
     def teardown(self):
         # Cleanup
         pass
@@ -356,11 +356,11 @@ class MyPlugin(BasePlugin):
     def on_enable(self) -> None:
         # Initialize plugin
         pass
-    
+
     def on_disable(self) -> None:
         # Cleanup
         pass
-    
+
     def on_reload(self) -> None:
         # Handle hot-reload
         pass
@@ -443,7 +443,7 @@ import sqlite3
 def migrate_auth_db(db_path: str):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     # Add new columns
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP")
@@ -451,15 +451,15 @@ def migrate_auth_db(db_path: str):
         cursor.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
     except sqlite3.OperationalError:
         pass  # Columns already exist
-    
+
     # Update existing rows
     cursor.execute("""
-        UPDATE users 
-        SET created_at = CURRENT_TIMESTAMP, 
-            updated_at = CURRENT_TIMESTAMP 
+        UPDATE users
+        SET created_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
         WHERE created_at IS NULL
     """)
-    
+
     conn.commit()
     conn.close()
 
@@ -475,13 +475,13 @@ import sqlite3
 def migrate_messages_db(db_path: str):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     # Add provider column
     try:
         cursor.execute("ALTER TABLE messages ADD COLUMN provider TEXT DEFAULT 'feishu'")
     except sqlite3.OperationalError:
         pass
-    
+
     conn.commit()
     conn.close()
 ```

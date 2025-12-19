@@ -134,7 +134,7 @@ actions:
       method: "GET"
       url: "https://api.example.com/stats"
       save_as: "stats"
-  
+
   - type: "send_text"
     text: "Total users: ${stats.total_users}"
 ```
@@ -206,7 +206,7 @@ automations:
           method: "GET"
           url: "https://api.example.com/status"
           save_as: "status"
-      
+
       - type: "send_template"
         template: "status_report"
         context:
@@ -247,14 +247,14 @@ automations:
           method: "GET"
           url: "https://api.example.com/metrics"
           save_as: "metrics"
-      
+
       # Step 2: Fetch additional data
       - type: "http_request"
         request:
           method: "GET"
           url: "https://api.example.com/alerts"
           save_as: "alerts"
-      
+
       # Step 3: Send combined report
       - type: "send_text"
         text: |

@@ -1284,9 +1284,11 @@ class TestNapcatProvider:
         assert caps["rich_text"] is True
         assert caps["card"] is False  # Not supported by OneBot11
         assert caps["image"] is True
-        assert caps["file"] is False
-        assert caps["audio"] is False
-        assert caps["video"] is False
+        assert caps["file"] is True  # Supported via OneBot11
+        assert caps["audio"] is True  # Supported via OneBot11
+        assert caps["video"] is True  # Supported via OneBot11
+        assert caps["forward"] is True  # Supported via OneBot11
+        assert caps["poke"] is True  # NapCat extended API
 
     # Rich text conversion tests
 

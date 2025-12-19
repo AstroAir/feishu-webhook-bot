@@ -541,14 +541,14 @@ class TestWebSearchTool:
 
     @pytest.mark.anyio
     async def test_web_search_max_results_clamped_high(self):
-        """Test max_results is clamped to maximum 20."""
+        """Test max_results is clamped to maximum 50."""
         with patch("feishu_webhook_bot.ai.tools.DDGS") as mock_ddgs:
             mock_instance = MagicMock()
             mock_instance.text.return_value = []
             mock_ddgs.return_value = mock_instance
 
             await web_search("test query", max_results=100)
-            mock_instance.text.assert_called_with("test query", max_results=20)
+            mock_instance.text.assert_called_with("test query", max_results=50)
 
     @pytest.mark.anyio
     async def test_web_search_no_results(self):

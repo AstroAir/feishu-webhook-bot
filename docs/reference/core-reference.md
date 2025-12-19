@@ -365,16 +365,16 @@ from feishu_webhook_bot.core.provider import (
 
 class CustomProvider(BaseProvider):
     """Custom message provider implementation."""
-    
+
     async def send_message(self, message: Message) -> SendResult:
         """Send a message through this provider."""
         # Implementation
         pass
-    
+
     async def start(self) -> None:
         """Start the provider."""
         pass
-    
+
     async def stop(self) -> None:
         """Stop the provider."""
         pass
@@ -631,17 +631,17 @@ from feishu_webhook_bot.core.message_handler import IncomingMessage, MessagePars
 
 class CustomParser:
     """Custom message parser for a new platform."""
-    
+
     def __init__(self, bot_id: str | None = None):
         self.bot_id = bot_id
-    
+
     def can_parse(self, payload: dict) -> bool:
         return payload.get("platform") == "custom"
-    
+
     def parse(self, payload: dict) -> IncomingMessage | None:
         if not self.can_parse(payload):
             return None
-        
+
         return IncomingMessage(
             id=payload["message_id"],
             platform="custom",

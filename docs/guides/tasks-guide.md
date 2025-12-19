@@ -46,14 +46,14 @@ tasks:
   - name: "daily-report"
     description: "Generate and send daily report"
     enabled: true
-    
+
     # Scheduling (required - choose one)
     schedule:
       mode: "cron"
       arguments:
         hour: "18"
         minute: "0"
-    
+
     # Actions to execute (required)
     actions:
       - type: "http_request"
@@ -61,11 +61,11 @@ tasks:
           method: "GET"
           url: "https://api.example.com/stats"
           save_as: "stats"
-      
+
       - type: "send_message"
         message: "Daily stats: ${stats.total}"
         webhooks: ["default"]
-    
+
     # Optional settings
     timeout: 300
     priority: 100
@@ -108,7 +108,7 @@ actions:
   - type: "send_message"
     message: "Hello, World!"
     webhooks: ["default", "alerts"]
-  
+
   # With template
   - type: "send_message"
     template: "daily_report"
@@ -161,7 +161,7 @@ actions:
       import datetime
       now = datetime.datetime.now()
       context['timestamp'] = now.isoformat()
-      
+
       # Access previous action results
       stats = context.get('api_response', {})
       context['processed'] = stats.get('count', 0) * 2
@@ -417,20 +417,20 @@ tasks:
         request:
           url: "https://api.example.com/metrics"
           save_as: "metrics"
-      
+
       # Step 2: AI analysis
       - type: "ai_query"
         ai_prompt: |
           Analyze these metrics and identify trends:
           ${metrics}
-          
+
           Provide:
           1. Key insights
           2. Anomalies detected
           3. Recommendations
         ai_temperature: 0.3
         ai_save_response_as: "analysis"
-      
+
       # Step 3: Send report
       - type: "send_message"
         template: "analysis_report"
@@ -451,7 +451,7 @@ tasks:
         ai_prompt: "Research latest trends in ${topic}"
         ai_user_id: "researcher"
         ai_save_response_as: "research"
-      
+
       # Analysis phase
       - type: "ai_query"
         ai_prompt: |
@@ -462,7 +462,7 @@ tasks:
           - Recommendations
         ai_user_id: "analyst"
         ai_save_response_as: "analysis"
-      
+
       # Summary phase
       - type: "ai_query"
         ai_prompt: |
@@ -472,12 +472,12 @@ tasks:
         ai_user_id: "summarizer"
         ai_max_tokens: 300
         ai_save_response_as: "summary"
-      
+
       # Send report
       - type: "send_message"
         message: |
           📊 Research Report: ${topic}
-          
+
           ${summary}
         webhooks: ["default"]
     context:
@@ -561,7 +561,7 @@ tasks:
 tasks:
   - name: "quick-check"
     timeout: 30  # Short timeout for quick tasks
-  
+
   - name: "data-processing"
     timeout: 600  # Longer timeout for heavy processing
 ```

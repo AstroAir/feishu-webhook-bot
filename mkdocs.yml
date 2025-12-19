@@ -1,5 +1,5 @@
 site_name: Feishu Webhook Bot
-site_description: "A production-ready framework for building Feishu (Lark) webhook bots with messaging, scheduling, plugins, and automation."
+site_description: "A production-ready framework for building Feishu (Lark) webhook bots."
 site_url: ""
 repo_url: https://github.com/AstroAir/feishu-webhook-bot
 repo_name: AstroAir/feishu-webhook-bot

@@ -9,30 +9,30 @@ webhooks:
 # AI configuration with multiple provider support
 ai:
   enabled: true
-  
+
   # Primary model (OpenAI GPT-4)
   model: "openai:gpt-4o"
   api_key: ${OPENAI_API_KEY}
-  
+
   # Fallback models for reliability
   fallback_models:
     - "anthropic:claude-3-5-sonnet-20241022"
     - "groq:llama-3.1-70b-versatile"
-  
+
   # Provider-specific configuration
   provider_config:
     timeout: 60.0
     max_retries: 2
     # For Ollama (local models):
     # base_url: "http://localhost:11434/v1"
-  
+
   # AI settings
   system_prompt: "You are a helpful AI assistant integrated with Feishu for automated tasks."
   temperature: 0.7
   max_tokens: 1000
   max_conversation_turns: 10
   conversation_timeout_minutes: 30
-  
+
   # Features
   tools_enabled: true
   web_search_enabled: true
@@ -46,15 +46,15 @@ tasks:
   - name: "daily_ai_summary"
     description: "Generate daily summary using AI"
     enabled: true
-    
+
     schedule:
       mode: "cron"
       arguments:
         hour: 18
         minute: 0
-    
+
     conditions: []
-    
+
     actions:
       # AI generates the summary
       - type: "ai_query"
@@ -68,15 +68,15 @@ tasks:
         ai_user_id: "daily_summary_bot"
         ai_temperature: 0.7
         ai_save_response_as: "summary"
-      
+
       # Send the summary
       - type: "send_message"
         message: |
           📊 Daily Summary
-          
+
           ${summary}
         webhooks: ["default"]
-    
+
     error_handling:
       retry_on_failure: true
       max_retries: 3
@@ -86,14 +86,14 @@ tasks:
   - name: "sentiment_analysis_task"
     description: "Analyze feedback sentiment and take appropriate action"
     enabled: true
-    
+
     schedule:
       mode: "interval"
       arguments:
         hours: 2
-    
+
     conditions: []
-    
+
     actions:
       # Fetch feedback (example - replace with actual data source)
       - type: "http_request"
@@ -101,23 +101,23 @@ tasks:
           method: "GET"
           url: "https://api.example.com/feedback/latest"
           save_as: "feedback_data"
-      
+
       # AI analyzes sentiment
       - type: "ai_query"
         ai_prompt: |
           Analyze the sentiment of this feedback and respond with only one word:
           POSITIVE, NEGATIVE, or NEUTRAL
-          
+
           Feedback: ${feedback_text}
         ai_user_id: "sentiment_analyzer"
         ai_temperature: 0.3
         ai_save_response_as: "sentiment"
-      
+
       # Process based on sentiment
       - type: "python_code"
         code: |
           sentiment = context.get('sentiment', '').strip().upper()
-          
+
           if 'NEGATIVE' in sentiment:
               context['alert_level'] = '🚨 HIGH PRIORITY'
               context['action_needed'] = 'Immediate response required'
@@ -127,18 +127,18 @@ tasks:
           else:
               context['alert_level'] = 'ℹ️ NEUTRAL'
               context['action_needed'] = 'Monitor'
-      
+
       # Send notification
       - type: "send_message"
         message: |
           ${alert_level} Feedback Alert
-          
+
           Sentiment: ${sentiment}
           Action: ${action_needed}
-          
+
           Feedback: ${feedback_text}
         webhooks: ["default"]
-    
+
     error_handling:
       retry_on_failure: true
       max_retries: 2
@@ -149,24 +149,24 @@ tasks:
   - name: "ai_content_generator"
     description: "Generate social media content using AI"
     enabled: true
-    
+
     schedule:
       mode: "cron"
       arguments:
         hour: 9
         minute: 0
         day_of_week: "mon,wed,fri"
-    
+
     conditions:
       - type: "day_of_week"
         days: ["Monday", "Wednesday", "Friday"]
-    
+
     actions:
       # AI generates content
       - type: "ai_chat"
         ai_prompt: |
           Create an engaging social media post about ${topic}.
-          
+
           Requirements:
           - Catchy headline
           - 2-3 key points
@@ -177,21 +177,21 @@ tasks:
         ai_temperature: 0.9
         ai_max_tokens: 300
         ai_save_response_as: "social_post"
-      
+
       # Send for review
       - type: "send_message"
         message: |
           📱 Generated Social Media Post
-          
+
           ${social_post}
-          
+
           Topic: ${topic}
           #SocialMedia #AI #Content
         webhooks: ["default"]
-    
+
     context:
       topic: "AI-powered automation"
-    
+
     error_handling:
       retry_on_failure: true
       max_retries: 3
@@ -201,14 +201,14 @@ tasks:
   - name: "ai_research_workflow"
     description: "Multi-step AI workflow: research, analyze, report"
     enabled: true
-    
+
     schedule:
       mode: "interval"
       arguments:
         hours: 6
-    
+
     conditions: []
-    
+
     actions:
       # Step 1: Research
       - type: "ai_query"
@@ -217,51 +217,51 @@ tasks:
           Provide 3 key insights with brief explanations.
         ai_user_id: "researcher"
         ai_save_response_as: "research"
-      
+
       # Step 2: Analysis
       - type: "ai_query"
         ai_prompt: |
           Based on this research:
           ${research}
-          
+
           Provide analysis of:
           1. Opportunities
           2. Challenges
           3. Recommendations
         ai_user_id: "analyst"
         ai_save_response_as: "analysis"
-      
+
       # Step 3: Executive summary
       - type: "ai_query"
         ai_prompt: |
           Create an executive summary based on:
-          
+
           Research: ${research}
           Analysis: ${analysis}
-          
+
           Keep it concise and actionable (max 150 words).
         ai_user_id: "summarizer"
         ai_temperature: 0.5
         ai_save_response_as: "summary"
-      
+
       # Step 4: Send report
       - type: "send_message"
         message: |
           📊 ${industry} Industry Report
-          
+
           🔍 Research Insights:
           ${research}
-          
+
           📈 Analysis:
           ${analysis}
-          
+
           📋 Executive Summary:
           ${summary}
         webhooks: ["default"]
-    
+
     context:
       industry: "Artificial Intelligence"
-    
+
     error_handling:
       retry_on_failure: true
       max_retries: 2
@@ -271,14 +271,14 @@ tasks:
   - name: "ai_data_processor"
     description: "Process and categorize data using AI"
     enabled: true
-    
+
     schedule:
       mode: "interval"
       arguments:
         minutes: 30
-    
+
     conditions: []
-    
+
     actions:
       # Fetch data to process
       - type: "http_request"
@@ -286,24 +286,24 @@ tasks:
           method: "GET"
           url: "https://api.example.com/data/pending"
           save_as: "raw_data"
-      
+
       # AI categorizes and processes
       - type: "ai_query"
         ai_prompt: |
           Categorize and summarize this data:
           ${raw_data}
-          
+
           Provide:
           1. Category (Technical, Business, Support, Other)
           2. Priority (High, Medium, Low)
           3. Brief summary (1 sentence)
-          
+
           Format as JSON.
         ai_user_id: "data_processor"
         ai_temperature: 0.3
         ai_structured_output: true
         ai_save_response_as: "processed_data"
-      
+
       # Store results
       - type: "http_request"
         request:
@@ -312,15 +312,15 @@ tasks:
           json_body:
             data: "${processed_data}"
             timestamp: "${timestamp}"
-      
+
       # Notify completion
       - type: "send_message"
         message: |
           ✅ Data Processing Complete
-          
+
           Processed: ${processed_data}
         webhooks: ["default"]
-    
+
     error_handling:
       retry_on_failure: true
       max_retries: 2
@@ -334,4 +334,3 @@ event_server:
   host: "0.0.0.0"
   port: 8080
   path: "/webhook"
-

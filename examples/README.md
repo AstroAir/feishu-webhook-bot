@@ -149,6 +149,7 @@ python examples/quickstart/basic_bot_example.py
 ```
 
 **What it demonstrates:**
+
 - Creating a bot from code and YAML configuration
 - Sending different message types
 - Using the scheduler
@@ -166,6 +167,7 @@ python examples/quickstart/simple_message_example.py
 ```
 
 **What it demonstrates:**
+
 - Simplest possible setup
 - Text, rich text, and card messages
 - Common use cases and templates
@@ -185,6 +187,7 @@ python examples/core/circuit_breaker_example.py
 ```
 
 **What it demonstrates:**
+
 - Basic circuit breaker usage
 - State transitions (CLOSED → OPEN → HALF_OPEN)
 - Decorator-based usage
@@ -203,6 +206,7 @@ python examples/core/message_queue_example.py
 ```
 
 **What it demonstrates:**
+
 - Basic queue operations
 - Batch processing
 - Retry mechanisms with exponential backoff
@@ -220,6 +224,7 @@ python examples/core/message_tracker_example.py
 ```
 
 **What it demonstrates:**
+
 - Basic message tracking
 - Status transitions
 - Duplicate detection
@@ -238,6 +243,7 @@ python examples/core/config_watcher_example.py
 ```
 
 **What it demonstrates:**
+
 - Watching configuration files
 - Automatic reload on modification
 - Validation before reload
@@ -255,6 +261,7 @@ python examples/core/config_validation_example.py
 ```
 
 **What it demonstrates:**
+
 - JSON schema generation
 - YAML configuration validation
 - Custom validation functions
@@ -271,6 +278,7 @@ python examples/core/image_uploader_example.py
 ```
 
 **What it demonstrates:**
+
 - Permission checking
 - Image upload workflow
 - Creating image cards
@@ -288,6 +296,7 @@ python examples/core/logging_example.py
 ```
 
 **What it demonstrates:**
+
 - Different log levels
 - Named loggers
 - Custom log formats
@@ -308,6 +317,7 @@ python examples/providers/feishu_provider_example.py
 ```
 
 **What it demonstrates:**
+
 - Provider configuration
 - Sending text, rich text, and card messages
 - HMAC-SHA256 signed webhooks
@@ -325,6 +335,7 @@ python examples/providers/qq_napcat_provider_example.py
 ```
 
 **What it demonstrates:**
+
 - Provider configuration
 - Private and group messages
 - CQ code format
@@ -342,6 +353,7 @@ python examples/providers/multi_provider_example.py
 ```
 
 **What it demonstrates:**
+
 - Provider registry
 - Multi-platform messaging
 - Provider-specific formatting
@@ -362,6 +374,7 @@ python examples/ai/conversation_manager_example.py
 ```
 
 **What it demonstrates:**
+
 - Conversation state management
 - Multi-turn dialogue
 - Token tracking
@@ -379,6 +392,7 @@ python examples/ai/multi_agent_example.py
 ```
 
 **What it demonstrates:**
+
 - Specialized agents
 - Sequential, concurrent, hierarchical orchestration
 - Agent-to-agent communication
@@ -395,6 +409,7 @@ python examples/ai/tool_registry_example.py
 ```
 
 **What it demonstrates:**
+
 - Registering custom tools
 - Tool with parameters
 - Async tool support
@@ -413,6 +428,7 @@ python examples/ai/ai_retry_example.py
 ```
 
 **What it demonstrates:**
+
 - Exponential backoff
 - Circuit breaker for AI
 - Rate limit handling
@@ -433,6 +449,7 @@ python examples/plugins/plugin_config_schema_example.py
 ```
 
 **What it demonstrates:**
+
 - Configuration field types
 - Field validation
 - Environment variable fallbacks
@@ -450,6 +467,7 @@ python examples/plugins/plugin_dependency_example.py
 ```
 
 **What it demonstrates:**
+
 - Dependency declaration
 - Version compatibility checking
 - Dependency resolution order
@@ -467,6 +485,7 @@ python examples/plugins/plugin_manifest_example.py
 ```
 
 **What it demonstrates:**
+
 - Plugin metadata
 - Dependencies declaration
 - Permissions and capabilities
@@ -486,6 +505,7 @@ python examples/client/card_builder_example.py
 ```
 
 **What it demonstrates:**
+
 - Building cards with fluent API
 - Header styles and templates
 - Text, image, and button elements
@@ -503,6 +523,7 @@ python examples/client/rich_text_example.py
 ```
 
 **What it demonstrates:**
+
 - Rich text structure
 - Text styling (bold, italic, underline)
 - Links and mentions
@@ -845,42 +866,49 @@ python examples/mcp/mcp_tool_discovery_example.py
 ### General Steps
 
 1. **Set environment variables:**
+
    ```bash
    export OPENAI_API_KEY='your-key'
    # Add Feishu variables if needed
    ```
 
 2. **Install dependencies:**
+
    ```bash
    pip install 'pydantic-ai-slim[mcp]' duckduckgo-search
    ```
 
 3. **Install MCP servers (if needed):**
+
    ```bash
    uv tool install mcp-run-python
    ```
 
 4. **Run the example:**
+
    ```bash
    python examples/example_name.py
    ```
 
 ### Running Specific Examples
 
-#### For AI-only examples (no Feishu):
+#### For AI-only examples (no Feishu)
+
 ```bash
 export OPENAI_API_KEY='your-key'
 python examples/advanced_ai_features.py
 ```
 
-#### For MCP examples:
+#### For MCP examples
+
 ```bash
 export OPENAI_API_KEY='your-key'
 uv tool install mcp-run-python
 python examples/mcp_transport_examples.py
 ```
 
-#### For complete bot examples:
+#### For complete bot examples
+
 ```bash
 export OPENAI_API_KEY='your-key'
 export FEISHU_APP_ID='your-app-id'
@@ -1066,6 +1094,7 @@ pip install 'pydantic-ai-slim[mcp]'
 ### Getting Help
 
 For more help:
+
 - Check the main [README.md](../README.md)
 - Review [MCP Integration Guide](../docs/MCP_INTEGRATION.md)
 - Review [Advanced AI Features](../ADVANCED_AI_FEATURES.md)
@@ -1076,11 +1105,13 @@ For more help:
 If you don't have MCP servers installed, you can still test:
 
 1. **Disable MCP:**
+
    ```python
    mcp=MCPConfig(enabled=False)
    ```
 
 2. **Use built-in tools only:**
+
    ```python
    config = AIConfig(
        enabled=True,
@@ -1097,7 +1128,7 @@ If you don't have MCP servers installed, you can still test:
 
 ### Successful MCP Bot Startup
 
-```
+```text
 === Feishu Bot with MCP Integration ===
 
 Creating bot configuration...
@@ -1147,4 +1178,3 @@ After running the examples:
    - Implement advanced workflows
 
 Happy coding! 🚀
-

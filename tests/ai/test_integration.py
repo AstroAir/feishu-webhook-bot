@@ -1,5 +1,6 @@
 """Tests for AI integration."""
 
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,6 +14,9 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
 from feishu_webhook_bot.ai import AIAgent, AIConfig, ConversationManager, ToolRegistry
+
+# Check if OpenAI API key is available
+HAS_OPENAI_API_KEY = bool(os.environ.get("OPENAI_API_KEY"))
 
 # Use anyio for async tests with asyncio backend only
 pytestmark = pytest.mark.anyio(backends=["asyncio"])
@@ -132,6 +136,7 @@ class TestToolRegistry:
 class TestAIAgent:
     """Test AI agent."""
 
+    @pytest.mark.skipif(not HAS_OPENAI_API_KEY, reason="OPENAI_API_KEY not set")
     async def test_agent_initialization(self):
         """Test AI agent initialization with TestModel."""
         config = AIConfig(
@@ -145,6 +150,7 @@ class TestAIAgent:
             assert agent.conversation_manager is not None
             assert agent.tool_registry is not None
 
+    @pytest.mark.skipif(not HAS_OPENAI_API_KEY, reason="OPENAI_API_KEY not set")
     async def test_agent_chat(self):
         """Test AI agent chat functionality with TestModel."""
 
@@ -172,6 +178,7 @@ class TestAIAgent:
         finally:
             await agent.stop()
 
+    @pytest.mark.skipif(not HAS_OPENAI_API_KEY, reason="OPENAI_API_KEY not set")
     async def test_agent_stats(self):
         """Test getting agent statistics with TestModel."""
         config = AIConfig(

@@ -234,7 +234,7 @@ httpx.HTTPStatusError: 400 Bad Request
    ```yaml
    # Wrong
    url: "open.feishu.cn/..."
-   
+
    # Correct
    url: "https://open.feishu.cn/..."
    ```
@@ -342,7 +342,7 @@ WARNING: Failed to load plugin 'my_plugin'
    # Wrong
    class MyPlugin:
        pass
-   
+
    # Correct
    from feishu_webhook_bot.plugins import BasePlugin
    class MyPlugin(BasePlugin):

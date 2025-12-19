@@ -146,7 +146,7 @@ webhooks:
   - name: default
     url: https://example.com
 """)
-    
+
     config = BotConfig.from_yaml(config_file)
     assert config.webhooks[0].name == "default"
 ```
@@ -177,17 +177,17 @@ Use Google-style docstrings:
 ```python
 def send_message(self, text: str, webhook: str = "default") -> bool:
     """Send a text message to a webhook.
-    
+
     Args:
         text: The message text to send.
         webhook: The webhook name to use.
-    
+
     Returns:
         True if the message was sent successfully.
-    
+
     Raises:
         WebhookError: If the webhook is not configured.
-    
+
     Example:
         >>> bot.send_message("Hello!", webhook="alerts")
         True
@@ -207,9 +207,9 @@ uv run mypy .
 uv run pytest
 ```
 
-2. Update documentation if needed
-3. Add tests for new features
-4. Update CHANGELOG.md
+1. Update documentation if needed
+1. Add tests for new features
+1. Update CHANGELOG.md
 
 ### Create Pull Request
 
@@ -219,9 +219,9 @@ uv run pytest
 git push origin feature/your-feature-name
 ```
 
-2. Open a PR on GitHub
-3. Fill out the PR template
-4. Wait for review
+1. Open a PR on GitHub
+1. Fill out the PR template
+1. Wait for review
 
 ### PR Guidelines
 

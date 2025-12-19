@@ -292,7 +292,7 @@ class CommandHandler:
         # Check built-in commands
         if cmd in self._handlers:
             try:
-                result = await self._handlers[cmd](self, message, args)
+                result = await self._handlers[cmd](message, args)
                 logger.debug("Built-in command executed: %s (success=%s)", cmd, result.success)
                 return True, result
             except Exception as e:

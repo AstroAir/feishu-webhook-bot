@@ -7,7 +7,7 @@ Complete guide to all message types supported by the Feishu Webhook Bot.
 - [Overview](#overview)
 - [Text Messages](#text-messages)
 - [Markdown Messages](#markdown-messages)
-- [Rich Text (Post)](#rich-text-post)
+- [Rich Text Post](#rich-text-post)
 - [Interactive Cards](#interactive-cards)
 - [Image Messages](#image-messages)
 - [File Sharing](#file-sharing)
@@ -97,16 +97,14 @@ bot.send_markdown("""
 
 ```python
 bot.send_markdown("""
-```python
+\`\`\`python
 def hello():
     print("Hello!")
-```
-
+\`\`\`
 """)
-
 ```
 
-## Rich Text (Post)
+## Rich Text Post
 
 Rich text format for complex formatting with multiple elements.
 
@@ -290,7 +288,7 @@ card = (
     CardBuilder()
     # Header
     .set_header("🚨 Alert: High CPU Usage", template="red")
-    
+
     # Content
     .add_markdown("""
 **Server:** prod-web-01
@@ -298,9 +296,9 @@ card = (
 
 CPU usage has exceeded the threshold.
     """)
-    
+
     .add_divider()
-    
+
     # Metrics
     .add_fields([
         {"title": "CPU", "value": "95%"},
@@ -308,17 +306,17 @@ CPU usage has exceeded the threshold.
         {"title": "Disk", "value": "45%"},
         {"title": "Network", "value": "Normal"},
     ], columns=2)
-    
+
     .add_divider()
-    
+
     # Actions
     .add_button("View Dashboard", url="https://monitor.example.com")
     .add_button("Acknowledge", callback="ack_alert", style="primary")
     .add_button("Escalate", callback="escalate", style="danger")
-    
+
     # Footer
     .add_note("Alert ID: ALT-2025-001")
-    
+
     .build()
 )
 
@@ -452,7 +450,7 @@ templates:
         content: |
           **Summary**
           {summary}
-          
+
           **Key Metrics**
           - Active Users: {users}
           - Revenue: {revenue}

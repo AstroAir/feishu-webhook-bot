@@ -206,7 +206,7 @@ from feishu_webhook_bot.plugins import BasePlugin, PluginMetadata
 class MyPlugin(BasePlugin):
     def metadata(self) -> PluginMetadata:
         return PluginMetadata(name="my-plugin", version="1.0.0")
-    
+
     def on_enable(self) -> None:
         self.client.send_text("Plugin enabled!")
 ```

@@ -86,6 +86,7 @@ tests/
 ### Prerequisites
 
 Install test dependencies:
+
 ```bash
 pip install pytest pytest-cov pytest-mock pyyaml watchdog
 ```
@@ -187,6 +188,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### AI Module Tests (`tests/ai/`)
 
 #### Conversation Tests (`test_conversation.py`)
+
 - ConversationState creation and lifecycle
 - Message management and token tracking
 - Conversation expiration
@@ -198,6 +200,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - **Advanced analytics (duration, context keys)**
 
 #### Tools Tests (`test_tools.py`)
+
 - ai_tool decorator
 - SearchCache functionality
 - ToolRegistry operations
@@ -208,6 +211,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - **Advanced ToolRegistry (permissions, categories, stats)**
 
 #### Retry Tests (`test_retry.py`)
+
 - CircuitBreaker state transitions (CLOSED → OPEN → HALF_OPEN)
 - Sync and async circuit breaker operations
 - Exponential backoff decorator
@@ -218,6 +222,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - **Edge cases (zero threshold, high threshold, short timeout)**
 
 #### Multi-Agent Tests (`test_multi_agent.py`)
+
 - AgentMessage and AgentResult models
 - SpecializedAgent and subclasses
 - AgentOrchestrator initialization
@@ -228,6 +233,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - **Custom agent registration**
 
 #### Exception Tests (`test_exceptions.py`)
+
 - AIError base exception
 - AIServiceUnavailableError
 - ToolExecutionError
@@ -240,6 +246,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Auth Module Tests (`tests/auth/`)
 
 #### Security Tests (`test_security.py`)
+
 - Password hashing with bcrypt
 - Password verification
 - Password strength validation
@@ -249,6 +256,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Core Module Tests (`tests/core/`)
 
 #### Template Tests (`test_templates.py`)
+
 - RenderedTemplate dataclass
 - TemplateRegistry initialization
 - Template listing and retrieval
@@ -256,6 +264,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - Error handling
 
 #### Image Uploader Tests (`test_image_uploader.py`)
+
 - FeishuPermissionChecker utilities
 - FeishuImageUploader initialization
 - Token management
@@ -265,12 +274,14 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Task System Tests (Root Level)
 
 #### Task Execution Tests (`test_task_executor.py`)
+
 - Task conditions (time, day, environment, custom)
 - Task actions (send_message, plugin_method, http_request, python_code)
 - Error handling and retry logic
 - Timeout handling
 
 #### Task Manager Tests (`test_task_manager.py`)
+
 - Task registration and scheduling
 - Task execution (manual and scheduled)
 - Task dependencies
@@ -278,6 +289,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - Task reloading
 
 #### Task Template Tests (`test_task_templates.py`)
+
 - Template retrieval
 - Template instantiation
 - Parameter validation
@@ -286,6 +298,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Plugin System Tests (Root Level)
 
 #### Plugin Base Tests (`test_plugin_base.py`)
+
 - PluginMetadata dataclass
 - BasePlugin abstract class
 - Provider access
@@ -295,6 +308,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - Event handling
 
 #### Plugin Manager Tests (`test_plugin_manager.py`)
+
 - Plugin discovery
 - Plugin loading from files
 - Lifecycle management (enable/disable)
@@ -304,6 +318,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - Event dispatching
 
 #### Plugin Configuration Tests (`test_plugin_config.py`)
+
 - Plugin settings loading
 - Plugin priority ordering
 - Configuration access methods
@@ -312,6 +327,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Provider Tests (Root Level)
 
 #### Provider Tests (`test_providers.py`)
+
 - BaseProvider interface
 - SendResult factory methods
 - MessageType enum
@@ -325,6 +341,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Automation Tests (Root Level)
 
 #### Automation Engine Tests (`test_automation_engine.py`)
+
 - AutomationEngine lifecycle (start/shutdown)
 - Schedule-based triggers
 - Event-based triggers
@@ -336,18 +353,21 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Configuration Tests (Root Level)
 
 #### Environment Configuration Tests (`test_environment_config.py`)
+
 - Environment loading
 - Environment variables
 - Configuration overrides
 - Active environment selection
 
 #### Configuration Validation Tests (`test_validation.py`)
+
 - YAML validation
 - JSON schema generation
 - Configuration completeness checking
 - Improvement suggestions
 
 #### Configuration Hot-Reload Tests (`test_config_watcher.py`)
+
 - File watching
 - Reload triggers
 - Validation before reload
@@ -356,12 +376,14 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 ### Integration Tests (Root Level)
 
 #### Integration Tests (`test_integration.py`)
+
 - End-to-end workflows
 - Component integration
 - Full bot initialization
 - Error handling integration
 
 #### AI Integration Tests (`test_ai_integration.py`)
+
 - AI configuration
 - Conversation management
 - AI agent functionality
@@ -369,6 +391,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - Bot integration with AI
 
 #### Advanced AI Tests (`test_advanced_ai.py`)
+
 - Streaming configuration
 - MCP configuration
 - Multi-agent configuration
@@ -377,6 +400,7 @@ pytest tests/test_ai_integration.py tests/test_advanced_ai.py -v
 - Specialized agents
 
 #### MCP Integration Tests (`test_mcp_integration.py`)
+
 - MCP configuration (stdio, HTTP, SSE transports)
 - MCP client initialization and lifecycle
 - MCP transport types
@@ -412,10 +436,10 @@ class TestComponentName:
         """Test that something works."""
         # Arrange
         expected = "value"
-        
+
         # Act
         result = sample_config.some_method()
-        
+
         # Assert
         assert result == expected
 ```
@@ -476,6 +500,7 @@ jobs:
 ### Tests Fail with Import Errors
 
 Make sure the package is installed in development mode:
+
 ```bash
 pip install -e .
 ```
@@ -483,6 +508,7 @@ pip install -e .
 ### Tests Fail with Missing Dependencies
 
 Install test dependencies:
+
 ```bash
 pip install pytest pytest-cov pytest-mock pyyaml watchdog
 ```
@@ -490,6 +516,7 @@ pip install pytest pytest-cov pytest-mock pyyaml watchdog
 ### Tests Hang or Timeout
 
 Some tests involve file watching and delays. Increase timeout:
+
 ```bash
 pytest tests/ --timeout=300
 ```
@@ -497,6 +524,7 @@ pytest tests/ --timeout=300
 ### Coverage Report Not Generated
 
 Install coverage:
+
 ```bash
 pip install pytest-cov
 ```
@@ -506,6 +534,7 @@ pip install pytest-cov
 **Error:** `ModuleNotFoundError: No module named 'trio'`
 
 **Solution:** Run tests with `-k "not trio"`:
+
 ```bash
 pytest tests/ -v -k "not trio"
 ```
@@ -515,6 +544,7 @@ pytest tests/ -v -k "not trio"
 **Issue:** Tests skip with "OPENAI_API_KEY not set"
 
 **Solution:** Set the API key to run all tests:
+
 ```bash
 export OPENAI_API_KEY='your-openai-api-key'
 pytest tests/test_mcp_integration.py -v
@@ -525,6 +555,7 @@ pytest tests/test_mcp_integration.py -v
 **Error:** `RuntimeError: pydantic-ai MCP support not available`
 
 **Solution:** Install MCP support:
+
 ```bash
 pip install 'pydantic-ai-slim[mcp]'
 ```
@@ -534,6 +565,7 @@ pip install 'pydantic-ai-slim[mcp]'
 **Error:** `ModuleNotFoundError: No module named 'tests'`
 
 **Solution:** Run pytest from project root:
+
 ```bash
 cd /path/to/feishu-webhook-bot
 pytest tests/ -v
@@ -578,8 +610,8 @@ When adding new features:
 ## Support
 
 For issues or questions about tests:
+
 1. Check test output for error messages
 2. Review test implementation in the relevant file
 3. Check TESTS_IMPLEMENTATION_SUMMARY.md for details
 4. Consult TESTING_GUIDE.md for testing strategy
-

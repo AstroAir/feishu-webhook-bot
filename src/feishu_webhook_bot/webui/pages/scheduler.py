@@ -232,6 +232,50 @@ def build_scheduler_page(state: dict[str, Any], controller: BotController | None
             "outline color=primary"
         ).classes("mt-3")
 
+    # Health monitoring section (new feature)
+    if controller is not None:
+        with ui.column().classes("w-full mb-4"):
+            ui.label(t("scheduler.health_monitoring")).classes(
+                "text-xl font-semibold text-gray-800"
+            )
+            ui.label(t("scheduler.health_monitoring_desc")).classes("text-gray-500 mt-1")
+
+        with ui.card().classes(
+            "w-full p-6 bg-white border border-gray-200 rounded-xl shadow-sm mb-4"
+        ):
+            health = controller.get_scheduler_health()
+            if health.get("enabled", False):
+                with ui.element("div").classes("grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4"):
+                    metrics = health.get("metrics", {})
+                    with ui.column().classes("gap-1"):
+                        ui.label(t("scheduler.total_executions")).classes("text-xs text-gray-500")
+                        ui.label(str(metrics.get("total_executions", 0))).classes(
+                            "font-bold text-lg"
+                        )
+                    with ui.column().classes("gap-1"):
+                        ui.label(t("scheduler.successful")).classes("text-xs text-gray-500")
+                        ui.label(str(metrics.get("successful", 0))).classes(
+                            "font-bold text-lg text-green-600"
+                        )
+                    with ui.column().classes("gap-1"):
+                        ui.label(t("scheduler.failed")).classes("text-xs text-gray-500")
+                        ui.label(str(metrics.get("failed", 0))).classes(
+                            "font-bold text-lg text-red-600"
+                        )
+                    with ui.column().classes("gap-1"):
+                        ui.label(t("scheduler.overall_status")).classes("text-xs text-gray-500")
+                        status_val = health.get("overall_status", "unknown")
+                        color = (
+                            "green"
+                            if status_val == "healthy"
+                            else "orange"
+                            if status_val == "warning"
+                            else "red"
+                        )
+                        ui.chip(status_val.upper(), color=color).props("dense")
+            else:
+                ui.label(t("scheduler.health_disabled")).classes("text-gray-400")
+
     # Running jobs status (if controller available)
     if controller is not None:
         with ui.column().classes("w-full mb-4"):
@@ -241,7 +285,27 @@ def build_scheduler_page(state: dict[str, Any], controller: BotController | None
         with ui.card().classes("w-full p-6 bg-white border border-gray-200 rounded-xl shadow-sm"):
             with ui.row().classes("items-center justify-between mb-4"):
                 ui.label(t("scheduler.active_jobs")).classes("text-lg font-semibold text-gray-800")
-                ui.button(icon="refresh", on_click=lambda: rebuild_jobs()).props("flat round dense")
+                with ui.row().classes("gap-2"):
+
+                    def on_pause_all() -> None:
+                        count = controller.pause_all_scheduler_jobs()
+                        ui.notify(f"{count} {t('scheduler.jobs_paused')}", type="positive")
+                        rebuild_jobs()
+
+                    def on_resume_all() -> None:
+                        count = controller.resume_all_scheduler_jobs()
+                        ui.notify(f"{count} {t('scheduler.jobs_resumed')}", type="positive")
+                        rebuild_jobs()
+
+                    ui.button(icon="pause", on_click=on_pause_all).props(
+                        "flat dense color=orange"
+                    ).tooltip(t("scheduler.pause_all"))
+                    ui.button(icon="play_arrow", on_click=on_resume_all).props(
+                        "flat dense color=green"
+                    ).tooltip(t("scheduler.resume_all"))
+                    ui.button(icon="refresh", on_click=lambda: rebuild_jobs()).props(
+                        "flat round dense"
+                    )
             jobs_container = ui.column().classes("gap-2 w-full")
 
             def rebuild_jobs() -> None:
@@ -342,6 +406,20 @@ def _build_job_card(controller: BotController, job: dict[str, Any], refresh_call
                 ui.button(icon="pause", on_click=on_pause).props("dense flat color=orange").tooltip(
                     t("scheduler.pause_job")
                 )
+
+            # Run now button
+            def on_run_now(jid: str = job_id) -> None:
+                try:
+                    if controller.run_job_now(jid):
+                        ui.notify(f"{jid} {t('scheduler.job_triggered')}", type="positive")
+                    else:
+                        ui.notify(t("common.error"), type="negative")
+                except Exception as e:
+                    ui.notify(f"{t('common.error')}: {e}", type="negative")
+
+            ui.button(icon="play_arrow", on_click=on_run_now).props(
+                "dense flat color=blue"
+            ).tooltip(t("scheduler.run_now"))
 
             # Remove button
             def on_remove(jid: str = job_id) -> None:

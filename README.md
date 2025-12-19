@@ -262,13 +262,13 @@ ai:
     web_search_enabled: true
 ```
 
-2. **Set your API key:**
+1. **Set your API key:**
 
 ```bash
 export OPENAI_API_KEY="your-api-key-here"
 ```
 
-3. **Enable event server to receive messages:**
+1. **Enable event server to receive messages:**
 
 ```yaml
 event_server:
@@ -279,7 +279,7 @@ event_server:
     path: "/webhook"
 ```
 
-4. **Start your bot:**
+1. **Start your bot:**
 
 ```python
 from feishu_webhook_bot import FeishuBot

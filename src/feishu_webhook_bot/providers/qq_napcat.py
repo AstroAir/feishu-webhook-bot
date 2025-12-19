@@ -1701,6 +1701,493 @@ class NapcatProvider(BaseProvider, HTTPProviderMixin):
             return SendResult.fail(str(e))
 
     # ==========================================================================
+    # NapCat Extended APIs - Group Announcements
+    # ==========================================================================
+
+    def get_group_notice(self, group_id: int) -> list[dict[str, Any]]:
+        """Get group announcements.
+
+        Args:
+            group_id: Group number
+
+        Returns:
+            List of announcement dicts with sender_id, publish_time, content
+        """
+        try:
+            data = self._call_api("/get_group_notice", {"group_id": group_id})
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            self.logger.error(f"Failed to get group notice: {e}")
+            return []
+
+    def send_group_notice(
+        self,
+        group_id: int,
+        content: str,
+        image: str = "",
+    ) -> bool:
+        """Send a group announcement.
+
+        Args:
+            group_id: Group number
+            content: Announcement content
+            image: Optional image URL or file path
+
+        Returns:
+            True if successful
+        """
+        try:
+            payload: dict[str, Any] = {"group_id": group_id, "content": content}
+            if image:
+                payload["image"] = image
+            self._call_api("/_send_group_notice", payload)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to send group notice: {e}")
+            return False
+
+    def del_group_notice(self, group_id: int, notice_id: str) -> bool:
+        """Delete a group announcement.
+
+        Args:
+            group_id: Group number
+            notice_id: Announcement ID to delete
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/_del_group_notice",
+                {"group_id": group_id, "notice_id": notice_id},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete group notice: {e}")
+            return False
+
+    # ==========================================================================
+    # NapCat Extended APIs - Essence Messages
+    # ==========================================================================
+
+    def get_essence_msg_list(self, group_id: int) -> list[dict[str, Any]]:
+        """Get essence/pinned messages in a group.
+
+        Args:
+            group_id: Group number
+
+        Returns:
+            List of essence message dicts
+        """
+        try:
+            data = self._call_api("/get_essence_msg_list", {"group_id": group_id})
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            self.logger.error(f"Failed to get essence messages: {e}")
+            return []
+
+    def set_essence_msg(self, message_id: int) -> bool:
+        """Set a message as essence/pinned.
+
+        Args:
+            message_id: Message ID to set as essence
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/set_essence_msg", {"message_id": message_id})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set essence message: {e}")
+            return False
+
+    def delete_essence_msg(self, message_id: int) -> bool:
+        """Remove a message from essence/pinned.
+
+        Args:
+            message_id: Message ID to remove from essence
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api("/delete_essence_msg", {"message_id": message_id})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete essence message: {e}")
+            return False
+
+    # ==========================================================================
+    # NapCat Extended APIs - Message Forwarding
+    # ==========================================================================
+
+    def forward_friend_single_msg(
+        self,
+        message_id: int,
+        user_id: int,
+    ) -> SendResult:
+        """Forward a single message to a friend.
+
+        Args:
+            message_id: Message ID to forward
+            user_id: Target friend QQ number
+
+        Returns:
+            SendResult with new message ID
+        """
+        try:
+            data = self._call_api(
+                "/forward_friend_single_msg",
+                {"message_id": message_id, "user_id": user_id},
+            )
+            new_id = data.get("message_id", "") if data else ""
+            return SendResult.ok(str(new_id), data)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    def forward_group_single_msg(
+        self,
+        message_id: int,
+        group_id: int,
+    ) -> SendResult:
+        """Forward a single message to a group.
+
+        Args:
+            message_id: Message ID to forward
+            group_id: Target group number
+
+        Returns:
+            SendResult with new message ID
+        """
+        try:
+            data = self._call_api(
+                "/forward_group_single_msg",
+                {"message_id": message_id, "group_id": group_id},
+            )
+            new_id = data.get("message_id", "") if data else ""
+            return SendResult.ok(str(new_id), data)
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    # ==========================================================================
+    # NapCat Extended APIs - File Operations
+    # ==========================================================================
+
+    def get_private_file_url(self, file_id: str) -> str:
+        """Get private file download URL.
+
+        Args:
+            file_id: File ID from message
+
+        Returns:
+            File download URL or empty string
+        """
+        try:
+            data = self._call_api("/get_private_file_url", {"file_id": file_id})
+            return data.get("url", "") if data else ""
+        except Exception as e:
+            self.logger.error(f"Failed to get private file URL: {e}")
+            return ""
+
+    def move_group_file(
+        self,
+        group_id: int,
+        file_id: str,
+        parent_dir_id: str,
+    ) -> bool:
+        """Move a file within group files.
+
+        Args:
+            group_id: Group number
+            file_id: File ID to move
+            parent_dir_id: Target directory ID
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/move_group_file",
+                {
+                    "group_id": group_id,
+                    "file_id": file_id,
+                    "parent_dir_id": parent_dir_id,
+                },
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to move group file: {e}")
+            return False
+
+    def rename_group_file(
+        self,
+        group_id: int,
+        file_id: str,
+        new_name: str,
+    ) -> bool:
+        """Rename a group file.
+
+        Args:
+            group_id: Group number
+            file_id: File ID to rename
+            new_name: New file name
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/rename_group_file",
+                {
+                    "group_id": group_id,
+                    "file_id": file_id,
+                    "new_name": new_name,
+                },
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to rename group file: {e}")
+            return False
+
+    def trans_group_file(
+        self,
+        group_id: int,
+        file_id: str,
+    ) -> str:
+        """Transfer group file to personal storage.
+
+        Args:
+            group_id: Group number
+            file_id: File ID to transfer
+
+        Returns:
+            New file ID in personal storage or empty string
+        """
+        try:
+            data = self._call_api(
+                "/trans_group_file",
+                {"group_id": group_id, "file_id": file_id},
+            )
+            return data.get("file_id", "") if data else ""
+        except Exception as e:
+            self.logger.error(f"Failed to transfer group file: {e}")
+            return ""
+
+    # ==========================================================================
+    # NapCat Extended APIs - OCR & Image
+    # ==========================================================================
+
+    def ocr_image(self, image: str) -> list[dict[str, Any]]:
+        """Perform OCR on an image.
+
+        Args:
+            image: Image URL or file path
+
+        Returns:
+            List of OCR result dicts with text and coordinates
+        """
+        try:
+            data = self._call_api("/ocr_image", {"image": image})
+            if data:
+                return data.get("texts", []) if isinstance(data, dict) else data
+            return []
+        except Exception as e:
+            self.logger.error(f"Failed to OCR image: {e}")
+            return []
+
+    def fetch_custom_face(self, count: int = 48) -> list[dict[str, Any]]:
+        """Fetch custom face/emoji list.
+
+        Args:
+            count: Number of faces to fetch (max 48)
+
+        Returns:
+            List of custom face info dicts
+        """
+        try:
+            data = self._call_api("/fetch_custom_face", {"count": min(count, 48)})
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            self.logger.error(f"Failed to fetch custom face: {e}")
+            return []
+
+    # ==========================================================================
+    # NapCat Extended APIs - Profile & Status
+    # ==========================================================================
+
+    def get_profile_like(self) -> dict[str, Any]:
+        """Get profile likes information.
+
+        Returns:
+            Profile like info dict
+        """
+        try:
+            return self._call_api("/get_profile_like", {}) or {}
+        except Exception as e:
+            self.logger.error(f"Failed to get profile like: {e}")
+            return {}
+
+    def fetch_emoji_like(
+        self,
+        message_id: int,
+        emoji_id: str,
+        emoji_type: str = "1",
+    ) -> list[dict[str, Any]]:
+        """Fetch users who reacted with an emoji.
+
+        Args:
+            message_id: Message ID
+            emoji_id: Emoji ID
+            emoji_type: Emoji type
+
+        Returns:
+            List of user info dicts
+        """
+        try:
+            data = self._call_api(
+                "/fetch_emoji_like",
+                {
+                    "message_id": message_id,
+                    "emoji_id": emoji_id,
+                    "emoji_type": emoji_type,
+                },
+            )
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            self.logger.error(f"Failed to fetch emoji like: {e}")
+            return []
+
+    def set_input_status(self, user_id: int, event_type: int = 1) -> bool:
+        """Set input status (typing indicator).
+
+        Args:
+            user_id: Target user QQ number
+            event_type: Status type (1=typing, 0=stop)
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_input_status",
+                {"user_id": user_id, "event_type": event_type},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set input status: {e}")
+            return False
+
+    def get_cookies(self, domain: str = "") -> str:
+        """Get QQ cookies for a domain.
+
+        Args:
+            domain: Target domain (empty for default)
+
+        Returns:
+            Cookie string
+        """
+        try:
+            data = self._call_api("/get_cookies", {"domain": domain})
+            return data.get("cookies", "") if data else ""
+        except Exception as e:
+            self.logger.error(f"Failed to get cookies: {e}")
+            return ""
+
+    def get_clientkey(self) -> str:
+        """Get client key.
+
+        Returns:
+            Client key string
+        """
+        try:
+            data = self._call_api("/.get_clientkey", {})
+            return data.get("clientkey", "") if data else ""
+        except Exception as e:
+            self.logger.error(f"Failed to get clientkey: {e}")
+            return ""
+
+    # ==========================================================================
+    # NapCat Extended APIs - Extended Group Info
+    # ==========================================================================
+
+    def get_group_info_ex(self, group_id: int) -> dict[str, Any]:
+        """Get extended group information.
+
+        Args:
+            group_id: Group number
+
+        Returns:
+            Extended group info dict
+        """
+        try:
+            return self._call_api("/get_group_info_ex", {"group_id": group_id}) or {}
+        except Exception as e:
+            self.logger.error(f"Failed to get extended group info: {e}")
+            return {}
+
+    def set_group_portrait(self, group_id: int, file: str) -> bool:
+        """Set group avatar/portrait.
+
+        Args:
+            group_id: Group number
+            file: Image file path or URL
+
+        Returns:
+            True if successful
+        """
+        try:
+            self._call_api(
+                "/set_group_portrait",
+                {"group_id": group_id, "file": file},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set group portrait: {e}")
+            return False
+
+    def get_group_honor_info(
+        self,
+        group_id: int,
+        honor_type: str = "all",
+    ) -> dict[str, Any]:
+        """Get group honor information.
+
+        Args:
+            group_id: Group number
+            honor_type: Honor type (talkative, performer, legend, strong_newbie, emotion, all)
+
+        Returns:
+            Group honor info dict
+        """
+        try:
+            return (
+                self._call_api(
+                    "/get_group_honor_info",
+                    {"group_id": group_id, "type": honor_type},
+                )
+                or {}
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to get group honor info: {e}")
+            return {}
+
+    def get_group_at_all_remain(self, group_id: int) -> dict[str, Any]:
+        """Get remaining @all count for today.
+
+        Args:
+            group_id: Group number
+
+        Returns:
+            Dict with can_at_all, remain_at_all_count_for_group, remain_at_all_count_for_uin
+        """
+        try:
+            return self._call_api("/get_group_at_all_remain", {"group_id": group_id}) or {}
+        except Exception as e:
+            self.logger.error(f"Failed to get @all remain: {e}")
+            return {}
+
+    # ==========================================================================
     # Internal Helper Methods
     # ==========================================================================
 
@@ -1719,3 +2206,423 @@ class NapcatProvider(BaseProvider, HTTPProviderMixin):
         """
         result = self._make_http_request(endpoint, payload)
         return result.get("data") if result else None
+
+    # ==========================================================================
+    # Async Support
+    # ==========================================================================
+
+    async def async_connect(self) -> None:
+        """Connect async client to Napcat API."""
+        if self._async_client is not None:
+            return
+
+        try:
+            headers = {"Content-Type": "application/json"}
+            if self.config.access_token:
+                headers["Authorization"] = f"Bearer {self.config.access_token}"
+
+            timeout = self.config.timeout or 10.0
+            self._async_client = httpx.AsyncClient(
+                timeout=timeout,
+                headers=headers,
+                base_url=self.config.http_url,
+            )
+            self.logger.info(f"Async connected to Napcat: {self.config.name}")
+        except Exception as e:
+            self.logger.error(f"Failed to async connect to Napcat: {e}", exc_info=True)
+            raise
+
+    async def async_disconnect(self) -> None:
+        """Disconnect async client from Napcat API."""
+        if self._async_client:
+            await self._async_client.aclose()
+            self._async_client = None
+        self.logger.info(f"Async disconnected from Napcat: {self.config.name}")
+
+    async def __aenter__(self) -> NapcatProvider:
+        """Async context manager entry."""
+        await self.async_connect()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        """Async context manager exit."""
+        await self.async_disconnect()
+
+    async def _async_call_api(self, endpoint: str, payload: dict[str, Any]) -> Any:
+        """Call OneBot API endpoint asynchronously.
+
+        Args:
+            endpoint: API endpoint path
+            payload: Request payload
+
+        Returns:
+            Response data field
+
+        Raises:
+            Exception: If request fails
+        """
+        if not self._async_client:
+            await self.async_connect()
+
+        response = await self._async_client.post(endpoint, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("status") != "ok":
+            raise ValueError(f"OneBot API error: {result.get('msg', 'Unknown error')}")
+
+        return result.get("data")
+
+    async def async_send_text(self, text: str, target: str) -> SendResult:
+        """Send a text message asynchronously.
+
+        Args:
+            text: Text content
+            target: Target in format "private:QQ号" or "group:群号"
+
+        Returns:
+            SendResult with status and message ID
+        """
+        message_id = str(uuid.uuid4())
+
+        try:
+            user_id, group_id = self._parse_target(target)
+
+            if not user_id and not group_id:
+                return SendResult.fail("Invalid target format. Use 'private:QQ号' or 'group:群号'")
+
+            message_segments = [{"type": "text", "data": {"text": text}}]
+
+            if user_id:
+                endpoint = "/send_private_msg"
+                payload = {"user_id": user_id, "message": message_segments}
+            else:
+                endpoint = "/send_group_msg"
+                payload = {"group_id": group_id, "message": message_segments}
+
+            result = await self._async_call_api(endpoint, payload)
+
+            self._log_message_send_result(
+                success=True,
+                message_type="text",
+                message_id=message_id,
+                target=target,
+                provider_name=self.name,
+                provider_type=self.provider_type,
+            )
+            return SendResult.ok(message_id, result)
+
+        except Exception as e:
+            error_msg = str(e)
+            self._log_message_send_result(
+                success=False,
+                message_type="text",
+                message_id=message_id,
+                target=target,
+                provider_name=self.name,
+                provider_type=self.provider_type,
+                error=error_msg,
+            )
+            return SendResult.fail(error_msg)
+
+    async def async_send_image(self, image_key: str, target: str) -> SendResult:
+        """Send an image message asynchronously.
+
+        Args:
+            image_key: Image URL or file path
+            target: Target in format "private:QQ号" or "group:群号"
+
+        Returns:
+            SendResult with status and message ID
+        """
+        message_id = str(uuid.uuid4())
+
+        try:
+            user_id, group_id = self._parse_target(target)
+
+            if not user_id and not group_id:
+                return SendResult.fail("Invalid target format")
+
+            message_segments = [{"type": "image", "data": {"file": image_key}}]
+
+            if user_id:
+                endpoint = "/send_private_msg"
+                payload = {"user_id": user_id, "message": message_segments}
+            else:
+                endpoint = "/send_group_msg"
+                payload = {"group_id": group_id, "message": message_segments}
+
+            result = await self._async_call_api(endpoint, payload)
+            return SendResult.ok(message_id, result)
+
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    async def async_send_reply(
+        self,
+        reply_to_id: int,
+        text: str,
+        target: str,
+    ) -> SendResult:
+        """Send a reply message asynchronously.
+
+        Args:
+            reply_to_id: Message ID to reply to
+            text: Reply text
+            target: Target in format "private:QQ号" or "group:群号"
+
+        Returns:
+            SendResult with status
+        """
+        message_id = str(uuid.uuid4())
+
+        try:
+            user_id, group_id = self._parse_target(target)
+
+            if not user_id and not group_id:
+                return SendResult.fail("Invalid target format")
+
+            message_segments = [
+                {"type": "reply", "data": {"id": str(reply_to_id)}},
+                {"type": "text", "data": {"text": text}},
+            ]
+
+            if user_id:
+                endpoint = "/send_private_msg"
+                payload = {"user_id": user_id, "message": message_segments}
+            else:
+                endpoint = "/send_group_msg"
+                payload = {"group_id": group_id, "message": message_segments}
+
+            result = await self._async_call_api(endpoint, payload)
+            return SendResult.ok(message_id, result)
+
+        except Exception as e:
+            return SendResult.fail(str(e))
+
+    async def async_delete_msg(self, message_id: int) -> bool:
+        """Recall/delete a message asynchronously.
+
+        Args:
+            message_id: Message ID to delete
+
+        Returns:
+            True if successful
+        """
+        try:
+            await self._async_call_api("/delete_msg", {"message_id": message_id})
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete message {message_id}: {e}")
+            return False
+
+    async def async_get_msg(self, message_id: int) -> QQMessage | None:
+        """Get message details asynchronously.
+
+        Args:
+            message_id: Message ID
+
+        Returns:
+            QQMessage object or None if not found
+        """
+        try:
+            data = await self._async_call_api("/get_msg", {"message_id": message_id})
+            if data:
+                return QQMessage(
+                    message_id=data.get("message_id", message_id),
+                    message_type=data.get("message_type", ""),
+                    sender_id=data.get("sender", {}).get("user_id", 0),
+                    sender_nickname=data.get("sender", {}).get("nickname", ""),
+                    content=data.get("message", []),
+                    time=data.get("time", 0),
+                    group_id=data.get("group_id"),
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to get message {message_id}: {e}")
+        return None
+
+    async def async_get_group_info(
+        self,
+        group_id: int,
+        no_cache: bool = False,
+    ) -> QQGroupInfo | None:
+        """Get group information asynchronously.
+
+        Args:
+            group_id: Group number
+            no_cache: Whether to bypass cache
+
+        Returns:
+            QQGroupInfo object or None
+        """
+        try:
+            data = await self._async_call_api(
+                "/get_group_info",
+                {"group_id": group_id, "no_cache": no_cache},
+            )
+            if data:
+                return QQGroupInfo(
+                    group_id=data.get("group_id", group_id),
+                    group_name=data.get("group_name", ""),
+                    member_count=data.get("member_count", 0),
+                    max_member_count=data.get("max_member_count", 0),
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to get group info: {e}")
+        return None
+
+    async def async_get_group_member_list(
+        self,
+        group_id: int,
+    ) -> list[QQGroupMember]:
+        """Get all members of a group asynchronously.
+
+        Args:
+            group_id: Group number
+
+        Returns:
+            List of QQGroupMember objects
+        """
+        try:
+            data = await self._async_call_api(
+                "/get_group_member_list",
+                {"group_id": group_id},
+            )
+            if data and isinstance(data, list):
+                return [
+                    QQGroupMember(
+                        group_id=group_id,
+                        user_id=m.get("user_id", 0),
+                        nickname=m.get("nickname", ""),
+                        card=m.get("card", ""),
+                        role=m.get("role", "member"),
+                    )
+                    for m in data
+                ]
+        except Exception as e:
+            self.logger.error(f"Failed to get group member list: {e}")
+        return []
+
+    async def async_set_group_ban(
+        self,
+        group_id: int,
+        user_id: int,
+        duration: int = 1800,
+    ) -> bool:
+        """Ban/mute a group member asynchronously.
+
+        Args:
+            group_id: Group number
+            user_id: Member to ban
+            duration: Ban duration in seconds (0 to unban)
+
+        Returns:
+            True if successful
+        """
+        try:
+            await self._async_call_api(
+                "/set_group_ban",
+                {"group_id": group_id, "user_id": user_id, "duration": duration},
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to ban user {user_id}: {e}")
+            return False
+
+    async def async_set_group_kick(
+        self,
+        group_id: int,
+        user_id: int,
+        reject_add_request: bool = False,
+    ) -> bool:
+        """Kick a member from group asynchronously.
+
+        Args:
+            group_id: Group number
+            user_id: Member to kick
+            reject_add_request: Whether to reject future join requests
+
+        Returns:
+            True if successful
+        """
+        try:
+            await self._async_call_api(
+                "/set_group_kick",
+                {
+                    "group_id": group_id,
+                    "user_id": user_id,
+                    "reject_add_request": reject_add_request,
+                },
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to kick user {user_id}: {e}")
+            return False
+
+    async def async_send_poke(
+        self,
+        user_id: int,
+        group_id: int | None = None,
+    ) -> bool:
+        """Send poke asynchronously.
+
+        Args:
+            user_id: Target QQ number
+            group_id: Group ID (None for private poke)
+
+        Returns:
+            True if successful
+        """
+        try:
+            payload: dict[str, Any] = {"user_id": user_id}
+            if group_id:
+                payload["group_id"] = group_id
+            await self._async_call_api("/send_poke", payload)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to send poke: {e}")
+            return False
+
+    async def async_get_group_msg_history(
+        self,
+        group_id: int,
+        message_seq: int = 0,
+        count: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Get group message history asynchronously.
+
+        Args:
+            group_id: Group number
+            message_seq: Starting message sequence (0 for latest)
+            count: Number of messages to retrieve
+
+        Returns:
+            List of message dicts
+        """
+        try:
+            data = await self._async_call_api(
+                "/get_group_msg_history",
+                {"group_id": group_id, "message_seq": message_seq, "count": count},
+            )
+            return data.get("messages", []) if data else []
+        except Exception as e:
+            self.logger.error(f"Failed to get group history: {e}")
+            return []
+
+    async def async_ocr_image(self, image: str) -> list[dict[str, Any]]:
+        """Perform OCR on an image asynchronously.
+
+        Args:
+            image: Image URL or file path
+
+        Returns:
+            List of OCR result dicts with text and coordinates
+        """
+        try:
+            data = await self._async_call_api("/ocr_image", {"image": image})
+            if data:
+                return data.get("texts", []) if isinstance(data, dict) else data
+            return []
+        except Exception as e:
+            self.logger.error(f"Failed to OCR image: {e}")
+            return []

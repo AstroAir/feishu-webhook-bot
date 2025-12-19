@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [
-    { name = "Your Name", email = "you@example.com" }
+    { name = "AstroAir", email = "astro_air@126.com" }
 ]
 keywords = ["feishu", "lark", "webhook", "bot", "framework", "scheduler", "plugin"]
 classifiers = [

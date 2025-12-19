@@ -165,7 +165,7 @@ ai:
       - name: "python-runner"
         command: "uv"
         args: "run mcp-run-python stdio"
-      
+
       # stdio with list args
       - name: "filesystem"
         command: "npx"
@@ -173,7 +173,7 @@ ai:
           - "-y"
           - "@modelcontextprotocol/server-filesystem"
           - "/tmp"
-      
+
       # HTTP transport
       - name: "weather-api"
         url: "http://localhost:3001/mcp"

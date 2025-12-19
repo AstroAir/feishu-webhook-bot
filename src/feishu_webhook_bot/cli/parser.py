@@ -736,6 +736,28 @@ For more information, visit: https://github.com/AstroAir/feishu-webhook-bot
         help="Path to configuration file (default: config.yaml)",
     )
 
+    # scheduler health
+    sched_health_parser = scheduler_subparsers.add_parser(
+        "health", help="Show scheduler health configuration"
+    )
+    sched_health_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
+    # scheduler stats
+    sched_stats_parser = scheduler_subparsers.add_parser(
+        "stats", help="Show scheduler statistics and configuration"
+    )
+    sched_stats_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)",
+    )
+
     # =========================================================================
     # Stage 4: Automation CLI commands
     # =========================================================================

@@ -40,7 +40,7 @@ class MyPlugin(BasePlugin):
             author="Your Name",
             enabled=True
         )
-    
+
     def on_enable(self) -> None:
         self.logger.info("Plugin enabled")
 ```
@@ -149,7 +149,7 @@ Called when the plugin is enabled and the bot is running.
 ```python
 def on_enable(self) -> None:
     self.logger.info("Plugin enabled")
-    
+
     # Register scheduled jobs
     self.register_job(
         self.my_task,
@@ -203,14 +203,14 @@ def on_enable(self) -> None:
         trigger='interval',
         minutes=5
     )
-    
+
     # Run every 30 seconds
     self.register_job(
         self.frequent_task,
         trigger='interval',
         seconds=30
     )
-    
+
     # Run every 2 hours
     self.register_job(
         self.hourly_task,
@@ -232,7 +232,7 @@ def on_enable(self) -> None:
         hour='9',
         minute='0'
     )
-    
+
     # Every Monday at 10:30 AM
     self.register_job(
         self.weekly_task,
@@ -241,7 +241,7 @@ def on_enable(self) -> None:
         hour='10',
         minute='30'
     )
-    
+
     # Weekdays at 6:00 PM
     self.register_job(
         self.evening_task,
@@ -250,7 +250,7 @@ def on_enable(self) -> None:
         hour='18',
         minute='0'
     )
-    
+
     # First day of month at midnight
     self.register_job(
         self.monthly_task,
@@ -441,7 +441,7 @@ def my_task(self) -> None:
         # Your code here
         result = self.do_something()
         self.client.send_text(f"Success: {result}")
-        
+
     except Exception as e:
         self.logger.error(f"Task failed: {e}", exc_info=True)
         # Optionally send error notification
@@ -516,14 +516,14 @@ class ReminderPlugin(BasePlugin):
             version="1.0.0",
             description="Sends a reminder every hour"
         )
-    
+
     def on_enable(self) -> None:
         self.register_job(
             self.send_reminder,
             trigger='interval',
             hours=1
         )
-    
+
     def send_reminder(self) -> None:
         self.client.send_text("⏰ Hourly reminder: Take a break!")
 ```
@@ -542,13 +542,13 @@ class APIMonitorPlugin(BasePlugin):
             version="1.0.0",
             description="Monitors API endpoints"
         )
-    
+
     def on_load(self) -> None:
         self.endpoints = [
             "https://api.example.com/health",
             "https://api2.example.com/status"
         ]
-    
+
     def on_enable(self) -> None:
         # Check every 5 minutes
         self.register_job(
@@ -556,7 +556,7 @@ class APIMonitorPlugin(BasePlugin):
             trigger='interval',
             minutes=5
         )
-    
+
     def check_endpoints(self) -> None:
         for url in self.endpoints:
             try:
@@ -565,7 +565,7 @@ class APIMonitorPlugin(BasePlugin):
                     self.send_alert(url, response.status_code)
             except Exception as e:
                 self.send_alert(url, str(e))
-    
+
     def send_alert(self, url: str, error: str) -> None:
         card = (
             CardBuilder()
@@ -590,7 +590,7 @@ class DataReporterPlugin(BasePlugin):
             version="1.0.0",
             description="Sends daily data reports"
         )
-    
+
     def on_enable(self) -> None:
         # Daily report at 9 AM
         self.register_job(
@@ -599,11 +599,11 @@ class DataReporterPlugin(BasePlugin):
             hour='9',
             minute='0'
         )
-    
+
     def send_daily_report(self) -> None:
         # Fetch your data
         data = self.fetch_daily_data()
-        
+
         # Build report card
         card = (
             CardBuilder()
@@ -617,9 +617,9 @@ class DataReporterPlugin(BasePlugin):
             .add_button("View Dashboard", url="https://dashboard.example.com")
             .build()
         )
-        
+
         self.client.send_card(card)
-    
+
     def fetch_daily_data(self) -> dict:
         # Your data fetching logic
         return {

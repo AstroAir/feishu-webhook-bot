@@ -20,7 +20,7 @@ event_server:
 # AI configuration
 ai:
   enabled: true
-  
+
   # Model configuration
   # Supported formats:
   # - OpenAI: "openai:gpt-4o", "openai:gpt-4-turbo", "openai:gpt-3.5-turbo"
@@ -28,41 +28,41 @@ ai:
   # - Google: "google:gemini-1.5-pro", "google:gemini-1.5-flash"
   # - Groq: "groq:llama-3.1-70b-versatile", "groq:mixtral-8x7b-32768"
   model: "openai:gpt-4o"
-  
+
   # API key (can also be set via environment variable)
   # For OpenAI: OPENAI_API_KEY
   # For Anthropic: ANTHROPIC_API_KEY
   # For Google: GOOGLE_API_KEY
   # For Groq: GROQ_API_KEY
   api_key: ${OPENAI_API_KEY}
-  
+
   # System prompt - defines the AI's behavior and personality
   system_prompt: |
     You are a helpful AI assistant integrated with Feishu (Lark).
     You help users with their questions and tasks in a professional and friendly manner.
-    
+
     When answering questions:
     - Be concise and clear
     - Use web search when you need current information
     - Provide accurate and helpful responses
     - Format your responses for easy reading in chat
-    
+
     You have access to tools for:
     - Web search (for current information)
     - Time/date queries
     - Mathematical calculations
-  
+
   # Conversation settings
   max_conversation_turns: 10  # Number of conversation turns to keep in history
   conversation_timeout_minutes: 30  # Minutes before conversation expires
-  
+
   # Model parameters
   temperature: 0.7  # 0.0 = deterministic, 2.0 = very creative
   max_tokens: null  # null = use model default, or set a specific limit
-  
+
   # Tool/function calling
   tools_enabled: true
-  
+
   # Web search configuration
   web_search_enabled: true
   web_search_max_results: 5
@@ -82,4 +82,3 @@ logging:
 general:
   timezone: "Asia/Shanghai"
   language: "zh-CN"
-

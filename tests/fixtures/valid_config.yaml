@@ -118,4 +118,3 @@ environments:
 
 active_environment: "development"
 config_hot_reload: false
-

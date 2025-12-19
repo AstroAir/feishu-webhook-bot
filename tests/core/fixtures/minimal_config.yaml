@@ -1,0 +1,4 @@
+# Minimal valid configuration file for testing
+webhooks:
+  - name: default
+    url: "https://open.feishu.cn/open-apis/bot/v2/hook/minimal-test"
